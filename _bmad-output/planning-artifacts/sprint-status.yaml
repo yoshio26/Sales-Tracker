@@ -1,0 +1,27 @@
+project: Sales Tracker
+updated: 2026-09-30
+status: planning
+source_artifacts:
+  prd: planning-artifacts/prds/prd-Sales-Tracker-2026-09-30/prd.md
+  ux: planning-artifacts/ux-designs/ux-Sales-Tracker-2026-09-30
+  architecture: planning-artifacts/architecture/architecture-Sales-Tracker-2026-09-30/ARCHITECTURE-SPINE.md
+  implementation_view: planning-artifacts/architecture/architecture-Sales-Tracker-2026-09-30/ENGINEERING-IMPLEMENTATION-VIEW.md
+weeks:
+  - week: 1
+    focus: Foundation, local PostgreSQL, Prisma schema, migrations, and environment setup
+    status: ready
+  - week: 2
+    focus: Passwordless allowlist login, SMTP/Mailpit, sessions, and security tests
+    status: pending
+  - week: 3
+    focus: Product catalog, validation, ownership, and archive behavior
+    status: pending
+  - week: 4
+    focus: Expense create/edit/soft-delete and historical snapshots
+    status: pending
+  - week: 5
+    focus: Dashboard aggregates, charts, loading states, and responsive UI
+    status: pending
+  - week: 6
+    focus: Integration/E2E testing, capstone ERD/use cases/architecture chapter, and polish
+    status: pending
