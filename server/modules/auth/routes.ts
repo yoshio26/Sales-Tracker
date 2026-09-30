@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { config } from '../../infrastructure/config.js'
+import { requireSameOrigin } from '../../middleware/origin.js'
 import { logout, requestCode, verifyCode } from './service.js'
 
 const emailSchema = z.object({ email: z.string().trim().email().max(320) })
@@ -9,7 +10,7 @@ const SESSION_COOKIE = 'sales_tracker_session'
 
 export const authRouter = Router()
 
-authRouter.post('/request-code', async (req, res, next) => {
+authRouter.post('/request-code', requireSameOrigin, async (req, res, next) => {
   try {
     const { email } = emailSchema.parse(req.body)
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
@@ -20,7 +21,7 @@ authRouter.post('/request-code', async (req, res, next) => {
   }
 })
 
-authRouter.post('/verify-code', async (req, res, next) => {
+authRouter.post('/verify-code', requireSameOrigin, async (req, res, next) => {
   try {
     const { email, code } = verifySchema.parse(req.body)
     const result = await verifyCode(email, code)
@@ -39,7 +40,7 @@ authRouter.post('/verify-code', async (req, res, next) => {
   }
 })
 
-authRouter.post('/logout', async (req, res, next) => {
+authRouter.post('/logout', requireSameOrigin, async (req, res, next) => {
   try {
     await logout(req.cookies[SESSION_COOKIE])
     res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: 'lax', secure: config.COOKIE_SECURE, path: '/' })

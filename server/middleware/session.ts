@@ -4,6 +4,7 @@ import { SESSION_COOKIE } from '../modules/auth/routes.js'
 
 export async function sessionMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
+    req.userId = undefined
     const session = await resolveSession(req.cookies[SESSION_COOKIE])
     if (session) req.userId = session.userId
     next()

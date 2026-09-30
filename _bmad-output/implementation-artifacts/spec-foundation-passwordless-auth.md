@@ -101,3 +101,12 @@ Use `crypto.randomBytes(32)` for the opaque browser token and store only its has
 - Use Mailpit to confirm approved codes arrive while unapproved requests do not.
 - Inspect browser cookies to confirm the session value is opaque, HTTP-only, and has the required SameSite/Secure flags.
 - Verify the selected TypeScript version is supported by Prisma 6.x, Vitest, and the TypeScript runner before dependency versions are pinned.
+
+## Review Triage Log
+
+- Blind-hunter implementation-gap findings: **false**. The cited middleware, Prisma singleton, rate limiting, environment validation, seed production guard, strict TypeScript configuration, and Express error handling are present in the reviewed implementation.
+- Edge-case finding on malformed session responses: **false**. The session response is parsed inside the promise chain and parse failures are caught; no signed-in state is set on failure.
+- Edge-case finding on client-side input validation: **false**. Browser-native `required`, `email`, `pattern`, and `maxLength` constraints are present, with server-side Zod validation as the authoritative boundary.
+- Edge-case finding on logout failure: **medium / patch applied**. The client previously transitioned to signed-out state without checking the response; it now preserves the signed-in state and reports failure.
+- Verification-gap finding for logout/session/cookie coverage: **medium / verification extended**. The development flow now checks `HttpOnly`, `SameSite=Lax`, development `Secure` behavior, authenticated session restoration, logout cookie clearing, and post-logout session invalidation.
+- External integration status: **deferred pending environment**. The full Mailpit flow remains unverified because Mailpit is not listening on `localhost:8025`; unit tests, typecheck, Prisma validation, and production build pass.

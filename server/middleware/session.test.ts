@@ -35,7 +35,7 @@ describe('session protection', () => {
 
   it('does not attach an identity for an expired or missing session', async () => {
     resolveSession.mockResolvedValueOnce(null)
-    const request = { cookies: { sales_tracker_session: 'expired-token' } } as never
+    const request = { userId: 'client-supplied-user', cookies: { sales_tracker_session: 'expired-token' } } as never
     const next = vi.fn()
 
     await sessionMiddleware(request, {} as never, next)

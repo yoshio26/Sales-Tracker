@@ -1,25 +1,30 @@
+import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   findAllowedEmail: vi.fn(),
   createLoginCode: vi.fn(),
+  completeVerification: vi.fn(),
   sendLoginCode: vi.fn(),
+  findLatestUsableCode: vi.fn(),
+  recordFailedAttempt: vi.fn(),
+  deleteSession: vi.fn(),
 }))
 
 vi.mock('../../infrastructure/mailer.js', () => ({ sendLoginCode: mocks.sendLoginCode }))
 vi.mock('../../infrastructure/prisma.js', () => ({ prisma: {} }))
 vi.mock('./data-access.js', () => ({
-  completeVerification: vi.fn(),
+  completeVerification: mocks.completeVerification,
   createLoginCode: mocks.createLoginCode,
   database: {},
-  deleteSession: vi.fn(),
+  deleteSession: mocks.deleteSession,
   findAllowedEmail: mocks.findAllowedEmail,
   findActiveSession: vi.fn(),
-  findLatestUsableCode: vi.fn(),
-  recordFailedAttempt: vi.fn(),
+  findLatestUsableCode: mocks.findLatestUsableCode,
+  recordFailedAttempt: mocks.recordFailedAttempt,
 }))
 
-import { normalizeEmail, requestCode, resetRateLimitsForTests, withinLimit } from './service.js'
+import { logout, normalizeEmail, requestCode, resetRateLimitsForTests, verifyCode, withinLimit } from './service.js'
 
 describe('authentication policy helpers', () => {
   beforeEach(() => {
@@ -74,5 +79,81 @@ describe('authentication policy helpers', () => {
 
     expect(mocks.findAllowedEmail).toHaveBeenCalledTimes(3)
     expect(mocks.createLoginCode).toHaveBeenCalledTimes(3)
+  })
+
+  it('rate-limits unapproved emails while preserving the generic response', async () => {
+    mocks.findAllowedEmail.mockResolvedValue(null)
+
+    const responses = await Promise.all([
+      requestCode('unknown@example.com', '203.0.113.30'),
+      requestCode('unknown@example.com', '203.0.113.31'),
+      requestCode('unknown@example.com', '203.0.113.32'),
+      requestCode('unknown@example.com', '203.0.113.33'),
+    ])
+
+    expect(responses.every((response) => response.message === responses[0].message)).toBe(true)
+    expect(mocks.findAllowedEmail).toHaveBeenCalledTimes(3)
+    expect(mocks.createLoginCode).not.toHaveBeenCalled()
+    expect(mocks.sendLoginCode).not.toHaveBeenCalled()
+  })
+
+  it('atomically completes a valid code verification and returns an opaque token', async () => {
+    const codeHash = createHash('sha256').update('123456').digest('hex')
+    mocks.findLatestUsableCode.mockResolvedValue({
+      id: 'code-id',
+      codeHash,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    })
+    mocks.completeVerification.mockResolvedValue({ id: 'user-id' })
+
+    const result = await verifyCode(' User@Example.COM ', '123456')
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.token).toMatch(/^[a-f0-9]{64}$/)
+    expect(mocks.completeVerification).toHaveBeenCalledWith(expect.objectContaining({
+      codeId: 'code-id',
+      email: 'user@example.com',
+      tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    }))
+    expect(mocks.recordFailedAttempt).not.toHaveBeenCalled()
+  })
+
+  it('records a failed attempt without disclosing the code state', async () => {
+    mocks.findLatestUsableCode.mockResolvedValue({
+      id: 'code-id',
+      codeHash: createHash('sha256').update('123456').digest('hex'),
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    })
+
+    await expect(verifyCode('user@example.com', '000000')).resolves.toEqual({ ok: false })
+    expect(mocks.recordFailedAttempt).toHaveBeenCalledWith({}, 'code-id')
+    expect(mocks.completeVerification).not.toHaveBeenCalled()
+  })
+
+  it('rejects expired or locked codes without creating a session', async () => {
+    mocks.findLatestUsableCode.mockResolvedValueOnce({
+      id: 'expired',
+      codeHash: createHash('sha256').update('123456').digest('hex'),
+      expiresAt: new Date(Date.now() - 1),
+      attempts: 0,
+    }).mockResolvedValueOnce({
+      id: 'locked',
+      codeHash: createHash('sha256').update('123456').digest('hex'),
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 5,
+    })
+
+    await expect(verifyCode('user@example.com', '123456')).resolves.toEqual({ ok: false })
+    await expect(verifyCode('user@example.com', '123456')).resolves.toEqual({ ok: false })
+    expect(mocks.recordFailedAttempt).not.toHaveBeenCalled()
+    expect(mocks.completeVerification).not.toHaveBeenCalled()
+  })
+
+  it('hashes the opaque token before deleting the session on logout', async () => {
+    await logout('opaque-token')
+
+    expect(mocks.deleteSession).toHaveBeenCalledWith({}, createHash('sha256').update('opaque-token').digest('hex'))
   })
 })

@@ -1,7 +1,8 @@
 ---
 name: Sales Tracker user experience
-status: draft
+status: final
 created: 2026-09-30
+updated: 2026-09-30
 ---
 
 # Sales Tracker — Experience Flows
@@ -13,6 +14,8 @@ created: 2026-09-30
 3. Allowlisted users receive a six-digit code through the configured SMTP transport.
 4. User enters the code; errors do not reveal whether the email is allowlisted.
 5. Success opens the dashboard; failure preserves the email and explains only the next safe action.
+
+The screen uses the Dashboard Preview composition: the login task stays primary on the left, while the right-side preview gives context without requiring interaction. After submission, replace the email action feedback with an inline “Check your inbox” state and a code-entry control; preserve the email so the user does not need to retype it.
 
 ## Record an expense
 

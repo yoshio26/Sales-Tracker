@@ -4,6 +4,7 @@ import { z } from 'zod'
 const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  APP_ORIGIN: z.string().url().default('http://localhost:5173'),
   DATABASE_URL: z.string().min(1),
   SMTP_HOST: z.string().min(1).default('localhost'),
   SMTP_PORT: z.coerce.number().int().positive().default(1025),
@@ -19,6 +20,7 @@ const configSchema = z.object({
 export const config = configSchema.parse({
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
+  APP_ORIGIN: process.env.APP_ORIGIN,
   DATABASE_URL: process.env.DATABASE_URL,
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: process.env.SMTP_PORT,

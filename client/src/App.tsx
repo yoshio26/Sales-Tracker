@@ -66,10 +66,19 @@ function App() {
   }
 
   async function logout() {
-    await api('logout', { method: 'POST' })
-    setView('email')
-    setCode('')
-    setMessage('')
+    setError('')
+    try {
+      const response = await api('logout', { method: 'POST' })
+      if (!response.ok) {
+        setError('Unable to sign out. Try again.')
+        return
+      }
+      setView('email')
+      setCode('')
+      setMessage('')
+    } catch {
+      setError('Unable to contact the sign-in service. Try again.')
+    }
   }
 
   return (

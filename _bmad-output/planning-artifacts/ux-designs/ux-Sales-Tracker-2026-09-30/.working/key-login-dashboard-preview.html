@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sales Tracker — Login</title>
+  <style>
+    /* Governed by DESIGN.md: calm data-first direction, responsive two-region layout,
+       restrained color, accessible focus, clear form states. Governed by EXPERIENCE.md:
+       generic code-delivery feedback and passwordless login flow. */
+    :root { color-scheme: light; --ink:#243247; --muted:#6d7888; --paper:#fffdf9; --wash:#f4f1eb; --line:#e5e1d9; --accent:#356b68; --accent-soft:#dfeeea; --gold:#d3944a; --danger:#a84f4f; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-width:320px; background:var(--wash); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .frame { max-width:1180px; min-height:720px; margin:32px auto; padding:18px; display:grid; grid-template-columns: minmax(300px, .78fr) minmax(420px, 1.22fr); gap:18px; background:var(--paper); border:1px solid var(--line); border-radius:24px; box-shadow:0 18px 50px rgba(36,50,71,.09); }
+    .login { display:flex; flex-direction:column; justify-content:space-between; padding:34px 34px 28px; }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:750; letter-spacing:-.02em; }
+    .mark { width:30px; height:30px; display:grid; place-items:center; border-radius:9px; background:var(--accent); color:#fff; font-size:15px; }
+    .eyebrow { margin:74px 0 12px; color:var(--accent); font-size:12px; font-weight:750; letter-spacing:.11em; text-transform:uppercase; }
+    h1 { max-width:340px; margin:0; font-size:clamp(30px, 4vw, 44px); line-height:1.04; letter-spacing:-.055em; }
+    .intro { max-width:340px; margin:18px 0 34px; color:var(--muted); line-height:1.6; }
+    label { display:block; margin-bottom:8px; font-size:13px; font-weight:700; }
+    input { width:100%; height:48px; padding:0 14px; border:1px solid #cfcac0; border-radius:10px; background:#fff; color:var(--ink); font:inherit; outline:0; }
+    input:focus { border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+    button { width:100%; height:48px; margin-top:12px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:700 14px inherit; cursor:pointer; }
+    button:hover { background:#285a57; }
+    .privacy { margin-top:16px; color:var(--muted); font-size:12px; line-height:1.5; }
+    .footer { color:var(--muted); font-size:12px; }
+    .preview { padding:24px; overflow:hidden; border-radius:17px; background:#f7f8f6; border:1px solid #e7ebe6; }
+    .preview-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+    .preview-title { font-size:13px; font-weight:750; }
+    .preview-period { padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--muted); font-size:11px; }
+    .preview h2 { margin:0 0 5px; font-size:25px; letter-spacing:-.04em; }
+    .subtle { margin:0 0 20px; color:var(--muted); font-size:12px; }
+    .cards { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    .card { padding:16px; border:1px solid #e6e8e3; border-radius:12px; background:#fff; }
+    .card span { color:var(--muted); font-size:11px; }
+    .card strong { display:block; margin-top:8px; font-size:23px; letter-spacing:-.04em; }
+    .chart { height:196px; margin-top:12px; padding:17px; border:1px solid #e6e8e3; border-radius:12px; background:#fff; }
+    .chart-head { display:flex; justify-content:space-between; font-size:12px; font-weight:700; }
+    .chart small { color:var(--muted); font-weight:500; }
+    .bars { height:126px; display:flex; align-items:end; gap:12px; margin-top:18px; padding:0 8px 4px; border-bottom:1px solid #edf0eb; }
+    .bar { flex:1; min-height:18px; border-radius:6px 6px 2px 2px; background:var(--accent-soft); }
+    .bar:nth-child(2), .bar:nth-child(5) { background:#9fc9c1; }
+    .bar:nth-child(3) { background:var(--gold); }
+    .bar:nth-child(4) { background:#6d9c96; }
+    .recent { margin-top:12px; padding:16px; border:1px solid #e6e8e3; border-radius:12px; background:#fff; }
+    .recent-head { display:flex; justify-content:space-between; margin-bottom:12px; font-size:12px; font-weight:700; }
+    .recent-head span { color:var(--accent); font-weight:700; }
+    .row { display:flex; justify-content:space-between; padding:10px 0; border-top:1px solid #f0f1ed; font-size:12px; }
+    .row small { display:block; margin-top:3px; color:var(--muted); }
+    .row strong { align-self:center; font-size:12px; }
+    .state { display:block; margin-top:18px; padding:13px; border-radius:10px; background:var(--accent-soft); color:#285a57; font-size:12px; line-height:1.5; }
+    .state strong { display:block; margin-bottom:4px; }
+    @media (max-width:760px) { .frame { min-height:auto; margin:0; padding:12px; grid-template-columns:1fr; border:0; border-radius:0; box-shadow:none; } .login { min-height:590px; padding:28px 20px; } .eyebrow { margin-top:60px; } .preview { padding:16px; } }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <section class="login" aria-labelledby="login-title">
+      <div>
+        <div class="brand"><span class="mark">$</span><span>Sales Tracker</span></div>
+        <p class="eyebrow">Your spending, made clear</p>
+        <h1>Keep an eye on where your money goes.</h1>
+        <p class="intro">Sign in with your email. We’ll send a one-time code—no password to remember.</p>
+        <form>
+          <label for="email">Email address</label>
+          <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
+          <button type="button">Send me a sign-in code</button>
+          <p class="privacy">If this email is registered, a code was sent. Check your inbox to continue.</p>
+        </form>
+        <div class="state" aria-live="polite"><strong>Check your inbox</strong>Enter the six-digit code we sent. The code expires in 10 minutes.</div>
+      </div>
+      <p class="footer">Private by design · Your data stays yours</p>
+    </section>
+    <section class="preview" aria-label="Dashboard preview">
+      <div class="preview-top"><span class="preview-title">A clearer view of your spending</span><span class="preview-period">This month ▾</span></div>
+      <h2>Good morning, Alex.</h2>
+      <p class="subtle">Here’s how your spending is shaping up.</p>
+      <div class="cards"><div class="card"><span>Spent this month</span><strong>$428.60</strong></div><div class="card"><span>All-time spending</span><strong>$2,846.20</strong></div></div>
+      <div class="chart"><div class="chart-head"><span>Spending over time</span><small>Last 6 months</small></div><div class="bars"><i class="bar" style="height:42%"></i><i class="bar" style="height:67%"></i><i class="bar" style="height:52%"></i><i class="bar" style="height:83%"></i><i class="bar" style="height:61%"></i><i class="bar" style="height:74%"></i></div></div>
+      <div class="recent"><div class="recent-head"><span>Recent spending</span><span>View all</span></div><div class="row"><div>Groceries<small>Sep 28 · Household</small></div><strong>$86.40</strong></div><div class="row"><div>Notebook<small>Sep 25 · Stationery</small></div><strong>$12.00</strong></div></div>
+    </section>
+  </main>
+</body>
+</html>
