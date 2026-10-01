@@ -9,6 +9,7 @@ import {
   findAllowedEmail,
   findActiveSession,
   findLatestUsableCode,
+  invalidateLoginCode,
   recordFailedAttempt,
 } from './data-access.js'
 
@@ -52,7 +53,7 @@ export async function requestCode(rawEmail: string, ip: string): Promise<typeof 
   if (!allowed) return GENERIC_REQUEST_RESPONSE
 
   const code = randomInt(0, 1_000_000).toString().padStart(6, '0')
-  await createLoginCode(database, {
+  const loginCode = await createLoginCode(database, {
     email,
     codeHash: hash(code),
     expiresAt: new Date(now + 10 * 60 * 1000),
@@ -61,7 +62,12 @@ export async function requestCode(rawEmail: string, ip: string): Promise<typeof 
   try {
     await sendLoginCode(email, code)
   } catch (error) {
-    console.error('Unable to send login email', error instanceof Error ? error.message : 'unknown mailer error')
+    console.error('Unable to send login email', error instanceof Error ? { name: error.name, message: error.message, code: 'code' in error ? error.code : undefined } : { message: String(error) })
+    try {
+      await invalidateLoginCode(database, loginCode.id, new Date())
+    } catch (cleanupError) {
+      console.error('Unable to invalidate login code after delivery failure', cleanupError instanceof Error ? { name: cleanupError.name, message: cleanupError.message } : { message: String(cleanupError) })
+    }
   }
   return GENERIC_REQUEST_RESPONSE
 }

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   completeVerification: vi.fn(),
   sendLoginCode: vi.fn(),
   findLatestUsableCode: vi.fn(),
+  invalidateLoginCode: vi.fn(),
   recordFailedAttempt: vi.fn(),
   deleteSession: vi.fn(),
 }))
@@ -21,6 +22,7 @@ vi.mock('./data-access.js', () => ({
   findAllowedEmail: mocks.findAllowedEmail,
   findActiveSession: vi.fn(),
   findLatestUsableCode: mocks.findLatestUsableCode,
+  invalidateLoginCode: mocks.invalidateLoginCode,
   recordFailedAttempt: mocks.recordFailedAttempt,
 }))
 
@@ -30,6 +32,8 @@ describe('authentication policy helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetRateLimitsForTests()
+    mocks.sendLoginCode.mockResolvedValue(undefined)
+    mocks.invalidateLoginCode.mockResolvedValue({ count: 1 })
   })
 
   it.afterEach(() => resetRateLimitsForTests())
@@ -58,6 +62,7 @@ describe('authentication policy helpers', () => {
 
   it('keeps approved and unapproved requests indistinguishable', async () => {
     mocks.findAllowedEmail.mockResolvedValueOnce({ email: 'approved@example.com' }).mockResolvedValueOnce(null)
+    mocks.createLoginCode.mockResolvedValue({ id: 'login-code-id' })
 
     const approved = await requestCode('approved@example.com', '203.0.113.10')
     const unapproved = await requestCode('unapproved@example.com', '203.0.113.11')
@@ -67,6 +72,34 @@ describe('authentication policy helpers', () => {
     expect(mocks.sendLoginCode).toHaveBeenCalledOnce()
     expect(mocks.sendLoginCode.mock.calls[0][1]).toMatch(/^\d{6}$/)
     expect(mocks.createLoginCode.mock.calls[0][1].codeHash).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  it('invalidates a persisted code when email delivery fails while returning the generic response', async () => {
+    const deliveryError = new Error('SMTP unavailable')
+    mocks.findAllowedEmail.mockResolvedValue({ email: 'approved@example.com' })
+    mocks.createLoginCode.mockResolvedValue({ id: 'login-code-id' })
+    mocks.sendLoginCode.mockRejectedValue(deliveryError)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await expect(requestCode('approved@example.com', '203.0.113.12')).resolves.toEqual({ message: 'If the email is approved, a sign-in code has been sent.' })
+
+    expect(mocks.invalidateLoginCode).toHaveBeenCalledWith({}, 'login-code-id', expect.any(Date))
+    expect(consoleError).toHaveBeenCalledWith('Unable to send login email', { name: 'Error', message: 'SMTP unavailable', code: undefined })
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('SMTP_PASSWORD')
+    consoleError.mockRestore()
+  })
+
+  it('keeps the generic response when invalidating after delivery failure also fails', async () => {
+    mocks.findAllowedEmail.mockResolvedValue({ email: 'approved@example.com' })
+    mocks.createLoginCode.mockResolvedValue({ id: 'login-code-id' })
+    mocks.sendLoginCode.mockRejectedValue(new Error('SMTP unavailable'))
+    mocks.invalidateLoginCode.mockRejectedValue(new Error('database unavailable'))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await expect(requestCode('approved@example.com', '203.0.113.13')).resolves.toEqual({ message: 'If the email is approved, a sign-in code has been sent.' })
+
+    expect(consoleError).toHaveBeenCalledWith('Unable to invalidate login code after delivery failure', { name: 'Error', message: 'database unavailable' })
+    consoleError.mockRestore()
   })
 
   it('applies the email limit before checking the allowlist', async () => {

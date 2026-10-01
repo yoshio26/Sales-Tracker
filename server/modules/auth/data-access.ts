@@ -16,6 +16,10 @@ export function createLoginCode(db: Database, input: { email: string; codeHash: 
   return db.loginCode.create({ data: input })
 }
 
+export function invalidateLoginCode(db: Database, id: string, now: Date) {
+  return db.loginCode.updateMany({ where: { id, usedAt: null }, data: { usedAt: now } })
+}
+
 export function findLatestUsableCode(db: Database, email: string) {
   return db.loginCode.findFirst({
     where: { email, usedAt: null },
