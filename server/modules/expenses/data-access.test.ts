@@ -85,4 +85,34 @@ describe('expense data access', () => {
     await expect(deleteExpense(deleted.db as never, 'user-a', 'foreign-expense')).resolves.toEqual({ kind: 'not-found' })
     expect(deleted.db.expense.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'foreign-expense', userId: 'user-a', deletedAt: null } }))
   })
+
+  it('writes deletion and update timestamps together for an owned expense', async () => {
+    const { db } = database()
+    db.expense.updateMany.mockResolvedValue({ count: 1 })
+
+    await expect(deleteExpense(db as never, 'user-a', 'expense-a')).resolves.toEqual({ kind: 'deleted' })
+    const call = db.expense.updateMany.mock.calls[0][0]
+    expect(call.data.deletedAt).toBeInstanceOf(Date)
+    expect(call.data.updatedAt).toBe(call.data.deletedAt)
+  })
+
+  it('reports a stale update when the conditional write loses a race', async () => {
+    const { db, tx } = database()
+    const updatedAt = new Date('2026-10-01T00:00:00.000Z')
+    tx.expense.findFirst.mockResolvedValue({ updatedAt, productId: 'product-a' })
+    tx.expense.updateMany.mockResolvedValue({ count: 0 })
+
+    await expect(updateExpense(db as never, 'user-a', 'expense-a', {
+      amountCents: 2000, quantity: 1, spentAt: range.from, updatedAt,
+    })).resolves.toEqual({ kind: 'stale' })
+    expect(tx.expense.findUniqueOrThrow).not.toHaveBeenCalled()
+  })
+
+  it('distinguishes an existing soft-deleted expense from an unknown expense', async () => {
+    const { db } = database()
+    db.expense.updateMany.mockResolvedValue({ count: 0 })
+    db.expense.findFirst.mockResolvedValue({ deletedAt: new Date('2026-10-01T00:00:00.000Z') })
+
+    await expect(deleteExpense(db as never, 'user-a', 'expense-a')).resolves.toEqual({ kind: 'already-deleted' })
+  })
 })

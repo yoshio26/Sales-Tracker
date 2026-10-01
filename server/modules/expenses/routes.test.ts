@@ -96,4 +96,11 @@ describe('expense routes', () => {
     const res = await invoke('delete', '/:id', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
     expect(res.status).toHaveBeenCalledWith(404)
   })
+
+  it('keeps repeated deletion idempotent for an already-deleted expense', async () => {
+    mocks.deleteExpense.mockResolvedValue({ kind: 'already-deleted' })
+    const res = await invoke('delete', '/:id', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
+
+    expect(res.status).toHaveBeenCalledWith(204)
+  })
 })

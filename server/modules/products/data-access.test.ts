@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { archiveProduct, listProducts, updateProduct } from './data-access.js'
+import { archiveProduct, createProduct, listProducts, updateProduct } from './data-access.js'
 
 function database() {
   const tx = {
@@ -12,6 +12,7 @@ function database() {
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
     product: {
+      create: vi.fn(),
       findMany: vi.fn(),
     },
   }
@@ -19,6 +20,14 @@ function database() {
 }
 
 describe('product data access', () => {
+  it('creates a product for the requested tenant', async () => {
+    const { db } = database()
+    db.product.create.mockResolvedValue({ id: 'product-id', userId: 'user-a', name: 'Widget', category: 'Hardware' })
+
+    await expect(createProduct(db as never, 'user-a', { name: 'Widget', category: 'Hardware' })).resolves.toEqual(expect.objectContaining({ id: 'product-id', userId: 'user-a' }))
+    expect(db.product.create).toHaveBeenCalledWith({ data: { userId: 'user-a', name: 'Widget', category: 'Hardware' } })
+  })
+
   it('scopes active and archived lists to the requested tenant', async () => {
     const { db } = database()
 

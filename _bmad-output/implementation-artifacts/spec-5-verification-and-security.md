@@ -5,7 +5,7 @@ created: '2026-10-01'
 status: 'done'
 route: 'dispatch'
 baseline_commit: '435124bf93902ce6b6918c4945cebf73352921fa'
-review_loop_iteration: 0
+review_loop_iteration: 1
 context:
   - '{project-root}/_bmad-output/planning-artifacts/epics.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-4-context.md'
@@ -115,3 +115,31 @@ Use route-level tests for HTTP envelopes and middleware order, data-access tests
   evidence: Successful expense soft-delete and exclusion are covered by the existing expense route and dashboard aggregate tests; the added data-access test targets the foreign-row outcome.
 - verdict: false
   evidence: The reported README/spec character encoding issue is not present in the UTF-8 files and is a review-rendering artifact.
+- verdict: patch
+  evidence: The expense update test covered only an early timestamp mismatch; a matching-read conditional-write race now asserts that updateMany count zero returns a stale outcome.
+- verdict: patch
+  evidence: Existing soft-deleted expenses now have explicit data-access coverage, and the route test verifies the intended idempotent 204 response.
+- verdict: patch
+  evidence: Mailpit list/detail JSON parsing and recipient fields now have controlled shape validation, endpoint-specific diagnostics, and selected/detail message-ID matching.
+- verdict: patch
+  evidence: Product creation now asserts that the requested tenant ID is written to the persistence boundary.
+- verdict: patch
+  evidence: Successful expense deletion now asserts that deletedAt and updatedAt are both written and reference the same deletion timestamp.
+- verdict: false
+  evidence: The anti-enumeration route test verifies the route envelope and forwards both approved and unknown inputs; allowlist-dependent behavior is covered by auth service tests, so changing the route mock to reproduce persistence is outside this route contract test.
+- verdict: false
+  evidence: Auth service rejection forwarding is covered by the application error-envelope test and is not a new Epic 5 route contract requirement.
+- verdict: false
+  evidence: Session middleware tests already cover cookie-derived identity, missing/expired sessions, and rejection of client-supplied identity; injecting userId in route tests intentionally isolates route behavior.
+- verdict: false
+  evidence: The origin middleware suite covers the configured valid origin and rejection behavior for missing/foreign origins; malformed-origin parsing is not a separate production branch in the middleware.
+- verdict: false
+  evidence: The omitted-productId update path preserves the existing product and snapshots by construction, while the changed-product test verifies the snapshot replacement path; adding a duplicate no-op snapshot assertion does not address an uncovered production branch.
+- verdict: false
+  evidence: Live-flow code extraction is intentionally based on the application email text and requires a six-digit token; parsing a quoted unrelated token would require a provider-specific email-template contract not defined by this spec.
+- verdict: false
+  evidence: Detail identity is now explicitly checked against the selected message, and the existing endpoint path already targets that ID; broader message-list identity rules are not applicable.
+- verdict: false
+  evidence: The README gives the exact test, typecheck, build, opt-in flag, URLs, and required prerequisites; startup and environment provisioning are deployment-specific and no project scripts exist for them.
+- verdict: false
+  evidence: The opt-in live flow is intentionally failing rather than skipping when explicitly enabled without PostgreSQL/Mailpit; silently skipping after opt-in would conceal an unavailable verification environment.

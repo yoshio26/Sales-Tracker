@@ -1,6 +1,14 @@
 import 'dotenv/config'
 import { describe, expect, it } from 'vitest'
 
+async function jsonWithDiagnostics<T>(response: Response, context: string): Promise<T> {
+  try {
+    return await response.json() as T
+  } catch (error) {
+    throw new Error(`${context} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 async function fetchWithDiagnostics(url: string, init: RequestInit, context: string) {
   try {
     return await fetch(url, { ...init, signal: AbortSignal.timeout(10_000) })
@@ -29,16 +37,17 @@ describe.skipIf(process.env.RUN_DEV_AUTH_FLOW !== 'true')('development Mailpit a
 
     const messagesResponse = await fetchWithDiagnostics(`${mailpitUrl}/api/v1/messages`, {}, 'Mailpit message listing')
     expect(messagesResponse.ok, `Mailpit message listing failed at ${mailpitUrl} (${messagesResponse.status}).`).toBe(true)
-    const messages = await messagesResponse.json() as { messages?: Array<{ ID: string; To?: Array<{ Address?: string }> }> }
+    const messages = await jsonWithDiagnostics<{ messages?: Array<{ ID: string; To?: Array<{ Address?: string }> }> }>(messagesResponse, `Mailpit message listing at ${mailpitUrl}`)
     if (!Array.isArray(messages.messages)) throw new Error(`Mailpit returned an invalid message list at ${mailpitUrl}.`)
-    const message = messages.messages.find((candidate) => candidate.To?.some((recipient) => recipient.Address?.toLowerCase() === email.toLowerCase()))
+    const message = messages.messages.find((candidate) => Array.isArray(candidate.To) && candidate.To.some((recipient) => recipient && typeof recipient.Address === 'string' && recipient.Address.toLowerCase() === email.toLowerCase()))
     expect(message, `No message arrived in Mailpit at ${mailpitUrl}; verify SMTP configuration and the allowlisted email.`).toBeDefined()
     if (!message?.ID) throw new Error(`Mailpit returned no usable message ID for ${email}.`)
     const detailResponse = await fetchWithDiagnostics(`${mailpitUrl}/api/v1/message/${message.ID}`, {}, 'Mailpit message lookup')
     expect(detailResponse.ok, `Mailpit message lookup failed at ${mailpitUrl} (${detailResponse.status}).`).toBe(true)
-    const detail = await detailResponse.json() as { Text?: string; To?: Array<{ Address?: string }> }
+    const detail = await jsonWithDiagnostics<{ ID?: string; Text?: string; To?: Array<{ Address?: string }> }>(detailResponse, `Mailpit message ${message.ID} lookup`)
+    if (detail.ID !== message.ID) throw new Error(`Mailpit returned a different message ID (${detail.ID ?? 'missing'}) for ${message.ID}.`)
     if (typeof detail.Text !== 'string') throw new Error(`Mailpit message ${message.ID} did not include text.`)
-    expect(detail.To?.some((recipient) => recipient.Address?.toLowerCase() === email.toLowerCase()), `Mailpit message was not addressed to ${email}.`).toBe(true)
+    expect(Array.isArray(detail.To) && detail.To.some((recipient) => recipient && typeof recipient.Address === 'string' && recipient.Address.toLowerCase() === email.toLowerCase()), `Mailpit message was not addressed to ${email}.`).toBe(true)
     const code = detail.Text.match(/\b\d{6}\b/)?.[0]
     expect(code, 'Mailpit message did not contain a six-digit login code.').toMatch(/^\d{6}$/)
 
