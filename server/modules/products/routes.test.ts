@@ -19,10 +19,14 @@ function response(): MockResponse {
 }
 
 async function invoke(method: 'get' | 'post' | 'put' | 'delete', path: string, req: Record<string, unknown>) {
-  const layer = productsRouter.stack.find((candidate) => candidate.route?.path === path && candidate.route.methods[method])
-  if (!layer) throw new Error(`Route ${method} ${path} is missing.`)
+  const layer = productsRouter.stack.find((candidate) => {
+    const route = candidate.route as { path?: string; methods?: Record<string, boolean> } | undefined
+    return route?.path === path && route.methods?.[method] === true
+  })
+  const route = layer?.route as { stack: Array<{ handle: (...args: never[]) => unknown }> } | undefined
+  if (!route) throw new Error(`Route ${method} ${path} is missing.`)
   const res = response()
-  const handlers = layer.route.stack.map((candidate) => candidate.handle)
+  const handlers = route.stack.map((candidate) => candidate.handle)
   let index = 0
   const next = async (error?: unknown): Promise<void> => {
     if (error) throw error
