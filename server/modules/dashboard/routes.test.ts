@@ -10,11 +10,25 @@ function response() {
   return { status: vi.fn(() => ({ json })), json }
 }
 
+type DashboardRoute = {
+  path?: string
+  methods?: Record<string, boolean>
+  stack: Array<{ handle: (...args: never[]) => unknown }>
+}
+
+function dashboardHandlers() {
+  const layer = dashboardRouter.stack.find((candidate) => {
+    const route = candidate.route as Pick<DashboardRoute, 'path' | 'methods'> | undefined
+    return route?.path === '/' && route.methods?.get === true
+  })
+  const route = layer?.route as DashboardRoute | undefined
+  if (!route) throw new Error('Dashboard route is missing.')
+  return route.stack.map((candidate) => candidate.handle)
+}
+
 async function invoke(query: Record<string, unknown>, userId?: string) {
-  const layer = dashboardRouter.stack.find((candidate) => candidate.route?.path === '/' && candidate.route.methods.get)
-  if (!layer) throw new Error('Dashboard route is missing.')
   const res = response()
-  const handlers = layer.route.stack.map((candidate) => candidate.handle)
+  const handlers = dashboardHandlers()
   let index = 0
   const next = async (error?: unknown): Promise<void> => {
     if (error) throw error
@@ -72,9 +86,7 @@ describe('dashboard routes', () => {
     const failure = new Error('database unavailable')
     getDashboard.mockRejectedValue(failure)
     const next = vi.fn()
-    const layer = dashboardRouter.stack.find((candidate) => candidate.route?.path === '/' && candidate.route.methods.get)
-    if (!layer) throw new Error('Dashboard route is missing.')
-    const handlers = layer.route.stack.map((candidate) => candidate.handle)
+    const handlers = dashboardHandlers()
     let index = 0
     const req = { query: {}, userId: 'user-a' }
     const res = response()
