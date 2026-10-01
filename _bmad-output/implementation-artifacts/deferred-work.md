@@ -25,3 +25,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-expense-ledger.md`
   summary: Add browser-level expense ledger flow tests.
   evidence: The repository has no client test harness; create/edit/product-change/filter/conflict/delete UI flows are deferred to Epic 5 E2E coverage.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-dashboard.md`
+  summary: Optimize or code-split the Recharts client bundle.
+  evidence: The production build reports a non-blocking bundle-size warning; bundle optimization is outside the dashboard acceptance criteria.
