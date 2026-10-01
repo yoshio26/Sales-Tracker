@@ -52,6 +52,19 @@ describe('dashboard routes', () => {
     const reversed = await invoke({ from: '2026-10-02T00:00:00.000Z', to: '2026-10-01T00:00:00.000Z' }, 'user-a')
     expect(incomplete.status).toHaveBeenCalledWith(400)
     expect(reversed.status).toHaveBeenCalledWith(400)
+    expect(incomplete.json).toHaveBeenCalledWith({ error: { code: 'INVALID_INPUT', message: 'Enter a valid reporting date range.' } })
+    expect(reversed.json).toHaveBeenCalledWith({ error: { code: 'INVALID_INPUT', message: 'Enter a valid reporting date range.' } })
+    expect(getDashboard).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed date ranges with the safe validation envelope', async () => {
+    const malformedFrom = await invoke({ from: 'not-a-date', to: '2026-10-01T00:00:00.000Z' }, 'user-a')
+    const malformedTo = await invoke({ from: '2026-10-01T00:00:00.000Z', to: '2026-13-01T00:00:00.000Z' }, 'user-a')
+
+    expect(malformedFrom.status).toHaveBeenCalledWith(400)
+    expect(malformedTo.status).toHaveBeenCalledWith(400)
+    expect(malformedFrom.json).toHaveBeenCalledWith({ error: { code: 'INVALID_INPUT', message: 'Enter a valid reporting date range.' } })
+    expect(malformedTo.json).toHaveBeenCalledWith({ error: { code: 'INVALID_INPUT', message: 'Enter a valid reporting date range.' } })
     expect(getDashboard).not.toHaveBeenCalled()
   })
 

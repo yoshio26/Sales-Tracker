@@ -7,10 +7,10 @@
     "node": ">=24.21.0"
   },
   "scripts": {
-    "dev": "concurrently \"tsx watch server/index.ts\" \"npm --prefix client run dev\"",
-    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p client/tsconfig.app.json --noEmit",
+    "dev": "concurrently \"tsx watch server/index.ts\" \"npm --prefix FrontEnd run dev\"",
+    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p FrontEnd/tsconfig.app.json --noEmit",
     "test": "vitest run",
-    "build": "npm run typecheck && npm --prefix client run build && tsc -p tsconfig.server.json",
+    "build": "npm run typecheck && npm --prefix FrontEnd run build && tsc -p tsconfig.server.json",
     "test:dev-auth-flow": "vitest run tests/dev-auth-flow.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

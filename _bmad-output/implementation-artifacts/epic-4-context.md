@@ -45,4 +45,4 @@ The layout is responsive: cards and charts stack on mobile, adapt to two-column 
 
 ## Cross-Story Dependencies
 
-Dashboard depends on the Expenses module from Epic 3 for recorded expenses and immutable snapshots. It depends on the Products module from Epic 2 for catalog and snapshot definitions. Authentication from Epic 1 provides the session identity that scopes every query.
+Dashboard depends on the Expenses module from Epic 3 for recorded expenses and immutable snapshots. It depends on the Products module from Epic 2 for catalog and snapshot definitions. Authentication from Epic 1 provides the session identity that scopes every query. The React/Vite application lives under `FrontEnd/`, with frontend context organized under `FrontEnd/src/`.

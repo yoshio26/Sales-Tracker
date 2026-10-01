@@ -22,7 +22,7 @@ app.use('/api/expenses', expensesRouter)
 app.use('/api/dashboard', dashboardRouter)
 
 if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.resolve(currentDirectory, '../../client/dist')
+  const clientDist = path.resolve(currentDirectory, '../../FrontEnd/dist')
   app.use(express.static(clientDist))
   app.get('*splat', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')))
 }

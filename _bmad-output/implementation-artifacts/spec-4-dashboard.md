@@ -46,8 +46,8 @@ context:
 - `server/modules/dashboard/data-access.ts` -- new read-only aggregate queries using session `userId`, `deletedAt IS NULL`, snapshot grouping, and parameterized Prisma queries.
 - `server/modules/dashboard/service.ts` -- new reporting boundaries, aggregate orchestration, and decimal-string money mapping.
 - `server/modules/dashboard/routes.ts` -- new authenticated GET endpoint(s), Zod filter validation, and existing error envelopes.
-- `client/src/App.tsx` and `client/src/App.module.css` -- integrate the dashboard view, API state, responsive cards/charts, and accessible loading/empty/error feedback without regressing catalog or ledger flows.
-- `client/package.json` -- add the approved chart rendering dependency only if that open question selects one.
+- `FrontEnd/src/App.tsx` and `FrontEnd/src/App.module.css` -- integrate the dashboard view, API state, responsive cards/charts, and accessible loading/empty/error feedback without regressing catalog or ledger flows.
+- `FrontEnd/package.json` -- add the approved chart rendering dependency only if that open question selects one.
 
 ## Tasks & Acceptance
 
@@ -56,8 +56,8 @@ context:
 - [x] `server/modules/dashboard/service.ts` -- implement shared UTC half-open date boundaries, aggregate orchestration, and decimal-string money responses.
 - [x] `server/modules/dashboard/routes.ts`; `server/app.ts` -- expose protected GET dashboard data with validated filters and mount the router.
 - [x] `server/modules/dashboard/*.test.ts` -- test tenant isolation, soft-delete exclusion, snapshot grouping, zero-result behavior, date boundaries, validation, and unauthorized access.
-- [x] `client/src/App.tsx`; `client/src/App.module.css`; `client/package.json` -- add the dashboard view, approved chart rendering, responsive layout, accessible labels/summaries, loading/empty/error/retry states, and preserve existing flows.
-- [x] `client` dashboard tests or documented manual checks -- verify totals, charts, empty/error states, responsive layout, and navigation from the signed-in workspace.
+- [x] `FrontEnd/src/App.tsx`; `FrontEnd/src/App.module.css`; `FrontEnd/package.json` -- add the dashboard view, approved chart rendering, responsive layout, accessible labels/summaries, loading/empty/error/retry states, and preserve existing flows.
+- [x] `FrontEnd` dashboard tests or documented manual checks -- verify totals, charts, empty/error states, responsive layout, and navigation from the signed-in workspace.
 
 **Acceptance Criteria:**
 - Given two authenticated users, when either loads the dashboard, then every aggregate contains only that session user’s non-deleted expenses.
