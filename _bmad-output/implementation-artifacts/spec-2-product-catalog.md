@@ -2,7 +2,7 @@
 title: 'Epic 2: Product catalog'
 type: 'feature'
 created: '2026-09-30'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '59b194b4b726a5808a88ae91971ea7c9cd588563'
@@ -69,6 +69,18 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+- verdict: medium; route: patch; finding: client search lowercased only the query; evidence: `client/src/App.tsx` now lowercases the product text and query before matching.
+- verdict: false; route: reject; finding: API should expose `updated_at`; evidence: this spec's acceptance criteria and implementation notes use `updatedAt`, matching the existing camelCase API contract.
+- verdict: false; route: reject; finding: category casing must be preserved; evidence: the approved design notes require normalized persisted display strings and the service tests assert normalized categories.
+- verdict: medium; route: patch; finding: tab roles lacked a complete tab-panel pattern; evidence: status controls now use ordinary toggle buttons with `aria-pressed`.
+- verdict: medium; route: patch; finding: archive could be submitted repeatedly; evidence: archive actions now disable while the product request is in flight and show `Archiving…`.
+- verdict: medium; route: defer; finding: route coverage lacks several successful and malformed-input cases; evidence: current route tests cover authentication, active listing, DTO rejection, origin rejection, and stale update, while broader integration coverage is deferred to Epic 5.
+- verdict: medium; route: defer; finding: no client behavior tests cover catalog interactions; evidence: the current project has no React/browser test harness, so UI flow coverage is deferred to Epic 5.
+- verdict: medium; route: defer; finding: real Prisma persistence and migration behavior are not exercised by Vitest; evidence: current tests mock data access and local database integration is part of Epic 5 verification.
+- verdict: medium; route: defer; finding: malformed successful product responses could crash the client; evidence: `client/src/App.tsx` now rejects non-array product payloads as load errors.
+- verdict: medium; route: patch; finding: save and edit actions could race; evidence: catalog item actions are disabled while save or archive operations are active.
+- verdict: medium; route: patch; finding: standalone client dependency declaration for Zod was missing; evidence: `client/package.json` and its lockfile now declare exact Zod 4.6.5.
 
 ## Design Notes
 

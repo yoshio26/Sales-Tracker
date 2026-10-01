@@ -45,6 +45,7 @@ function App() {
   const [catalogError, setCatalogError] = useState('')
   const [catalogNotice, setCatalogNotice] = useState('')
   const [fieldError, setFieldError] = useState('')
+  const [archiveLoadingId, setArchiveLoadingId] = useState<string | null>(null)
   const productRequestId = useRef(0)
 
   useEffect(() => {
@@ -67,6 +68,7 @@ function App() {
       const response = await productsApi(`?status=${status}`)
       if (!response.ok) throw new Error('Unable to load products.')
       const data = await response.json() as { products: Product[] }
+      if (!Array.isArray(data.products)) throw new Error('Invalid product response.')
       if (requestId === productRequestId.current) setProducts(data.products)
       return data.products
     } catch {
@@ -178,6 +180,7 @@ function App() {
     if (!window.confirm(`Archive ${product.name}? It will remain in your archived catalog.`)) return
     setCatalogError('')
     setCatalogNotice('')
+    setArchiveLoadingId(product.id)
     try {
       const response = await productsApi(`/${product.id}`, { method: 'DELETE', body: JSON.stringify({ updatedAt: product.updatedAt }) })
       if (!response.ok) {
@@ -190,10 +193,12 @@ function App() {
       setCatalogNotice(`${product.name} was archived.`)
     } catch {
       setCatalogError('Unable to contact the catalog service. Try again.')
+    } finally {
+      setArchiveLoadingId(null)
     }
   }
 
-  const visibleProducts = products.filter((product) => `${product.name} ${product.category}`.includes(search.trim().toLowerCase()))
+  const visibleProducts = products.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(search.trim().toLowerCase()))
 
   return (
     <main className={styles.shell}>
@@ -205,9 +210,9 @@ function App() {
               <div><h1>Product catalog</h1><p>Create the products and categories you reuse in your sales records.</p></div>
               <button className={styles.secondary} type="button" onClick={() => void logout()}>Sign out</button>
             </div>
-            <div className={styles.tabs} role="tablist" aria-label="Catalog status">
-              <button type="button" role="tab" aria-selected={catalogStatus === 'active'} className={catalogStatus === 'active' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('active')}>Active</button>
-              <button type="button" role="tab" aria-selected={catalogStatus === 'archived'} className={catalogStatus === 'archived' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('archived')}>Archived</button>
+            <div className={styles.tabs} role="group" aria-label="Catalog status">
+              <button type="button" aria-pressed={catalogStatus === 'active'} className={catalogStatus === 'active' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('active')}>Active</button>
+              <button type="button" aria-pressed={catalogStatus === 'archived'} className={catalogStatus === 'archived' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('archived')}>Archived</button>
             </div>
             {catalogStatus === 'active' && <form className={styles.productForm} onSubmit={saveProduct} noValidate>
               <h2>{editing ? 'Edit product' : 'Add a product'}</h2>
@@ -223,7 +228,7 @@ function App() {
             {catalogError && <p className={styles.error} role="alert">{catalogError} <button className={styles.linkButton} type="button" onClick={() => void loadProducts()}>Retry</button></p>}
             {catalogNotice && <p className={styles.notice} role="status">{catalogNotice}</p>}
             {catalogLoading ? <p>Loading products…</p> : visibleProducts.length === 0 ? <p className={styles.empty}>No {catalogStatus} products match your search.</p> : <ul className={styles.productList} aria-label={`${catalogStatus} products`}>
-              {visibleProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category}</span>{!product.active && <span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span>}</div>{product.active && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => { setEditing(product); setProductName(product.name); setCategory(product.category); setFieldError('') }}>Edit</button><button className={styles.danger} type="button" onClick={() => void archive(product)}>Archive</button></div>}</li>)}
+              {visibleProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category}</span>{!product.active && <span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span>}</div>{product.active && <div className={styles.itemActions}><button className={styles.secondary} disabled={loading || archiveLoadingId !== null} type="button" onClick={() => { setEditing(product); setProductName(product.name); setCategory(product.category); setFieldError('') }}>Edit</button><button className={styles.danger} disabled={archiveLoadingId !== null} type="button" onClick={() => void archive(product)}>{archiveLoadingId === product.id ? 'Archiving…' : 'Archive'}</button></div>}</li>)}
             </ul>}
           </div>
         ) : view === 'email' ? (
