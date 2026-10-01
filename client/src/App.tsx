@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { z } from 'zod'
 import styles from './App.module.css'
 
@@ -7,6 +8,13 @@ type View = 'email' | 'code' | 'signed-in'
 type CatalogStatus = 'active' | 'archived'
 type Product = { id: string; name: string; category: string; active: boolean; archivedAt: string | null; updatedAt: string }
 type Expense = { id: string; productId: string; productName: string; category: string; amount: string; quantity: number; note: string | null; spentAt: string; createdAt: string; updatedAt: string }
+type DashboardPoint = { label: string; amount: string }
+type DashboardTrendPoint = { bucket: string; amount: string }
+type DashboardReport = { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
+type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport }
+const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
+const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
+const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema })
 
 const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Product name is required.').max(200),
@@ -44,6 +52,10 @@ async function expensesApi(path = '', options?: RequestInit): Promise<Response> 
   })
 }
 
+async function dashboardApi(): Promise<Response> {
+  return fetch('/api/dashboard', { credentials: 'include' })
+}
+
 function App() {
   const [view, setView] = useState<View>('email')
   const [email, setEmail] = useState('')
@@ -79,6 +91,10 @@ function App() {
   const [expenseNotice, setExpenseNotice] = useState('')
   const [expenseFieldError, setExpenseFieldError] = useState('')
   const [expenseDeleteLoadingId, setExpenseDeleteLoadingId] = useState<string | null>(null)
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState('')
+  const dashboardRequestId = useRef(0)
   const productRequestId = useRef(0)
 
   useEffect(() => {
@@ -94,8 +110,28 @@ function App() {
       void loadProducts('active')
       void loadProducts('archived')
       void loadExpenses()
+      void loadDashboard()
     }
   }, [view, catalogStatus])
+
+  async function loadDashboard() {
+    const requestId = ++dashboardRequestId.current
+    setDashboardLoading(true)
+    setDashboardError('')
+    try {
+      const response = await dashboardApi()
+      if (!response.ok) throw new Error('Unable to load dashboard.')
+      const data = dashboardSchema.parse(await response.json()) as Dashboard
+      if (requestId === dashboardRequestId.current) setDashboard(data)
+    } catch {
+      if (requestId === dashboardRequestId.current) {
+        setDashboard(null)
+        setDashboardError('Unable to load the dashboard. Try again.')
+      }
+    } finally {
+      setDashboardLoading(false)
+    }
+  }
 
   async function loadProducts(status = catalogStatus): Promise<Product[]> {
     const requestId = ++productRequestId.current
@@ -248,6 +284,7 @@ function App() {
       }
       resetExpenseForm()
       await loadExpenses()
+      await loadDashboard()
       setExpenseNotice(wasEditing ? 'Expense changes saved.' : 'Expense recorded.')
     } catch {
       setExpenseError('Unable to contact the expense service. Try again.')
@@ -265,6 +302,7 @@ function App() {
       const response = await expensesApi(`/${expense.id}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Unable to delete the expense.')
       await loadExpenses()
+      await loadDashboard()
       setExpenseNotice('Expense deleted.')
     } catch {
       setExpenseError('Unable to delete the expense. Try again.')
@@ -344,6 +382,22 @@ function App() {
               <div><h1>Product catalog</h1><p>Create the products and categories you reuse in your sales records.</p></div>
               <button className={styles.secondary} type="button" onClick={() => void logout()}>Sign out</button>
             </div>
+            <section className={styles.dashboard} aria-labelledby="dashboard-heading">
+              <div><h2 id="dashboard-heading">Spending dashboard</h2><p>Understand your spending from non-deleted ledger entries.</p></div>
+              {dashboardError && <p className={styles.error} role="alert">{dashboardError} <button className={styles.linkButton} type="button" onClick={() => void loadDashboard()}>Retry</button></p>}
+              {dashboardLoading ? <p role="status" aria-live="polite">Loading dashboard…</p> : dashboard && <>
+                <div className={styles.summaryCards} aria-label="Spending totals">
+                  <article className={styles.summaryCard}><span>This month</span><strong>${dashboard.currentMonth.total}</strong></article>
+                  <article className={styles.summaryCard}><span>All time</span><strong>${dashboard.allTime.total}</strong></article>
+                </div>
+                {dashboard.allTime.total === '0.00' ? <p className={styles.empty}>No expenses recorded yet. Record an expense below to see your spending here.</p> : <div className={styles.chartGrid}>
+                  <article className={styles.chartCard}><h3>This month over time</h3><p className={styles.chartSummary}>{dashboard.currentMonth.trend.length ? `${dashboard.currentMonth.trend.length} daily spending points.` : 'No spending this month.'}</p><div className={styles.chart} aria-label="This month spending chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={dashboard.currentMonth.trend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="bucket" tickFormatter={(value: string) => value.slice(5, 10)} /><YAxis /><Tooltip formatter={(value) => `$${value}`} /><Line type="monotone" dataKey="amount" name="Amount" stroke="#235db1" strokeWidth={3} dot /></LineChart></ResponsiveContainer></div></article>
+                  <article className={styles.chartCard}><h3>All-time over time</h3><p className={styles.chartSummary}>{dashboard.allTime.trend.length ? `${dashboard.allTime.trend.length} monthly spending points.` : 'No all-time spending.'}</p><div className={styles.chart} aria-label="All-time spending trend chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={dashboard.allTime.trend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="bucket" tickFormatter={(value: string) => value.slice(0, 7)} /><YAxis /><Tooltip formatter={(value) => `$${value}`} /><Line type="monotone" dataKey="amount" name="Amount" stroke="#526b95" strokeWidth={3} dot /></LineChart></ResponsiveContainer></div></article>
+                  <article className={styles.chartCard}><h3>All-time by product</h3><p className={styles.chartSummary}>{dashboard.allTime.byProduct.map((item) => `${item.label}: $${item.amount}`).join('; ')}</p><div className={styles.chart} aria-label="All-time spending by product chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={dashboard.allTime.byProduct} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="label" width={90} /><Tooltip formatter={(value) => `$${value}`} /><Bar dataKey="amount" name="Amount" fill="#235db1" /></BarChart></ResponsiveContainer></div></article>
+                  <article className={styles.chartCard}><h3>All-time by category</h3><p className={styles.chartSummary}>{dashboard.allTime.byCategory.map((item) => `${item.label}: $${item.amount}`).join('; ')}</p><div className={styles.chart} aria-label="All-time spending by category chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={dashboard.allTime.byCategory} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="label" width={90} /><Tooltip formatter={(value) => `$${value}`} /><Bar dataKey="amount" name="Amount" fill="#526b95" /></BarChart></ResponsiveContainer></div></article>
+                </div>}
+              </>}
+            </section>
             <div className={styles.tabs} role="group" aria-label="Catalog status">
               <button type="button" aria-pressed={catalogStatus === 'active'} className={catalogStatus === 'active' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('active')}>Active</button>
               <button type="button" aria-pressed={catalogStatus === 'archived'} className={catalogStatus === 'archived' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('archived')}>Archived</button>

@@ -85,6 +85,18 @@
 }
 
 .workspace { display: grid; gap: 1rem; }
+.dashboard { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #fbfcff; }
+.dashboard h2, .dashboard h3 { margin: 0; color: #17243b; }
+.dashboard p { margin: 0; }
+.summaryCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.summaryCard { display: grid; gap: 0.3rem; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
+.summaryCard span { color: #5c6b82; font-size: 0.85rem; font-weight: 700; }
+.summaryCard strong { color: #17243b; font-size: 1.8rem; }
+.chartGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.chartCard { min-width: 0; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
+.chartCard:first-child { grid-column: 1 / -1; }
+.chartSummary { min-height: 1.25rem; margin-top: 0.4rem !important; color: #5c6b82; font-size: 0.85rem; }
+.chart { height: 15rem; margin-top: 0.75rem; }
 .ledger { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid #dce4ef; }
 .ledger h2, .ledger h3 { margin: 0; color: #17243b; }
 .ledger p { margin: 0; }
@@ -126,4 +138,6 @@
     padding: 2rem;
   }
   .workspaceHeader, .productItem { align-items: stretch; flex-direction: column; }
+  .summaryCards, .chartGrid { grid-template-columns: 1fr; }
+  .chartCard:first-child { grid-column: auto; }
 }

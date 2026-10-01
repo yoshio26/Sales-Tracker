@@ -1,0 +1,57 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const getDashboard = vi.hoisted(() => vi.fn())
+vi.mock('./service.js', () => ({ getDashboard }))
+
+import { dashboardRouter } from './routes.js'
+
+function response() {
+  const json = vi.fn()
+  return { status: vi.fn(() => ({ json })), json }
+}
+
+async function invoke(query: Record<string, unknown>, userId?: string) {
+  const layer = dashboardRouter.stack.find((candidate) => candidate.route?.path === '/' && candidate.route.methods.get)
+  if (!layer) throw new Error('Dashboard route is missing.')
+  const res = response()
+  const handlers = layer.route.stack.map((candidate) => candidate.handle)
+  let index = 0
+  const next = async (error?: unknown): Promise<void> => {
+    if (error) throw error
+    const handler = handlers[index++]
+    if (handler) await handler({ query, userId } as never, res as never, next as never)
+  }
+  await next()
+  return res
+}
+
+describe('dashboard routes', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('rejects unauthenticated requests', async () => {
+    const res = await invoke({})
+    expect(res.status).toHaveBeenCalledWith(401)
+    expect(getDashboard).not.toHaveBeenCalled()
+  })
+
+  it('passes the session user to the dashboard service', async () => {
+    getDashboard.mockResolvedValue({ currentMonth: {}, allTime: {} })
+    const res = await invoke({}, 'user-a')
+    expect(getDashboard).toHaveBeenCalledWith('user-a', expect.any(Date), {})
+    expect(res.json).toHaveBeenCalledWith({ currentMonth: {}, allTime: {} })
+  })
+
+  it('passes a valid half-open range to the service', async () => {
+    getDashboard.mockResolvedValue({ currentMonth: {}, allTime: {} })
+    await invoke({ from: '2026-10-01T00:00:00.000Z', to: '2026-11-01T00:00:00.000Z' }, 'user-a')
+    expect(getDashboard).toHaveBeenCalledWith('user-a', expect.any(Date), { from: new Date('2026-10-01T00:00:00.000Z'), to: new Date('2026-11-01T00:00:00.000Z') })
+  })
+
+  it('rejects incomplete and reversed date ranges', async () => {
+    const incomplete = await invoke({ from: '2026-10-01T00:00:00.000Z' }, 'user-a')
+    const reversed = await invoke({ from: '2026-10-02T00:00:00.000Z', to: '2026-10-01T00:00:00.000Z' }, 'user-a')
+    expect(incomplete.status).toHaveBeenCalledWith(400)
+    expect(reversed.status).toHaveBeenCalledWith(400)
+    expect(getDashboard).not.toHaveBeenCalled()
+  })
+})

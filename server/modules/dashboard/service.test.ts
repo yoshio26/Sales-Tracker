@@ -1,0 +1,49 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  getByCategory: vi.fn(),
+  getByProduct: vi.fn(),
+  getTimeSeries: vi.fn(),
+  getTotal: vi.fn(),
+}))
+
+vi.mock('./data-access.js', () => ({ ...mocks, dashboardDatabase: {} }))
+
+import { currentUtcMonth, getDashboard } from './service.js'
+
+describe('dashboard service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.getTotal.mockResolvedValue([{ totalCents: 0n }])
+    mocks.getByProduct.mockResolvedValue([])
+    mocks.getByCategory.mockResolvedValue([])
+    mocks.getTimeSeries.mockResolvedValue([])
+  })
+
+  it('creates a half-open UTC month range', () => {
+    expect(currentUtcMonth(new Date('2026-10-31T23:59:59.000Z'))).toEqual({
+      from: new Date('2026-10-01T00:00:00.000Z'),
+      to: new Date('2026-11-01T00:00:00.000Z'),
+    })
+  })
+
+  it('returns zero totals and empty aggregates for an empty ledger', async () => {
+    await expect(getDashboard('user-a', new Date('2026-10-01T12:00:00.000Z'))).resolves.toMatchObject({
+      currentMonth: { total: '0.00', trend: [], byProduct: [], byCategory: [] },
+      allTime: { total: '0.00', trend: [], byProduct: [], byCategory: [] },
+    })
+    expect(mocks.getTotal).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ from: new Date('2026-10-01T00:00:00.000Z') }))
+    expect(mocks.getByProduct).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ to: new Date('2026-11-01T00:00:00.000Z') }))
+  })
+
+  it('maps snapshot aggregate values as decimal strings', async () => {
+    mocks.getTotal.mockResolvedValueOnce([{ totalCents: 1250n }]).mockResolvedValueOnce([{ totalCents: 987n }])
+    mocks.getByProduct.mockResolvedValueOnce([{ label: 'Archived Widget', totalCents: 1250n }])
+    mocks.getByCategory.mockResolvedValueOnce([{ label: 'Old category', totalCents: 987n }])
+    mocks.getTimeSeries.mockResolvedValueOnce([{ bucketUtc: new Date('2026-10-02T00:00:00.000Z'), totalCents: 1250n }])
+
+    await expect(getDashboard('user-a', new Date('2026-10-03T12:00:00.000Z'))).resolves.toMatchObject({
+      currentMonth: { total: '12.50', byProduct: [{ label: 'Archived Widget', amount: '12.50' }], trend: [{ bucket: '2026-10-02T00:00:00.000Z', amount: '12.50' }] },
+    })
+  })
+})
