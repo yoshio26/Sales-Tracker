@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import cookieParser from 'cookie-parser'
 import express from 'express'
 import { authRouter } from './modules/auth/routes.js'
+import { productsRouter } from './modules/products/routes.js'
 import { sessionMiddleware } from './middleware/session.js'
 
 const app = express()
@@ -14,6 +15,7 @@ app.use(cookieParser())
 app.use(sessionMiddleware)
 
 app.use('/api/auth', authRouter)
+app.use('/api/products', productsRouter)
 
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.resolve(currentDirectory, '../../client/dist')

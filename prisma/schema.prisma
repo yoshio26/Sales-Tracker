@@ -13,8 +13,27 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   sessions      Session[]
+  products      Product[]
 
   @@map("users")
+}
+
+model Product {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  name       String    @db.VarChar(200)
+  category   String    @db.VarChar(100)
+  active     Boolean   @default(true)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, active])
+  @@index([userId, category])
+  @@index([userId, updatedAt])
+  @@map("products")
 }
 
 model AllowedEmail {

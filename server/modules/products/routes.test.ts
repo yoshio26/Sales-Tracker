@@ -1,0 +1,81 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  archiveProduct: vi.fn(),
+  createProduct: vi.fn(),
+  listProducts: vi.fn(),
+  updateProduct: vi.fn(),
+}))
+
+vi.mock('./service.js', () => mocks)
+
+import { productsRouter } from './routes.ts'
+
+type MockResponse = { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> }
+
+function response(): MockResponse {
+  const json = vi.fn()
+  return { status: vi.fn(() => ({ json })), json }
+}
+
+async function invoke(method: 'get' | 'post' | 'put' | 'delete', path: string, req: Record<string, unknown>) {
+  const layer = productsRouter.stack.find((candidate) => candidate.route?.path === path && candidate.route.methods[method])
+  if (!layer) throw new Error(`Route ${method} ${path} is missing.`)
+  const res = response()
+  const handlers = layer.route.stack.map((candidate) => candidate.handle)
+  let index = 0
+  const next = async (error?: unknown): Promise<void> => {
+    if (error) throw error
+    const handler = handlers[index++]
+    if (handler) await handler(req as never, res as never, next as never)
+  }
+  await next()
+  return res
+}
+
+describe('product catalog routes', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('rejects unauthenticated reads', async () => {
+    const res = await invoke('get', '/', { query: {}, get: () => undefined })
+
+    expect(res.status).toHaveBeenCalledWith(401)
+  })
+
+  it('lists only the authenticated user’s active catalog', async () => {
+    mocks.listProducts.mockResolvedValue([{ id: 'product-id', name: 'widget', category: 'hardware', active: true, archivedAt: null, updatedAt: '2026-09-30T12:00:00.000Z' }])
+
+    const res = await invoke('get', '/', { userId: 'user-a', query: {}, get: () => undefined })
+
+    expect(mocks.listProducts).toHaveBeenCalledWith('user-a', 'active')
+    expect(res.json).toHaveBeenCalledWith({ products: expect.arrayContaining([expect.objectContaining({ id: 'product-id' })]) })
+  })
+
+  it('validates create DTOs before calling the service', async () => {
+    const res = await invoke('post', '/', { userId: 'user-a', body: { name: '', category: '' }, get: () => 'http://localhost:5173' })
+
+    expect(res.status).toHaveBeenCalledWith(400)
+    expect(mocks.createProduct).not.toHaveBeenCalled()
+  })
+
+  it('rejects foreign-origin mutations before calling the service', async () => {
+    const res = await invoke('delete', '/:id', { userId: 'user-a', params: { id: 'product-id' }, body: { updatedAt: '2026-09-30T12:00:00.000Z' }, get: () => 'https://attacker.example' })
+
+    expect(res.status).toHaveBeenCalledWith(403)
+    expect(mocks.archiveProduct).not.toHaveBeenCalled()
+  })
+
+  it('returns a conflict for a stale update without reporting product data', async () => {
+    mocks.updateProduct.mockResolvedValue({ kind: 'stale' })
+
+    const res = await invoke('put', '/:id', {
+      userId: 'user-a',
+      params: { id: '123e4567-e89b-12d3-a456-426614174000' },
+      body: { name: 'widget', category: 'hardware', updatedAt: '2026-09-30T12:00:00.000Z' },
+      get: () => 'http://localhost:5173',
+    })
+
+    expect(res.status).toHaveBeenCalledWith(409)
+    expect(res.json).toHaveBeenCalledWith({ error: { code: 'STALE_PRODUCT', message: 'This product changed. Refresh and try again.' } })
+  })
+})
