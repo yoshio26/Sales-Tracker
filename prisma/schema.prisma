@@ -74,6 +74,17 @@ model Session {
   @@map("sessions")
 }
 
+model RateLimitEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  bucket    String   @db.VarChar(20)
+  keyHash   String   @map("key_hash") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([bucket, keyHash, createdAt])
+  @@index([createdAt])
+  @@map("rate_limit_events")
+}
+
 model Expense {
   id                  String    @id @default(uuid()) @db.Uuid
   userId              String    @map("user_id") @db.Uuid

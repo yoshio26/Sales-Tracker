@@ -14,6 +14,7 @@ const configSchema = z.object({
   COOKIE_SECURE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   RATE_LIMIT_EMAIL_MAX: z.coerce.number().int().positive().default(3),
   RATE_LIMIT_IP_MAX: z.coerce.number().int().positive().default(20),
+  AUTH_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
   ALLOWLIST_EMAIL: z.string().email().optional(),
 })
 
@@ -30,5 +31,10 @@ export const config = configSchema.parse({
   COOKIE_SECURE: process.env.COOKIE_SECURE,
   RATE_LIMIT_EMAIL_MAX: process.env.RATE_LIMIT_EMAIL_MAX,
   RATE_LIMIT_IP_MAX: process.env.RATE_LIMIT_IP_MAX,
+  AUTH_CLEANUP_INTERVAL_MS: process.env.AUTH_CLEANUP_INTERVAL_MS,
   ALLOWLIST_EMAIL: process.env.ALLOWLIST_EMAIL,
 })
+
+if (config.NODE_ENV === 'production' && !config.COOKIE_SECURE) {
+  throw new Error('COOKIE_SECURE=true is required in production.')
+}

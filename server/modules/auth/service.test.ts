@@ -84,7 +84,7 @@ describe('authentication policy helpers', () => {
     await expect(requestCode('approved@example.com', '203.0.113.12')).resolves.toEqual({ message: 'If the email is approved, a sign-in code has been sent.' })
 
     expect(mocks.invalidateLoginCode).toHaveBeenCalledWith({}, 'login-code-id', expect.any(Date))
-    expect(consoleError).toHaveBeenCalledWith('Unable to send login email', { name: 'Error', message: 'SMTP unavailable', code: undefined })
+    expect(consoleError.mock.calls[0]?.[0]).toContain('login_email_send_failed')
     expect(consoleError.mock.calls.flat().join(' ')).not.toContain('SMTP_PASSWORD')
     consoleError.mockRestore()
   })
@@ -98,7 +98,7 @@ describe('authentication policy helpers', () => {
 
     await expect(requestCode('approved@example.com', '203.0.113.13')).resolves.toEqual({ message: 'If the email is approved, a sign-in code has been sent.' })
 
-    expect(consoleError).toHaveBeenCalledWith('Unable to invalidate login code after delivery failure', { name: 'Error', message: 'database unavailable' })
+    expect(consoleError.mock.calls[1]?.[0]).toContain('login_code_invalidation_failed')
     consoleError.mockRestore()
   })
 

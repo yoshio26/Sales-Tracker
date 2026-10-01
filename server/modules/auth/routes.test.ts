@@ -118,7 +118,7 @@ describe('authentication routes', () => {
 
     const res = await invoke('post', '/verify-code', { body: { email: ' User@Example.COM ', code: '123456' }, origin: 'http://localhost:5173' })
 
-    expect(mocks.verifyCode).toHaveBeenCalledWith('User@Example.COM', '123456')
+    expect(mocks.verifyCode).toHaveBeenCalledWith('User@Example.COM', '123456', '203.0.113.10')
     expect(res.cookie).toHaveBeenCalledWith(SESSION_COOKIE, 'opaque-token', {
       httpOnly: true,
       sameSite: 'lax',

@@ -54,6 +54,21 @@ export function deleteSession(db: Database, tokenHash: string) {
   return db.session.deleteMany({ where: { tokenHash } })
 }
 
+export function deleteExpiredAuthRecords(db: PrismaClient, now: Date) {
+  return db.$transaction([
+    db.loginCode.deleteMany({ where: { expiresAt: { lte: now } } }),
+    db.session.deleteMany({ where: { expiresAt: { lte: now } } }),
+    db.rateLimitEvent.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 10 * 60 * 1000) } } }),
+  ])
+}
+
+export async function consumeRateLimit(db: Database, bucket: string, keyHash: string, max: number, since: Date, now: Date): Promise<boolean> {
+  const recent = await db.rateLimitEvent.count({ where: { bucket, keyHash, createdAt: { gte: since } } })
+  if (recent >= max) return false
+  await db.rateLimitEvent.create({ data: { bucket, keyHash, createdAt: now } })
+  return true
+}
+
 export function completeVerification(input: { codeId: string; email: string; now: Date; tokenHash: string; expiresAt: Date }) {
   return prisma.$transaction(async (tx) => {
     const consumed = await consumeCode(tx, input.codeId, input.now)

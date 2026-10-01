@@ -8,19 +8,24 @@
   },
   "scripts": {
     "dev": "concurrently \"tsx watch server/index.ts\" \"npm --prefix FrontEnd run dev\"",
+    "start": "node dist/server/server/index.js",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p FrontEnd/tsconfig.app.json --noEmit",
     "test": "vitest run",
     "build": "npm run typecheck && npm --prefix FrontEnd run build && tsc -p tsconfig.server.json",
     "test:dev-auth-flow": "vitest run tests/dev-auth-flow.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
+    "@types/cors": "^2.8.19",
     "cookie-parser": "1.4.7",
+    "cors": "^2.8.6",
     "dotenv": "16.6.1",
     "express": "5.2.1",
+    "helmet": "^8.3.0",
     "nodemailer": "10.0.13",
     "zod": "4.6.5"
   },

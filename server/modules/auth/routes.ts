@@ -24,7 +24,8 @@ authRouter.post('/request-code', requireSameOrigin, async (req, res, next) => {
 authRouter.post('/verify-code', requireSameOrigin, async (req, res, next) => {
   try {
     const { email, code } = verifySchema.parse(req.body)
-    const result = await verifyCode(email, code)
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const result = await verifyCode(email, code, ip)
     if (!result.ok) return res.status(401).json({ error: { code: 'INVALID_CODE', message: 'The code could not be verified.' } })
     res.cookie(SESSION_COOKIE, result.token, {
       httpOnly: true,

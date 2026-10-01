@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { z } from 'zod'
 import styles from './App.module.css'
-import { DashboardPage, type Dashboard } from './pages/DashboardPage'
+import type { Dashboard } from './pages/DashboardPage'
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 type View = 'email' | 'code' | 'signed-in'
 type CatalogStatus = 'active' | 'archived'
@@ -378,7 +380,7 @@ function App() {
               <div><h1>Product catalog</h1><p>Create the products and categories you reuse in your sales records.</p></div>
               <button className={styles.secondary} type="button" onClick={() => void logout()}>Sign out</button>
             </div>
-            <DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} />
+            <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
             <div className={styles.tabs} role="group" aria-label="Catalog status">
               <button type="button" aria-pressed={catalogStatus === 'active'} className={catalogStatus === 'active' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('active')}>Active</button>
               <button type="button" aria-pressed={catalogStatus === 'archived'} className={catalogStatus === 'archived' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('archived')}>Archived</button>

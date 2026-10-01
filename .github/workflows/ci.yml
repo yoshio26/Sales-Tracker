@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sales_tracker
+          POSTGRES_PASSWORD: sales_tracker
+          POSTGRES_DB: sales_tracker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sales_tracker -d sales_tracker_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URL: postgresql://sales_tracker:sales_tracker@localhost:5432/sales_tracker_test
+      NODE_ENV: test
+      APP_ORIGIN: http://localhost:5173
+      SMTP_HOST: localhost
+      SMTP_PORT: 1025
+      MAIL_FROM: no-reply@example.test
+      COOKIE_SECURE: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:deploy
+      - run: npm run db:seed
+        env:
+          ALLOWLIST_EMAIL: test@example.test
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm start > server.log 2>&1 &
+      - run: curl --fail --retry 10 --retry-delay 1 http://localhost:3000/healthz
+      - run: npm run test:dev-auth-flow
+        env:
+          RUN_DEV_AUTH_FLOW: true
+          DEV_AUTH_BASE_URL: http://localhost:3000
+          DEV_AUTH_MAILPIT_URL: http://localhost:8025
+          DEV_AUTH_EMAIL: test@example.test
