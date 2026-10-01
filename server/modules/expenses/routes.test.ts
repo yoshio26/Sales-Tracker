@@ -20,10 +20,14 @@ function response(): MockResponse {
 }
 
 async function invoke(method: 'get' | 'post' | 'put' | 'delete', path: string, req: Record<string, unknown>) {
-  const layer = expensesRouter.stack.find((candidate) => candidate.route?.path === path && candidate.route.methods[method])
-  if (!layer) throw new Error(`Route ${method} ${path} is missing.`)
+  const layer = expensesRouter.stack.find((candidate) => {
+    const route = candidate.route as { path?: string; methods?: Record<string, boolean> } | undefined
+    return route?.path === path && route.methods?.[method] === true
+  })
+  const route = layer?.route as { stack: Array<{ handle: (...args: never[]) => unknown }> } | undefined
+  if (!route) throw new Error(`Route ${method} ${path} is missing.`)
   const res = response()
-  const handlers = layer.route.stack.map((candidate) => candidate.handle)
+  const handlers = route.stack.map((candidate) => candidate.handle)
   let index = 0
   const next = async (error?: unknown): Promise<void> => {
     if (error) throw error
@@ -66,6 +70,18 @@ describe('expense routes', () => {
     const res = await invoke('put', '/:id', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, body: { ...validBody, updatedAt: '2026-10-01T00:00:00.000Z' }, get: () => 'http://localhost:5173' })
     expect(res.status).toHaveBeenCalledWith(409)
     expect(res.json).toHaveBeenCalledWith({ error: { code: 'STALE_EXPENSE', message: 'This expense changed. Refresh and try again.' } })
+  })
+
+  it('does not reveal a foreign expense during reads or mutations', async () => {
+    mocks.getExpense.mockResolvedValue(null)
+    mocks.updateExpense.mockResolvedValue({ kind: 'not-found' })
+
+    const read = await invoke('get', '/:id', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => undefined })
+    const update = await invoke('put', '/:id', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, body: { ...validBody, updatedAt: '2026-10-01T00:00:00.000Z' }, get: () => 'http://localhost:5173' })
+
+    expect(mocks.getExpense).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000')
+    expect(read.status).toHaveBeenCalledWith(404)
+    expect(update.status).toHaveBeenCalledWith(404)
   })
 
   it('soft-deletes through an idempotent endpoint', async () => {

@@ -55,6 +55,15 @@ describe('product catalog routes', () => {
     expect(res.json).toHaveBeenCalledWith({ products: expect.arrayContaining([expect.objectContaining({ id: 'product-id' })]) })
   })
 
+  it('does not return products from another tenant', async () => {
+    mocks.listProducts.mockResolvedValue([])
+
+    const res = await invoke('get', '/', { userId: 'user-a', query: {}, get: () => undefined })
+
+    expect(mocks.listProducts).toHaveBeenCalledWith('user-a', 'active')
+    expect(res.json).toHaveBeenCalledWith({ products: [] })
+  })
+
   it('validates create DTOs before calling the service', async () => {
     const res = await invoke('post', '/', { userId: 'user-a', body: { name: '', category: '' }, get: () => 'http://localhost:5173' })
 
@@ -81,5 +90,19 @@ describe('product catalog routes', () => {
 
     expect(res.status).toHaveBeenCalledWith(409)
     expect(res.json).toHaveBeenCalledWith({ error: { code: 'STALE_PRODUCT', message: 'This product changed. Refresh and try again.' } })
+  })
+
+  it('does not reveal a foreign product during mutation', async () => {
+    mocks.updateProduct.mockResolvedValue({ kind: 'not-found' })
+
+    const res = await invoke('put', '/:id', {
+      userId: 'user-a',
+      params: { id: '123e4567-e89b-12d3-a456-426614174000' },
+      body: { name: 'widget', category: 'hardware', updatedAt: '2026-09-30T12:00:00.000Z' },
+      get: () => 'http://localhost:5173',
+    })
+
+    expect(mocks.updateProduct).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000', expect.anything())
+    expect(res.status).toHaveBeenCalledWith(404)
   })
 })
