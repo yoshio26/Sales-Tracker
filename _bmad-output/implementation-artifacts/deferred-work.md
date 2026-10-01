@@ -19,3 +19,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-product-catalog.md`
   summary: Expand product route tests for successful archive/update/create and malformed request cases.
   evidence: Current route tests cover representative auth, validation, origin, listing, and stale-update behavior; comprehensive API coverage is deferred to Epic 5.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-expense-ledger.md`
+  summary: Add live PostgreSQL persistence/integration coverage for expense snapshots, tenant isolation, concurrency, and soft deletion.
+  evidence: Expense unit and route tests cover the service and HTTP contracts; Prisma client generation and migration deployment passed, while real database scenario coverage is deferred to Epic 5.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-expense-ledger.md`
+  summary: Add browser-level expense ledger flow tests.
+  evidence: The repository has no client test harness; create/edit/product-change/filter/conflict/delete UI flows are deferred to Epic 5 E2E coverage.

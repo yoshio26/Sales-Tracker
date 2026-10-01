@@ -85,6 +85,14 @@
 }
 
 .workspace { display: grid; gap: 1rem; }
+.ledger { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid #dce4ef; }
+.ledger h2, .ledger h3 { margin: 0; color: #17243b; }
+.ledger p { margin: 0; }
+.card select, .card textarea { box-sizing: border-box; width: 100%; padding: 0.85rem 1rem; border: 1px solid #b9c7dc; border-radius: 0.65rem; color: #17243b; font: inherit; background: white; }
+.card select:focus, .card textarea:focus { outline: 3px solid #b9d2ff; border-color: #3f75c5; }
+.filters { display: grid; grid-template-columns: auto minmax(10rem, 1fr) auto minmax(10rem, 1fr) auto minmax(10rem, 1fr) auto; gap: 0.5rem; align-items: center; }
+.filters label { margin-top: 0 !important; }
+.filters button { margin-top: 0; }
 .workspaceHeader { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
 .workspaceHeader button { margin-top: 0; white-space: nowrap; }
 .workspace h2 { margin: 0; color: #17243b; font-size: 1.1rem; }

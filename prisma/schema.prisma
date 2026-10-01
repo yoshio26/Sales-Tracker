@@ -14,6 +14,7 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   sessions      Session[]
   products      Product[]
+  expenses      Expense[]
 
   @@map("users")
 }
@@ -28,8 +29,10 @@ model Product {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses   Expense[]
 
   @@unique([userId, name])
+  @@unique([id, userId])
   @@index([userId, active])
   @@index([userId, category])
   @@index([userId, updatedAt])
@@ -69,4 +72,27 @@ model Session {
   @@index([userId, expiresAt])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+model Expense {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  productId           String    @map("product_id") @db.Uuid
+  productNameSnapshot String    @map("product_name_snapshot") @db.VarChar(200)
+  categorySnapshot    String    @map("category_snapshot") @db.VarChar(100)
+  amountCents         Int       @map("amount_cents")
+  quantity            Int       @default(1)
+  note                String?
+  spentAt             DateTime  @map("spent_at") @db.Timestamptz(3)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product             Product   @relation(fields: [productId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId, deletedAt, spentAt])
+  @@index([userId, productId, deletedAt])
+  @@index([userId, categorySnapshot, deletedAt])
+  @@index([userId, deletedAt, updatedAt])
+  @@map("expenses")
 }
