@@ -25,6 +25,17 @@ describe('dashboard data access', () => {
     expect(query.values).toEqual(expect.arrayContaining(['user-a', range.from, range.to]))
   })
 
+  it('applies the same half-open range to every bounded aggregate', async () => {
+    const db = database()
+
+    await getByProduct(db, 'user-a', range)
+    expect(queryParts(db).values).toEqual(expect.arrayContaining(['user-a', range.from, range.to]))
+    await getByCategory(db, 'user-a', range)
+    expect(queryParts(db).values).toEqual(expect.arrayContaining(['user-a', range.from, range.to]))
+    await getTimeSeries(db, 'user-a', range, 'day')
+    expect(queryParts(db).values).toEqual(expect.arrayContaining(['user-a', 'day', range.from, range.to]))
+  })
+
   it('leaves all-time totals unbounded by an artificial date range', async () => {
     const db = database()
     await getTotal(db, 'user-a')

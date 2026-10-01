@@ -57,7 +57,7 @@ context:
 - [x] `server/modules/dashboard/routes.ts`; `server/app.ts` -- expose protected GET dashboard data with validated filters and mount the router.
 - [x] `server/modules/dashboard/*.test.ts` -- test tenant isolation, soft-delete exclusion, snapshot grouping, zero-result behavior, date boundaries, validation, and unauthorized access.
 - [x] `client/src/App.tsx`; `client/src/App.module.css`; `client/package.json` -- add the dashboard view, approved chart rendering, responsive layout, accessible labels/summaries, loading/empty/error/retry states, and preserve existing flows.
-- [ ] `client` dashboard tests or documented manual checks -- verify totals, charts, empty/error states, responsive layout, and navigation from the signed-in workspace.
+- [x] `client` dashboard tests or documented manual checks -- verify totals, charts, empty/error states, responsive layout, and navigation from the signed-in workspace.
 
 **Acceptance Criteria:**
 - Given two authenticated users, when either loads the dashboard, then every aggregate contains only that session user’s non-deleted expenses.
@@ -70,6 +70,22 @@ context:
 ## Implementation Notes
 
 Dashboard is a read-only projection over `Expense`. Keep all persistence behind the dashboard data-access layer; use Prisma tagged-template raw SQL only for grouped aggregates that require it, with no string concatenation. Preserve the existing modular route → service → data-access layering and session middleware.
+
+## Review Triage Log
+
+| Finding | Verdict | Evidence and route |
+| --- | --- | --- |
+| Trend summaries exposed only point counts | medium / patch | Real accessibility gap; fixed by exposing each trend bucket and decimal amount in the visible chart summary. |
+| Chart wrapper labels were not a complete accessible representation | false | The visible chart summaries provide textual values for trend, product, and category data; the cited outcome no longer occurs. |
+| Missing zero-value time-series buckets | false | The frozen intent requires spending buckets but does not require synthetic zero buckets; omitted empty periods do not violate the stated contract. |
+| Missing date-range controls | false | Date controls are explicitly optional in the loaded context, and the frozen intent requires fixed current-month/all-time views only. |
+| Partial filters silently accepted by the service | false | The public route validates paired and ordered ranges before calling the service; direct internal calls are not an HTTP contract. |
+| All-time mapping lacked test coverage | medium / patch | Real verification gap; fixed by asserting all-time decimal category mapping in the service test. |
+| Empty state depended on the literal `0.00` string | false | All server money values are normalized by `centsToMoney`, so zero totals are contractually emitted as `0.00`. |
+| Manual checklist omitted API-level cases | false | Unauthorized and invalid-range cases are covered by route tests, tenant/deletion/snapshot cases by data-access tests, and UI behavior by the documented checklist. |
+| Aggregate SQL tests did not execute database fixtures | false | The spec requests dashboard unit/route tests, and the data-access tests verify every parameterized SELECT predicate, grouping, and bucket expression without introducing database-mutating test fixtures. |
+| All-time granularity lacked service assertion | medium / patch | Real verification gap; fixed by asserting day granularity for current month and month granularity for all time. |
+| Client dashboard had no automated browser flow | false | The spec explicitly permits documented client manual checks; `client/DASHBOARD-MANUAL-CHECKS.md` covers rendering, empty/error/retry, mutation refresh, responsiveness, and keyboard use. |
 
 ## Design Notes
 

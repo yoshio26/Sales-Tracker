@@ -34,16 +34,19 @@ describe('dashboard service', () => {
     })
     expect(mocks.getTotal).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ from: new Date('2026-10-01T00:00:00.000Z') }))
     expect(mocks.getByProduct).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ to: new Date('2026-11-01T00:00:00.000Z') }))
+    expect(mocks.getTimeSeries).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ from: new Date('2026-10-01T00:00:00.000Z') }), 'day')
+    expect(mocks.getTimeSeries).toHaveBeenCalledWith({}, 'user-a', undefined, 'month')
   })
 
   it('maps snapshot aggregate values as decimal strings', async () => {
     mocks.getTotal.mockResolvedValueOnce([{ totalCents: 1250n }]).mockResolvedValueOnce([{ totalCents: 987n }])
     mocks.getByProduct.mockResolvedValueOnce([{ label: 'Archived Widget', totalCents: 1250n }])
-    mocks.getByCategory.mockResolvedValueOnce([{ label: 'Old category', totalCents: 987n }])
+    mocks.getByCategory.mockResolvedValueOnce([]).mockResolvedValueOnce([{ label: 'Old category', totalCents: 987n }])
     mocks.getTimeSeries.mockResolvedValueOnce([{ bucketUtc: new Date('2026-10-02T00:00:00.000Z'), totalCents: 1250n }])
 
     await expect(getDashboard('user-a', new Date('2026-10-03T12:00:00.000Z'))).resolves.toMatchObject({
       currentMonth: { total: '12.50', byProduct: [{ label: 'Archived Widget', amount: '12.50' }], trend: [{ bucket: '2026-10-02T00:00:00.000Z', amount: '12.50' }] },
+      allTime: { total: '9.87', byCategory: [{ label: 'Old category', amount: '9.87' }] },
     })
   })
 })

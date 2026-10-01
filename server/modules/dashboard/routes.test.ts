@@ -54,4 +54,25 @@ describe('dashboard routes', () => {
     expect(reversed.status).toHaveBeenCalledWith(400)
     expect(getDashboard).not.toHaveBeenCalled()
   })
+
+  it('forwards dashboard failures to the application error envelope', async () => {
+    const failure = new Error('database unavailable')
+    getDashboard.mockRejectedValue(failure)
+    const next = vi.fn()
+    const layer = dashboardRouter.stack.find((candidate) => candidate.route?.path === '/' && candidate.route.methods.get)
+    if (!layer) throw new Error('Dashboard route is missing.')
+    const handlers = layer.route.stack.map((candidate) => candidate.handle)
+    let index = 0
+    const req = { query: {}, userId: 'user-a' }
+    const res = response()
+    const invokeNext = async (error?: unknown): Promise<void> => {
+      if (error) next(error)
+      const handler = handlers[index++]
+      if (handler) await handler(req as never, res as never, invokeNext as never)
+    }
+
+    await invokeNext()
+
+    expect(next).toHaveBeenCalledWith(failure)
+  })
 })
