@@ -75,6 +75,19 @@ Dashboard is a read-only projection over `Expense`. Keep all persistence behind 
 
 | Finding | Verdict | Evidence and route |
 | --- | --- | --- |
+| Dashboard report type omits current-month range fields | false | `Dashboard` explicitly intersects `DashboardReport` with `{ from, to }` for `currentMonth`; the response schema and runtime validation include both fields. |
+| ISO date tick labels rely on string slicing | false | The API contract emits ISO 8601 UTC strings, so the fixed-position slices are valid for the selected day/month labels. |
+| Mutation refresh shows stale dashboard data without loading feedback | false | `loadDashboard()` sets `dashboardLoading` before each refresh, and the signed-in view renders the loading status while the request is pending. |
+| Dashboard needs i18n/currency configuration | false | Localization and configurable currencies are not part of the frozen dashboard intent; this application currently presents English USD amounts. |
+| Invalid-range errors need more specific wording | false | The frozen contract requires a `400` for invalid ranges, not distinct messages for each invalid-range cause; the route returns the existing safe error-envelope shape. |
+| Recharts bundle size requires code splitting | low / defer | The build emits a non-blocking size warning, but bundle optimization is outside the dashboard acceptance criteria and does not block correctness. |
+| Product mutations should refresh dashboard data | false | Product edits and archival do not alter immutable expense snapshots or aggregate values, so refreshing for those mutations is unnecessary. |
+| Manual checks need exact seeded expected values | false | The checklist verifies behavior against the seeded database and the automated tests cover the exact contract-level aggregate transformations; hardcoded fixture totals are not required. |
+| Product/category aggregates need pagination | false | The spec requires complete breakdown arrays and does not define pagination or limits; adding one would change the API contract. |
+| Chart summaries need additional live-region/skip-link behavior | false | The visible summaries expose chart values as text and the chart containers have accessible labels; the frozen requirement is meaningful non-color information, not a separate live-region design. |
+
+| Finding | Verdict | Evidence and route |
+| --- | --- | --- |
 | Trend summaries exposed only point counts | medium / patch | Real accessibility gap; fixed by exposing each trend bucket and decimal amount in the visible chart summary. |
 | Chart wrapper labels were not a complete accessible representation | false | The visible chart summaries provide textual values for trend, product, and category data; the cited outcome no longer occurs. |
 | Missing zero-value time-series buckets | false | The frozen intent requires spending buckets but does not require synthetic zero buckets; omitted empty periods do not violate the stated contract. |
