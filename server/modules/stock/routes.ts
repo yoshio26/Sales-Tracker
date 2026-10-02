@@ -4,10 +4,10 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, replenishStock } from './service.js'
+import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, parseCost, replenishStock } from './service.js'
 
 const quantitySchema = z.number().int().positive().max(2147483647)
-const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
+const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema, deductEarnings: z.boolean().default(false), cost: z.string().optional() })
 const purchaseSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
 
 function invalidInput(res: { status: (code: number) => { json: (body: unknown) => unknown } }, message = 'Enter a valid product and quantity.') {
@@ -34,7 +34,12 @@ stockRouter.delete('/', requireSession, requireSameOrigin, async (req, res, next
 stockRouter.post('/replenish', requireSession, requireSameOrigin, async (req, res, next) => {
   try {
     const input = replenishSchema.parse(req.body)
-    const outcome = await replenishStock(req.userId!, input.productId, input.quantity)
+    let costCents: number | undefined
+    if (input.deductEarnings) {
+      if (!input.cost) return invalidInput(res, 'Enter the restock cost to deduct from total earnings.')
+      try { costCents = parseCost(input.cost) } catch { return invalidInput(res, 'Enter a valid restock cost.') }
+    }
+    const outcome = await replenishStock(req.userId!, input.productId, input.quantity, costCents)
     if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
     res.json({ product: outcome.product })
   } catch (error) {

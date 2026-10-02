@@ -27,10 +27,17 @@ export function listStock(db: Database, userId: string) {
   return db.product.findMany({ where: { userId, active: true, deletedAt: null }, select: productSelection, orderBy: [{ category: 'asc' }, { name: 'asc' }] })
 }
 
-export async function adjustStock(db: PrismaClient, userId: string, productId: string, quantity: number) {
+export async function adjustStock(db: PrismaClient, userId: string, productId: string, quantity: number, costCents?: number) {
   return db.$transaction(async (tx) => {
+    const product = await tx.product.findFirst({ where: { id: productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true } })
+    if (!product) return { kind: 'not-found' as const }
     const changed = await tx.product.updateMany({ where: { id: productId, userId, active: true, deletedAt: null }, data: { stockQuantity: { increment: quantity } } })
-    if (changed.count === 1) return { kind: 'adjusted' as const, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
+    if (changed.count === 1) {
+      if (costCents !== undefined) {
+        await tx.expense.create({ data: { userId, productId, productNameSnapshot: product.name, categorySnapshot: product.category, amountCents: costCents, quantity, note: 'Restock deduction', spentAt: new Date() } })
+      }
+      return { kind: 'adjusted' as const, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
+    }
     return { kind: 'not-found' as const }
   })
 }

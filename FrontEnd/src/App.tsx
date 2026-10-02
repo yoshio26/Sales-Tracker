@@ -16,7 +16,7 @@ type Product = { id: string; name: string; category: string; price: string; stoc
 type Expense = { id: string; productId: string; productName: string; category: string; amount: string; quantity: number; note: string | null; spentAt: string; createdAt: string; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
-const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }) })
+const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
 
 const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Product name is required.').max(200),
@@ -87,6 +87,8 @@ function App() {
   const [category, setCategory] = useState('')
   const [price, setPrice] = useState('')
   const [stockQuantity, setStockQuantity] = useState('0')
+    const [initialStockCost, setInitialStockCost] = useState('')
+    const [deductInitialStock, setDeductInitialStock] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState('')
@@ -266,6 +268,8 @@ function App() {
     setCategory('')
     setPrice('')
     setStockQuantity('0')
+    setInitialStockCost('')
+    setDeductInitialStock(false)
     setFieldError('')
   }
 
@@ -345,6 +349,14 @@ function App() {
       setFieldError(parsed.error.issues[0]?.message ?? 'Enter a valid product name and category.')
       return
     }
+    if (!editing && deductInitialStock && !initialStockCost.trim()) {
+      setFieldError('Enter the initial stock cost to deduct from total earnings.')
+      return
+    }
+    if (!editing && deductInitialStock && parsed.data.stockQuantity === 0) {
+      setFieldError('Enter an initial quantity before deducting its cost from total earnings.')
+      return
+    }
     setLoading(true)
     const wasEditing = editing !== null
     try {
@@ -361,6 +373,23 @@ function App() {
           if (refreshed) setEditing(refreshed)
         } else setFieldError(body?.error?.message ?? 'Unable to save the product.')
         return
+      }
+      if (!editing && deductInitialStock) {
+        const created = await response.clone().json() as { product?: Product }
+        if (!created.product) {
+          setCatalogError('The stock was added, but its deduction could not be recorded.')
+          return
+        }
+        const expenseResponse = await expensesApi('', {
+          method: 'POST',
+          body: JSON.stringify({ productId: created.product.id, amount: initialStockCost, quantity: parsed.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
+        })
+        if (!expenseResponse.ok) {
+          setCatalogError('The stock was added, but its deduction could not be recorded.')
+          return
+        }
+        await loadExpenses()
+        await loadDashboard()
       }
       resetProductForm()
       setProductModalOpen(false)
@@ -428,7 +457,7 @@ function App() {
               <div className={styles.brand}><span className={styles.brandMark}>S</span><span>Sales V1</span></div>
               <nav className={styles.sidebarNav} aria-label="Workspace views">
                 <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={workspaceView === 'dashboard' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('dashboard')}><NavIcon name="dashboard" /><span>Dashboard</span></button>
-                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('buy')}><NavIcon name="buy" /><span>Buy</span></button>
+                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('buy')}><NavIcon name="buy" /><span>Bought</span></button>
                 <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={workspaceView === 'stock' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('stock')}><NavIcon name="stock" /><span>Stocks</span></button>
                 <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('history')}><NavIcon name="history" /><span>Purchase History</span></button>
                 <button type="button" aria-current={workspaceView === 'settings' ? 'page' : undefined} className={workspaceView === 'settings' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('settings')}><NavIcon name="settings" /><span>Settings</span></button>
@@ -437,7 +466,7 @@ function App() {
             </aside>
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
-              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Buy stock' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : 'Purchase history'}</h1><p>Welcome back — here’s your sales overview.</p></div>
+              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : 'Purchase history'}</h1><p>Welcome back — here’s your sales overview.</p></div>
               <div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div>
             </div>
             {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />}
@@ -472,7 +501,10 @@ function App() {
                     <label htmlFor="stock-price">Unit price</label>
                     <input id="stock-price" inputMode="decimal" placeholder="0.00" value={price} onChange={(event) => setPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     {!editing && <><label htmlFor="initial-stock">Initial quantity</label>
-                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} /></>}
+                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    <label htmlFor="initial-stock-cost">Initial stock cost (optional)</label>
+                    <input id="initial-stock-cost" inputMode="decimal" placeholder="0.00" value={initialStockCost} onChange={(event) => setInitialStockCost(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    <label className={styles.checkboxLabel}><input type="checkbox" checked={deductInitialStock} onChange={(event) => setDeductInitialStock(event.target.checked)} /> Deduct from total earnings?</label></>}
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
                     <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>

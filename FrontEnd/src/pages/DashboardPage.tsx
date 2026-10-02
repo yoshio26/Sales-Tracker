@@ -4,7 +4,7 @@ import styles from '../App.module.css'
 export type DashboardPoint = { label: string; amount: string }
 export type DashboardTrendPoint = { bucket: string; amount: string }
 export type DashboardReport = { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
-export type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport; stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }; purchases: { count: number; quantity: number; totalCost: string } }
+export type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport; stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }; purchases: { count: number; quantity: number; totalCost: string }; totalEarnings: string; profit: string }
 
 type DashboardPageProps = {
   dashboard: Dashboard | null
@@ -16,12 +16,12 @@ type DashboardPageProps = {
 export function DashboardPage({ dashboard, loading, error, onRetry }: DashboardPageProps) {
   return (
     <section className={styles.dashboard} aria-labelledby="dashboard-heading">
-      <div><h2 id="dashboard-heading">Spending dashboard</h2><p>Understand your spending from non-deleted ledger entries.</p></div>
+      <div><h2 id="dashboard-heading">Earnings dashboard</h2><p>Track total earnings, costs, profit, and available stock.</p></div>
       {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={onRetry}>Retry</button></p>}
       {loading ? <p role="status" aria-live="polite">Loading dashboard…</p> : dashboard && <>
         <div className={styles.summaryCards} aria-label="Spending totals">
-          <article className={styles.summaryCard}><span>This month</span><strong>₱{dashboard.currentMonth.total}</strong></article>
-          <article className={styles.summaryCard}><span>All time</span><strong>₱{dashboard.allTime.total}</strong></article>
+          <article className={styles.summaryCard}><span>Total Earnings</span><strong>₱{dashboard.totalEarnings}</strong></article>
+          <article className={styles.summaryCard}><span>Profit</span><strong>₱{dashboard.profit}</strong></article>
           <article className={styles.summaryCard}><span>Available stock</span><strong>{dashboard.stock.totalUnits}</strong><small>{dashboard.stock.productsInStock} stocked · {dashboard.stock.productsOutOfStock} empty</small></article>
           <article className={styles.summaryCard}><span>Total sold</span><strong>{dashboard.purchases.quantity} items</strong><small>{dashboard.purchases.count} records · ₱{dashboard.purchases.totalCost}</small></article>
         </div>

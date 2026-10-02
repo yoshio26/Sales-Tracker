@@ -149,6 +149,15 @@
 .stockView { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #fbfcff; }
 .stockView h2 { margin: 0; color: #17243b; }
 .stockView p { margin: 0; }
+.productPicker { position: relative; }
+.productPickerButton { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; margin-top: 0 !important; padding: 0.85rem 1rem !important; border: 1px solid #b9c7dc !important; border-radius: 0.65rem !important; background: white !important; color: #17243b !important; text-align: left; }
+.productPickerButton::before, .productPickerOption::before { display: none !important; }
+.productPickerButton[aria-expanded="true"] { border-color: #f51f80 !important; outline: 3px solid #fbcfe8; }
+.pickerMeta { color: #5c6b82; font-size: 0.9rem; font-weight: 700; white-space: nowrap; }
+.pickerChevron { color: #f51f80; font-size: 1.2rem; font-weight: 800; line-height: 1; }
+.productPickerMenu { position: absolute; z-index: 5; right: 0; left: 0; display: grid; max-height: 15rem; overflow-y: auto; margin: 0.35rem 0 0; padding: 0.35rem; border: 1px solid #f1c1d9; border-radius: 0.65rem; background: white; box-shadow: 0 0.8rem 1.8rem rgba(44, 17, 34, 0.15); list-style: none; }
+.productPickerOption { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; margin: 0 !important; padding: 0.75rem !important; border: 0 !important; border-radius: 0.45rem !important; background: white !important; color: #17243b !important; text-align: left; }
+.productPickerOption:hover, .productPickerOption:focus-visible { background: #fff0f7 !important; color: #17243b !important; box-shadow: none !important; }
 .stockActions { display: flex; align-items: center; justify-content: flex-start; gap: 0.75rem; }
 .addNewButton { display: grid; place-items: center; width: 50px; height: 50px; margin-top: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 50% !important; color: #f472b6 !important; outline: none; transition: transform 300ms ease; }
 .addNewButton::before { display: none !important; }
@@ -171,11 +180,23 @@
 .tab { border-color: #b8d3ce !important; color: #356b68 !important; }
 .selectedTab { background: #356b68 !important; color: #fffdf9 !important; }
 .productForm { padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #f7f9fc; }
+.checkboxLabel { display: flex; align-items: center; gap: 0.5rem; margin-top: 0 !important; color: #17243b; font-weight: 700; }
+.checkboxLabel input { width: auto; }
 .searchLabel { margin-top: 0 !important; }
 .productList { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.historyToolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; color: #5c6b82; font-size: 0.9rem; }
+.historyToolbar label { margin-top: 0 !important; color: #17243b; font-weight: 700; }
+.historyToolbar select { padding: 0.45rem 0.65rem; border: 1px solid #b9c7dc; border-radius: 0.45rem; background: white; color: #17243b; font: inherit; }
+.historyScrollArea { max-height: 28rem; overflow-y: auto; padding: 0.15rem 0.35rem 0.15rem 0; overscroll-behavior: contain; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+.pagination button { margin-top: 0; }
+.pagination span { min-width: 6rem; color: #17243b; font-weight: 700; text-align: center; }
 .productItem { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.8rem; }
 .productItem strong, .productItem span { display: block; }
 .productItem span { color: #5c6b82; margin-top: 0.2rem; }
+.stockSelectionSummary { display: flex; justify-content: flex-end; gap: 1.25rem; padding: 0.75rem 1rem; border: 1px solid #dce4ef; border-radius: 0.65rem; background: #fff; color: #17243b; font-weight: 700; }
+.stockProductDetails { display: grid; justify-items: end; gap: 0.65rem; }
+.stockMeta { display: flex; justify-content: flex-end; gap: 1.25rem; color: #17243b; font-size: 0.95rem; font-weight: 700; white-space: nowrap; }
 .archived { color: #7a4e12 !important; font-size: 0.85rem; font-weight: 700; }
 .danger { border-color: #a84f4f !important; color: #a84f4f !important; }
 .danger::before { background: #a84f4f; }
@@ -211,6 +232,8 @@
     padding: 2rem;
   }
   .workspaceHeader, .productItem { align-items: stretch; flex-direction: column; }
+  .stockSelectionSummary, .stockMeta { justify-content: space-between; }
+  .stockProductDetails { justify-items: stretch; }
   .summaryCards, .chartGrid { grid-template-columns: 1fr; }
   .chartCard:first-child { grid-column: auto; }
 }

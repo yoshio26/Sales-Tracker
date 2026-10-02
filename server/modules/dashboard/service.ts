@@ -10,6 +10,8 @@ export type DashboardResponse = {
   allTime: { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
   stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }
   purchases: { count: number; quantity: number; totalCost: string }
+  totalEarnings: string
+  profit: string
 }
 
 export function currentUtcMonth(now = new Date()): ReportingRange {
@@ -40,6 +42,7 @@ async function reportForRange(userId: string, range: ReportingRange | undefined,
     getByCategory(dashboardDatabase, userId, range),
   ])
   return {
+    totalCents: totalRows[0]?.totalCents ?? 0,
     total: centsToMoney(totalRows[0]?.totalCents ?? 0),
     trend: trendRows.map((row) => ({ bucket: row.bucketUtc.toISOString(), amount: centsToMoney(row.totalCents) })),
     byProduct: mapTotals(productRows),
@@ -49,7 +52,7 @@ async function reportForRange(userId: string, range: ReportingRange | undefined,
 
 export async function getDashboard(userId: string, now = new Date(), filters: DashboardFilters = {}): Promise<DashboardResponse> {
   const month = filters.from && filters.to ? { from: filters.from, to: filters.to } : currentUtcMonth(now)
-  const [currentMonth, allTime, stockRows, purchaseRows] = await Promise.all([
+  const [currentMonth, allTimeReport, stockRows, purchaseRows] = await Promise.all([
     reportForRange(userId, month, 'day'),
     reportForRange(userId, undefined, 'month'),
     getStockSummary(dashboardDatabase, userId),
@@ -57,10 +60,14 @@ export async function getDashboard(userId: string, now = new Date(), filters: Da
   ])
   const stock = stockRows[0] ?? { totalUnits: 0, productsInStock: 0, productsOutOfStock: 0 }
   const purchases = purchaseRows[0] ?? { purchaseCount: 0, totalQuantity: 0, totalCostCents: 0 }
+  const totalEarningsCents = typeof purchases.totalCostCents === 'bigint' ? purchases.totalCostCents : BigInt(purchases.totalCostCents)
+  const expenseTotalCents = typeof allTimeReport.totalCents === 'bigint' ? allTimeReport.totalCents : BigInt(allTimeReport.totalCents)
   return {
     currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), ...currentMonth },
-    allTime,
+    allTime: { total: allTimeReport.total, trend: allTimeReport.trend, byProduct: allTimeReport.byProduct, byCategory: allTimeReport.byCategory },
     stock: { totalUnits: integerValue(stock.totalUnits), productsInStock: integerValue(stock.productsInStock), productsOutOfStock: integerValue(stock.productsOutOfStock) },
     purchases: { count: integerValue(purchases.purchaseCount), quantity: integerValue(purchases.totalQuantity), totalCost: centsToMoney(purchases.totalCostCents) },
+    totalEarnings: centsToMoney(totalEarningsCents),
+    profit: centsToMoney(totalEarningsCents - expenseTotalCents),
   }
 }
