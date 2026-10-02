@@ -9,6 +9,7 @@ const productSchema = z.object({
   name: z.string().trim().min(1).max(200),
   category: z.string().trim().min(1).max(100),
 })
+const createProductSchema = productSchema.extend({ stockQuantity: z.number().int().nonnegative().max(1_000_000_000).default(0) })
 const updateSchema = productSchema.extend({ updatedAt: z.string().datetime({ offset: true }) })
 const listSchema = z.object({ status: z.enum(['active', 'archived']).default('active') })
 
@@ -37,7 +38,7 @@ productsRouter.get('/', requireSession, async (req, res, next) => {
 
 productsRouter.post('/', requireSession, requireSameOrigin, async (req, res, next) => {
   try {
-    const input = productSchema.parse(req.body)
+    const input = createProductSchema.parse(req.body)
     const outcome = await createProduct(req.userId!, input)
     if (outcome.kind === 'duplicate') return res.status(409).json({ error: { code: 'DUPLICATE_PRODUCT', message: 'A product with that name already exists.' } })
     res.status(201).json({ product: outcome.product })

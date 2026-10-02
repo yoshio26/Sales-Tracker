@@ -4,7 +4,7 @@ import styles from '../App.module.css'
 export type DashboardPoint = { label: string; amount: string }
 export type DashboardTrendPoint = { bucket: string; amount: string }
 export type DashboardReport = { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
-export type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport }
+export type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport; stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }; purchases: { count: number; quantity: number; totalCost: string } }
 
 type DashboardPageProps = {
   dashboard: Dashboard | null
@@ -22,6 +22,8 @@ export function DashboardPage({ dashboard, loading, error, onRetry }: DashboardP
         <div className={styles.summaryCards} aria-label="Spending totals">
           <article className={styles.summaryCard}><span>This month</span><strong>${dashboard.currentMonth.total}</strong></article>
           <article className={styles.summaryCard}><span>All time</span><strong>${dashboard.allTime.total}</strong></article>
+          <article className={styles.summaryCard}><span>Available stock</span><strong>{dashboard.stock.totalUnits}</strong><small>{dashboard.stock.productsInStock} stocked · {dashboard.stock.productsOutOfStock} empty</small></article>
+          <article className={styles.summaryCard}><span>Purchases</span><strong>{dashboard.purchases.quantity} items</strong><small>{dashboard.purchases.count} records · ${dashboard.purchases.totalCost}</small></article>
         </div>
         {dashboard.allTime.total === '0.00' ? <p className={styles.empty}>No expenses recorded yet. Record an expense below to see your spending here.</p> : <div className={styles.chartGrid}>
           <article className={styles.chartCard}><h3>This month over time</h3><p className={styles.chartSummary}>{dashboard.currentMonth.trend.length ? dashboard.currentMonth.trend.map((point) => `${point.bucket}: $${point.amount}`).join('; ') : 'No spending this month.'}</p><div className={styles.chart} aria-label="This month spending chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={dashboard.currentMonth.trend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="bucket" tickFormatter={(value: string) => value.slice(5, 10)} /><YAxis /><Tooltip formatter={(value) => `$${value}`} /><Line type="monotone" dataKey="amount" name="Amount" stroke="#356b68" strokeWidth={3} dot /></LineChart></ResponsiveContainer></div></article>

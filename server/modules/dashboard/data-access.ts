@@ -9,6 +9,28 @@ export type MoneyTotalRow = { totalCents: bigint | number }
 export type ProductTotalRow = { label: string; totalCents: bigint | number }
 export type CategoryTotalRow = { label: string; totalCents: bigint | number }
 export type TimeSeriesRow = { bucketUtc: Date; totalCents: bigint | number }
+export type StockSummaryRow = { totalUnits: bigint | number; productsInStock: bigint | number; productsOutOfStock: bigint | number }
+export type PurchaseSummaryRow = { purchaseCount: bigint | number; totalQuantity: bigint | number; totalCostCents: bigint | number }
+
+export function getStockSummary(db: DashboardDatabase, userId: string) {
+  return db.$queryRaw<StockSummaryRow[]>(Prisma.sql`
+    SELECT COALESCE(SUM(stock_quantity), 0)::bigint AS "totalUnits",
+           COUNT(*) FILTER (WHERE stock_quantity > 0)::bigint AS "productsInStock",
+           COUNT(*) FILTER (WHERE stock_quantity = 0)::bigint AS "productsOutOfStock"
+    FROM products
+    WHERE user_id = ${userId}::uuid AND active = true
+  `)
+}
+
+export function getPurchaseSummary(db: DashboardDatabase, userId: string) {
+  return db.$queryRaw<PurchaseSummaryRow[]>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS "purchaseCount",
+           COALESCE(SUM(quantity), 0)::bigint AS "totalQuantity",
+           COALESCE(SUM(total_cost_cents), 0)::bigint AS "totalCostCents"
+    FROM stock_purchases
+    WHERE user_id = ${userId}::uuid
+  `)
+}
 
 export function getTotal(db: DashboardDatabase, userId: string, range?: { from: Date; to: Date }) {
   return db.$queryRaw<MoneyTotalRow[]>(Prisma.sql`

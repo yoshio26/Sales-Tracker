@@ -15,6 +15,7 @@ model User {
   sessions      Session[]
   products      Product[]
   expenses      Expense[]
+  stockPurchases StockPurchase[]
 
   @@map("users")
 }
@@ -24,12 +25,14 @@ model Product {
   userId     String    @map("user_id") @db.Uuid
   name       String    @db.VarChar(200)
   category   String    @db.VarChar(100)
+  stockQuantity Int     @default(0) @map("stock_quantity")
   active     Boolean   @default(true)
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses   Expense[]
+  stockPurchases StockPurchase[]
 
   @@unique([userId, name])
   @@unique([id, userId])
@@ -106,4 +109,21 @@ model Expense {
   @@index([userId, categorySnapshot, deletedAt])
   @@index([userId, deletedAt, updatedAt])
   @@map("expenses")
+}
+
+model StockPurchase {
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  productId            String   @map("product_id") @db.Uuid
+  productNameSnapshot  String   @map("product_name_snapshot") @db.VarChar(200)
+  categorySnapshot     String   @map("category_snapshot") @db.VarChar(100)
+  quantity             Int
+  totalCostCents       Int      @map("total_cost_cents")
+  purchasedAt          DateTime @default(now()) @map("purchased_at") @db.Timestamptz(3)
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product              Product  @relation(fields: [productId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId, purchasedAt])
+  @@index([userId, productId, purchasedAt])
+  @@map("stock_purchases")
 }

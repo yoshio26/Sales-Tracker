@@ -12,7 +12,7 @@ export function listProducts(db: Database, userId: string, status: ProductStatus
   })
 }
 
-export function createProduct(db: Database, userId: string, input: { name: string; category: string }) {
+export function createProduct(db: Database, userId: string, input: { name: string; category: string; stockQuantity?: number }) {
   return db.product.create({ data: { userId, ...input } })
 }
 

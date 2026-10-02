@@ -3,20 +3,24 @@ import type { FormEvent } from 'react'
 import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
+import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
+import { StockTrackerPage } from './pages/StockTrackerPage'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 type View = 'email' | 'code' | 'signed-in'
+type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history'
 type CatalogStatus = 'active' | 'archived'
-type Product = { id: string; name: string; category: string; active: boolean; archivedAt: string | null; updatedAt: string }
+type Product = { id: string; name: string; category: string; stockQuantity: number; active: boolean; archivedAt: string | null; updatedAt: string }
 type Expense = { id: string; productId: string; productName: string; category: string; amount: string; quantity: number; note: string | null; spentAt: string; createdAt: string; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
-const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema })
+const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }) })
 
 const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Product name is required.').max(200),
   category: z.string().trim().min(1, 'Category is required.').max(100),
+  stockQuantity: z.coerce.number().int('Initial stock must be a whole number.').nonnegative('Initial stock cannot be negative.').max(1_000_000_000, 'Initial stock is too large.'),
 })
 const expenseInputSchema = z.object({
   productId: z.string().uuid('Select a product.'),
@@ -68,6 +72,7 @@ function App() {
   const [search, setSearch] = useState('')
   const [productName, setProductName] = useState('')
   const [category, setCategory] = useState('')
+  const [stockQuantity, setStockQuantity] = useState('0')
   const [editing, setEditing] = useState<Product | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState('')
@@ -92,6 +97,9 @@ function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
+  const [stockRefreshKey, setStockRefreshKey] = useState(0)
+  const [productModalOpen, setProductModalOpen] = useState(false)
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
   const dashboardRequestId = useRef(0)
   const productRequestId = useRef(0)
 
@@ -213,6 +221,7 @@ function App() {
         return
       }
       setView('signed-in')
+      setWorkspaceView('dashboard')
     } catch {
       setError('Unable to contact the sign-in service. Try again.')
     } finally {
@@ -240,6 +249,7 @@ function App() {
     setEditing(null)
     setProductName('')
     setCategory('')
+    setStockQuantity('0')
     setFieldError('')
   }
 
@@ -314,7 +324,7 @@ function App() {
     setFieldError('')
     setCatalogError('')
     setCatalogNotice('')
-    const parsed = productInputSchema.safeParse({ name: productName, category })
+    const parsed = productInputSchema.safeParse({ name: productName, category, stockQuantity: editing ? 0 : stockQuantity })
     if (!parsed.success) {
       setFieldError(parsed.error.issues[0]?.message ?? 'Enter a valid product name and category.')
       return
@@ -324,7 +334,7 @@ function App() {
     try {
       const response = await productsApi(editing ? `/${editing.id}` : '', {
         method: editing ? 'PUT' : 'POST',
-        body: JSON.stringify(editing ? { ...parsed.data, updatedAt: editing.updatedAt } : parsed.data),
+        body: JSON.stringify(editing ? { name: parsed.data.name, category: parsed.data.category, updatedAt: editing.updatedAt } : parsed.data),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
@@ -337,7 +347,9 @@ function App() {
         return
       }
       resetProductForm()
+      setProductModalOpen(false)
       await loadProducts()
+      setStockRefreshKey((value) => value + 1)
       setCatalogNotice(wasEditing ? 'Product changes saved.' : 'Product added.')
     } catch {
       setCatalogError('Unable to contact the catalog service. Try again.')
@@ -377,9 +389,54 @@ function App() {
         {view === 'signed-in' ? (
           <div className={styles.workspace}>
             <div className={styles.workspaceHeader}>
-              <div><h1>Product catalog</h1><p>Create the products and categories you reuse in your sales records.</p></div>
+              <div><h1>Stocks</h1><p>Manage your products, available stocks, purchases, and sales records.</p></div>
               <button className={styles.secondary} type="button" onClick={() => void logout()}>Sign out</button>
             </div>
+            <nav className={styles.workspaceNav} aria-label="Workspace views">
+              <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={workspaceView === 'dashboard' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('dashboard')}>Dashboard</button>
+              <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('buy')}>Buy</button>
+              <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={workspaceView === 'stock' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('stock')}>Stocks</button>
+              <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('history')}>Purchase History</button>
+            </nav>
+            {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />}
+            {workspaceView === 'stock' && <>
+              <div className={styles.stockActions}>
+                <button
+                  title="Add New"
+                  aria-label="Add new stock"
+                  className={styles.addNewButton}
+                  type="button"
+                  onClick={() => { resetProductForm(); setProductModalOpen(true) }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" strokeWidth="1.5" />
+                    <path d="M8 12H16" strokeWidth="1.5" />
+                    <path d="M12 16V8" strokeWidth="1.5" />
+                  </svg>
+                </button>
+              </div>
+              {productModalOpen && <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProductModalOpen(false) }}>
+                <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="add-stock-heading">
+                  <div className={styles.modalHeader}>
+                    <h2 id="add-stock-heading">Add a stock</h2>
+                    <button className={styles.modalClose} type="button" aria-label="Close add stock dialog" onClick={() => setProductModalOpen(false)}>×</button>
+                  </div>
+                  <form className={styles.productForm} onSubmit={saveProduct} noValidate>
+                    <label htmlFor="stock-product-name">Stock name</label>
+                    <input id="stock-product-name" autoFocus value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    <label htmlFor="stock-category">Category</label>
+                    <input id="stock-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    <label htmlFor="initial-stock">Initial quantity</label>
+                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
+                    <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => setProductModalOpen(false)}>Cancel</button></div>
+                  </form>
+                </section>
+              </div>}
+              <StockTrackerPage mode="stock" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />
+            </>}
+            {workspaceView === 'history' && <PurchaseHistoryPage />}
+            {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
             <div className={styles.tabs} role="group" aria-label="Catalog status">
               <button type="button" aria-pressed={catalogStatus === 'active'} className={catalogStatus === 'active' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('active')}>Active</button>
@@ -424,6 +481,7 @@ function App() {
               <input id="product-name" value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'product-error' : undefined} />
               <label htmlFor="product-category">Category</label>
               <input id="product-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'product-error' : undefined} />
+              {!editing && <><label htmlFor="product-initial-stock">Initial stock quantity</label><input id="product-initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'product-error' : undefined} /></>}
               {fieldError && <p id="product-error" className={styles.error} role="alert">{fieldError}</p>}
               <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add product'}</button>{editing && <button className={styles.secondary} type="button" onClick={resetProductForm}>Cancel</button>}</div>
             </form>}
@@ -434,6 +492,7 @@ function App() {
             {catalogLoading ? <p>Loading products…</p> : visibleProducts.length === 0 ? <p className={styles.empty}>No {catalogStatus} products match your search.</p> : <ul className={styles.productList} aria-label={`${catalogStatus} products`}>
               {visibleProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category}</span>{!product.active && <span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span>}</div>{product.active && <div className={styles.itemActions}><button className={styles.secondary} disabled={loading || archiveLoadingId !== null} type="button" onClick={() => { setEditing(product); setProductName(product.name); setCategory(product.category); setFieldError('') }}>Edit</button><button className={styles.danger} disabled={archiveLoadingId !== null} type="button" onClick={() => void archive(product)}>{archiveLoadingId === product.id ? 'Archiving…' : 'Archive'}</button></div>}</li>)}
             </ul>}
+            </>}
           </div>
         ) : view === 'email' ? (
           <form onSubmit={requestCode}>

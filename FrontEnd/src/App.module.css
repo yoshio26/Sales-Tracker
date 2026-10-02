@@ -124,10 +124,11 @@
 .dashboard { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #fbfcff; }
 .dashboard h2, .dashboard h3 { margin: 0; color: #17243b; }
 .dashboard p { margin: 0; }
-.summaryCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.summaryCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
 .summaryCard { display: grid; gap: 0.3rem; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
 .summaryCard span { color: #5c6b82; font-size: 0.85rem; font-weight: 700; }
 .summaryCard strong { color: #17243b; font-size: 1.8rem; }
+.summaryCard small { color: #5c6b82; }
 .chartGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .chartCard { min-width: 0; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
 .chartCard:first-child { grid-column: 1 / -1; }
@@ -143,6 +144,26 @@
 .filters button { margin-top: 0; }
 .workspaceHeader { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
 .workspaceHeader button { margin-top: 0; white-space: nowrap; }
+.workspaceNav { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 0.5rem; border-bottom: 1px solid #dce4ef; }
+.workspaceNav button { margin-top: 0; }
+.stockView { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #fbfcff; }
+.stockView h2 { margin: 0; color: #17243b; }
+.stockView p { margin: 0; }
+.stockActions { display: flex; justify-content: flex-end; }
+.addNewButton { display: grid; place-items: center; width: 50px; height: 50px; margin-top: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 50% !important; color: #f472b6 !important; outline: none; transition: transform 300ms ease; }
+.addNewButton::before { display: none !important; }
+.addNewButton svg { width: 50px; height: 50px; stroke: #f472b6; fill: none; transition: fill 300ms ease, stroke 300ms ease; }
+.card button.addNewButton:hover:not(:disabled) { color: #f472b6 !important; transform: rotate(90deg); box-shadow: none; }
+.addNewButton:hover:not(:disabled) svg { fill: #831843; stroke: #f472b6; }
+.addNewButton:active:not(:disabled) { transform: rotate(90deg); }
+.addNewButton:focus-visible { outline: 3px solid #f9a8d4; outline-offset: 4px; }
+.modalBackdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(23, 36, 59, 0.45); }
+.modal { width: min(100%, 32rem); max-height: min(90vh, 42rem); overflow: auto; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 1rem; background: white; box-shadow: 0 1.5rem 4rem rgba(29, 50, 87, 0.25); }
+.modalHeader { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.modalHeader h2 { margin: 0; color: #17243b; }
+.modalClose { width: 2.5rem; height: 2.5rem; margin-top: 0 !important; padding: 0 !important; border: 0 !important; color: #5c6b82 !important; font-size: 1.75rem; line-height: 1; }
+.modalClose::before { display: none; }
+.modal .productForm { margin-top: 1rem; }
 .workspace h2 { margin: 0; color: #17243b; font-size: 1.1rem; }
 .tabs, .formActions, .itemActions { display: flex; gap: 0.65rem; flex-wrap: wrap; }
 .tabs button, .itemActions button, .formActions button { margin-top: 0; }

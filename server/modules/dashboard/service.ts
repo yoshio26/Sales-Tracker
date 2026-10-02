@@ -1,4 +1,4 @@
-import { dashboardDatabase, getByCategory, getByProduct, getTimeSeries, getTotal } from './data-access.js'
+import { dashboardDatabase, getByCategory, getByProduct, getPurchaseSummary, getStockSummary, getTimeSeries, getTotal } from './data-access.js'
 
 export type ReportingRange = { from: Date; to: Date }
 export type DashboardFilters = Partial<ReportingRange>
@@ -8,6 +8,8 @@ export type DashboardTrendPoint = { bucket: string; amount: string }
 export type DashboardResponse = {
   currentMonth: { from: string; to: string; total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
   allTime: { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
+  stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }
+  purchases: { count: number; quantity: number; totalCost: string }
 }
 
 export function currentUtcMonth(now = new Date()): ReportingRange {
@@ -24,6 +26,10 @@ function centsToMoney(value: bigint | number): string {
 
 function mapTotals(rows: { label: string; totalCents: bigint | number }[]): DashboardPoint[] {
   return rows.map((row) => ({ label: row.label, amount: centsToMoney(row.totalCents) }))
+}
+
+function integerValue(value: bigint | number): number {
+  return typeof value === 'bigint' ? Number(value) : value
 }
 
 async function reportForRange(userId: string, range: ReportingRange | undefined, granularity: 'day' | 'month') {
@@ -43,9 +49,18 @@ async function reportForRange(userId: string, range: ReportingRange | undefined,
 
 export async function getDashboard(userId: string, now = new Date(), filters: DashboardFilters = {}): Promise<DashboardResponse> {
   const month = filters.from && filters.to ? { from: filters.from, to: filters.to } : currentUtcMonth(now)
-  const [currentMonth, allTime] = await Promise.all([
+  const [currentMonth, allTime, stockRows, purchaseRows] = await Promise.all([
     reportForRange(userId, month, 'day'),
     reportForRange(userId, undefined, 'month'),
+    getStockSummary(dashboardDatabase, userId),
+    getPurchaseSummary(dashboardDatabase, userId),
   ])
-  return { currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), ...currentMonth }, allTime }
+  const stock = stockRows[0] ?? { totalUnits: 0, productsInStock: 0, productsOutOfStock: 0 }
+  const purchases = purchaseRows[0] ?? { purchaseCount: 0, totalQuantity: 0, totalCostCents: 0 }
+  return {
+    currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), ...currentMonth },
+    allTime,
+    stock: { totalUnits: integerValue(stock.totalUnits), productsInStock: integerValue(stock.productsInStock), productsOutOfStock: integerValue(stock.productsOutOfStock) },
+    purchases: { count: integerValue(purchases.purchaseCount), quantity: integerValue(purchases.totalQuantity), totalCost: centsToMoney(purchases.totalCostCents) },
+  }
 }

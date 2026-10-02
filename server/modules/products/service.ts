@@ -12,6 +12,7 @@ export type ProductResponse = {
   id: string
   name: string
   category: string
+  stockQuantity: number
   active: boolean
   archivedAt: string | null
   updatedAt: string
@@ -26,6 +27,7 @@ function toResponse(product: Product): ProductResponse {
     id: product.id,
     name: product.name,
     category: product.category,
+    stockQuantity: product.stockQuantity,
     active: product.active,
     archivedAt: product.archivedAt?.toISOString() ?? null,
     updatedAt: product.updatedAt.toISOString(),
@@ -36,12 +38,14 @@ export async function listProducts(userId: string, status: ProductStatus): Promi
   return (await listProductRecords(database, userId, status)).map(toResponse)
 }
 
-export async function createProduct(userId: string, input: { name: string; category: string }) {
+export async function createProduct(userId: string, input: { name: string; category: string; stockQuantity?: number }) {
   try {
-    return { kind: 'created' as const, product: toResponse(await createProductRecord(database, userId, {
+    const createInput = {
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
-    })) }
+      ...(input.stockQuantity === undefined ? {} : { stockQuantity: input.stockQuantity }),
+    }
+    return { kind: 'created' as const, product: toResponse(await createProductRecord(database, userId, createInput)) }
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') return { kind: 'duplicate' as const }
     throw error
