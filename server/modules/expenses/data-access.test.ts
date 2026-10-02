@@ -43,7 +43,7 @@ describe('expense data access', () => {
     await expect(createExpense(db as never, 'user-a', {
       productId: 'product-a', amountCents: 1250, quantity: 2, note: 'note', spentAt: range.from,
     })).resolves.toEqual({ kind: 'created', expense: expect.objectContaining({ id: 'expense-a' }) })
-    expect(tx.product.findFirst).toHaveBeenCalledWith({ where: { id: 'product-a', userId: 'user-a', active: true }, select: { id: true, name: true, category: true } })
+    expect(tx.product.findFirst).toHaveBeenCalledWith({ where: { id: 'product-a', userId: 'user-a', active: true, deletedAt: null }, select: { id: true, name: true, category: true } })
     expect(tx.expense.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ userId: 'user-a', productId: 'product-a', productNameSnapshot: 'Widget', categorySnapshot: 'Hardware' }) }))
   })
 

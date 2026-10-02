@@ -201,6 +201,10 @@
 .settingsCard h2, .settingsCard h3 { margin: 0; color: #20202a; }
 .settingsCard p { margin: 0; }
 .dangerPanel { align-items: center; grid-template-columns: minmax(0, 1fr) auto; padding: 1rem; border: 1px solid #f1caca; background: #fff8f8; }
+.stockConfirmation { display: grid; gap: 0.75rem; padding: 1rem; border: 2px solid #a84f4f; background: #fff4f4; }
+.stockConfirmation h3, .stockConfirmation p { margin: 0; }
+.stockConfirmation .formActions { justify-content: flex-end; }
+.warning { color: #8a2e2e !important; font-weight: 700; }
 
 @media (max-width: 32rem) {
   .card {
@@ -285,4 +289,5 @@
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
   .profile { display: none; }
   .summaryCards { grid-template-columns: 1fr; }
+  .dangerPanel { grid-template-columns: 1fr; }
 }

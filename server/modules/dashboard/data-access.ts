@@ -18,7 +18,7 @@ export function getStockSummary(db: DashboardDatabase, userId: string) {
            COUNT(*) FILTER (WHERE stock_quantity > 0)::bigint AS "productsInStock",
            COUNT(*) FILTER (WHERE stock_quantity = 0)::bigint AS "productsOutOfStock"
     FROM products
-    WHERE user_id = ${userId}::uuid AND active = true
+    WHERE user_id = ${userId}::uuid AND active = true AND deleted_at IS NULL
   `)
 }
 
@@ -28,7 +28,7 @@ export function getPurchaseSummary(db: DashboardDatabase, userId: string) {
            COALESCE(SUM(quantity), 0)::bigint AS "totalQuantity",
            COALESCE(SUM(total_cost_cents), 0)::bigint AS "totalCostCents"
     FROM stock_purchases
-    WHERE user_id = ${userId}::uuid
+    WHERE user_id = ${userId}::uuid AND deleted_at IS NULL
   `)
 }
 

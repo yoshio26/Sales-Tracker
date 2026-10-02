@@ -29,6 +29,7 @@ model Product {
   stockQuantity Int     @default(0) @map("stock_quantity")
   active     Boolean   @default(true)
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -37,9 +38,10 @@ model Product {
 
   @@unique([userId, name])
   @@unique([id, userId])
-  @@index([userId, active])
+  @@index([userId, active, deletedAt])
   @@index([userId, category])
   @@index([userId, updatedAt])
+  @@index([userId, deletedAt])
   @@map("products")
 }
 
@@ -121,10 +123,12 @@ model StockPurchase {
   quantity             Int
   totalCostCents       Int      @map("total_cost_cents")
   purchasedAt          DateTime @default(now()) @map("purchased_at") @db.Timestamptz(3)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(3)
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product              Product  @relation(fields: [productId, userId], references: [id, userId], onDelete: Restrict)
 
   @@index([userId, purchasedAt])
   @@index([userId, productId, purchasedAt])
+  @@index([userId, deletedAt])
   @@map("stock_purchases")
 }

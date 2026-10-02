@@ -1,3 +1,6 @@
+- source_spec: `_bmad-output/implementation-artifacts/spec-delete-stocks-with-history-confirmation.md`
+  summary: Add automated component coverage for the Settings stock-deletion countdown and focus behavior.
+  evidence: The feature is covered by documented manual checks plus backend tests, but no frontend test harness currently exercises the timer, cancellation, focus, or accessibility state transitions.
 - source_spec: none
   summary: Build the user-owned product catalog with add, edit, and archive behavior.
   evidence: Deferred from the whole-app build so foundation and authentication can be implemented first.

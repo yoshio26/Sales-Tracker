@@ -12,9 +12,12 @@ Run the application with the seeded database and sign in with an allowlisted add
 - Record an expense, then confirm the expense totals, daily current-month trend, monthly all-time trend, product breakdown, and category breakdown refresh without changing stock purchase metrics.
 - Archive or edit the product used by an existing expense, then confirm the dashboard still shows the expense's stored product and category labels.
 - Delete an expense and confirm it is removed from every total and chart.
-- Open Settings, cancel Delete stocks, and confirm no stock data changes or success notice appears.
-- With unreferenced stock records, confirm Delete stocks requires confirmation, removes only the signed-in user's stock records, refreshes Stocks/Dashboard, and shows accessible success feedback.
-- With purchase history or expenses referencing stock, confirm Delete stocks preserves the data and shows the safe conflict message.
+- Open Settings, select Delete stocks, confirm the accessible warning panel starts at 10 seconds, moves visibly once per second, and verify Confirm remains disabled until the countdown reaches zero.
+- Cancel during and after the countdown and confirm the panel closes without a DELETE request, data changes, or success notice.
+- With unreferenced stock records, confirm deletion removes only the signed-in user's stock, purchase history, and expense records, refreshes Stocks/Dashboard, and shows accessible success feedback.
+- With purchase history or expenses referencing stock, confirm the approved soft-delete policy preserves those records for recovery and excludes them from active views.
+- Verify soft-deleted stock data older than 10 days is permanently purged and another user's active or retained records remain unchanged.
+- Force the stock deletion transaction to fail and confirm active data remains visible, the error feedback is shown, and no success notice appears.
 - In Settings, cancel an individual purchase-history deletion and confirm the entry remains; then confirm deletion removes only that entry, refreshes history/Dashboard, and shows no false success after a failed request.
 - Use a user with no non-deleted expenses and confirm zero totals, empty charts, and “No expenses recorded yet” without an error state.
 - Temporarily make `/api/dashboard` fail and confirm an accessible error with a working Retry action.

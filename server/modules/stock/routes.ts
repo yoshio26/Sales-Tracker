@@ -27,7 +27,6 @@ stockRouter.get('/purchases', requireSession, async (req, res, next) => {
 stockRouter.delete('/', requireSession, requireSameOrigin, async (req, res, next) => {
   try {
     const outcome = await deleteStockData(req.userId!)
-    if (outcome.kind === 'referenced') return res.status(409).json({ error: { code: 'STOCK_REFERENCED', message: 'Stocks cannot be deleted while purchase history or expenses still reference them.' } })
     res.json({ deleted: outcome.count })
   } catch (error) { next(error) }
 })

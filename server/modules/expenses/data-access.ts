@@ -36,7 +36,7 @@ export function getExpense(db: Database, userId: string, id: string) {
 
 export async function createExpense(db: PrismaClient, userId: string, input: { productId: string; amountCents: number; quantity: number; note?: string; spentAt: Date }) {
   return db.$transaction(async (tx) => {
-    const product = await tx.product.findFirst({ where: { id: input.productId, userId, active: true }, select: { id: true, name: true, category: true } })
+    const product = await tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true } })
     if (!product) return { kind: 'product-not-found' as const }
     const expense = await tx.expense.create({
       data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, amountCents: input.amountCents, quantity: input.quantity, note: input.note, spentAt: input.spentAt },
@@ -54,7 +54,7 @@ export async function updateExpense(db: PrismaClient, userId: string, id: string
 
     let snapshot: { productId: string; productNameSnapshot: string; categorySnapshot: string } | undefined
     if (input.productId && input.productId !== current.productId) {
-      const product = await tx.product.findFirst({ where: { id: input.productId, userId, active: true }, select: { id: true, name: true, category: true } })
+      const product = await tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true } })
       if (!product) return { kind: 'product-not-found' as const }
       snapshot = { productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category }
     }

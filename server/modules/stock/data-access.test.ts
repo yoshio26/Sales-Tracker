@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock } from './data-access.js'
+import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, purgeExpiredDeletedStockData } from './data-access.js'
 
 function database() {
   const tx = {
@@ -9,13 +9,14 @@ function database() {
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
-    stockPurchase: { create: vi.fn(), count: vi.fn() },
-    expense: { count: vi.fn() },
+    stockPurchase: { create: vi.fn(), count: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+    expense: { count: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   }
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
-    product: { findMany: vi.fn(), deleteMany: vi.fn() },
-    stockPurchase: { findMany: vi.fn(), deleteMany: vi.fn() },
+    product: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
+    stockPurchase: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
+    expense: { deleteMany: vi.fn() },
   }
   return { db, tx }
 }
@@ -27,8 +28,8 @@ describe('stock data access', () => {
     await listStock(db as never, 'user-a')
     await listPurchases(db as never, 'user-a')
 
-    expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true } }))
-    expect(db.stockPurchase.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a' }, orderBy: [{ purchasedAt: 'desc' }, { id: 'desc' }] }))
+    expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true, deletedAt: null } }))
+    expect(db.stockPurchase.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', deletedAt: null }, orderBy: [{ purchasedAt: 'desc' }, { id: 'desc' }] }))
   })
 
   it('decrements stock and creates one snapshot purchase in the same transaction', async () => {
@@ -39,8 +40,8 @@ describe('stock data access', () => {
 
     await expect(createPurchase(db as never, 'user-a', { productId: 'product-a', quantity: 2 })).resolves.toEqual({ kind: 'created', purchase: { id: 'purchase-a' } })
     expect(db.$transaction).toHaveBeenCalledOnce()
-    expect(tx.product.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'product-a', userId: 'user-a', active: true } }))
-    expect(tx.product.updateMany).toHaveBeenCalledWith({ where: { id: 'product-a', userId: 'user-a', active: true, stockQuantity: { gte: 2 } }, data: { stockQuantity: { decrement: 2 } } })
+    expect(tx.product.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'product-a', userId: 'user-a', active: true, deletedAt: null } }))
+    expect(tx.product.updateMany).toHaveBeenCalledWith({ where: { id: 'product-a', userId: 'user-a', active: true, deletedAt: null, stockQuantity: { gte: 2 } }, data: { stockQuantity: { decrement: 2 } } })
     expect(tx.stockPurchase.create).toHaveBeenCalledWith(expect.objectContaining({ data: { userId: 'user-a', productId: 'product-a', productNameSnapshot: 'Widget', categorySnapshot: 'Hardware', quantity: 2, totalCostCents: 1250 } }))
   })
 
@@ -74,32 +75,52 @@ describe('stock data access', () => {
     expect(tx.stockPurchase.create).not.toHaveBeenCalled()
   })
 
-  it('deletes only unreferenced tenant stock data', async () => {
+  it('soft-deletes referenced and unreferenced tenant stock data atomically', async () => {
     const { db, tx } = database()
-    tx.expense.count.mockResolvedValue(0)
-    tx.stockPurchase.count.mockResolvedValue(0)
-    tx.product.deleteMany.mockResolvedValue({ count: 2 })
+    tx.product.updateMany.mockResolvedValue({ count: 2 })
+    tx.expense.deleteMany.mockResolvedValue({ count: 0 })
+    tx.stockPurchase.deleteMany.mockResolvedValue({ count: 0 })
+    tx.product.deleteMany.mockResolvedValue({ count: 0 })
 
     await expect(deleteStockData(db as never, 'user-a')).resolves.toEqual({ kind: 'deleted', count: 2 })
-    expect(tx.product.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a' } })
+    expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', deletedAt: null }, data: expect.objectContaining({ active: false, deletedAt: expect.any(Date) }) }))
+    expect(tx.expense.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', deletedAt: null }, data: expect.objectContaining({ deletedAt: expect.any(Date) }) }))
+    expect(tx.stockPurchase.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', deletedAt: null }, data: expect.objectContaining({ deletedAt: expect.any(Date) }) }))
   })
 
-  it('refuses stock deletion when tenant history or expenses reference products', async () => {
+  it('rolls back the deletion transaction when a dependent update fails', async () => {
     const { db, tx } = database()
-    tx.expense.count.mockResolvedValue(0)
-    tx.stockPurchase.count.mockResolvedValue(1)
+    tx.expense.deleteMany.mockResolvedValue({ count: 0 })
+    tx.stockPurchase.deleteMany.mockResolvedValue({ count: 0 })
+    tx.product.deleteMany.mockResolvedValue({ count: 0 })
+    tx.product.updateMany.mockResolvedValue({ count: 2 })
+    tx.expense.updateMany.mockRejectedValue(new Error('database failure'))
 
-    await expect(deleteStockData(db as never, 'user-a')).resolves.toEqual({ kind: 'referenced' })
-    expect(tx.product.deleteMany).not.toHaveBeenCalled()
+    await expect(deleteStockData(db as never, 'user-a')).rejects.toThrow('database failure')
+    expect(tx.stockPurchase.updateMany).not.toHaveBeenCalled()
   })
 
-  it('maps a concurrent foreign-key reference to the safe referenced outcome', async () => {
-    const { db, tx } = database()
-    tx.expense.count.mockResolvedValue(0)
-    tx.stockPurchase.count.mockResolvedValue(0)
-    tx.product.deleteMany.mockRejectedValue({ code: 'P2003' })
+  it('purges only expired deleted records for the requested tenant', async () => {
+    const { db } = database()
+    db.product.deleteMany.mockResolvedValue({ count: 1 })
+    db.expense.deleteMany.mockResolvedValue({ count: 2 })
+    db.stockPurchase.deleteMany.mockResolvedValue({ count: 3 })
 
-    await expect(deleteStockData(db as never, 'user-a')).resolves.toEqual({ kind: 'referenced' })
+    await expect(purgeExpiredDeletedStockData(db as never, 'user-a', new Date('2026-10-20T00:00:00.000Z'))).resolves.toEqual({ products: 1, expenses: 2, purchases: 3 })
+    expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', deletedAt: { not: null, lt: new Date('2026-10-10T00:00:00.000Z') }, expenses: { none: {} }, stockPurchases: { none: {} } } })
+  })
+
+  it('purges expired deleted records across tenants for scheduled cleanup', async () => {
+    const { db } = database()
+    db.product.deleteMany.mockResolvedValue({ count: 1 })
+    db.expense.deleteMany.mockResolvedValue({ count: 2 })
+    db.stockPurchase.deleteMany.mockResolvedValue({ count: 3 })
+
+    await purgeExpiredDeletedStockData(db as never, undefined, new Date('2026-10-20T00:00:00.000Z'))
+
+    expect(db.expense.deleteMany).toHaveBeenCalledWith({ where: { deletedAt: { not: null, lt: new Date('2026-10-10T00:00:00.000Z') } } })
+    expect(db.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { deletedAt: { not: null, lt: new Date('2026-10-10T00:00:00.000Z') } } })
+    expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { deletedAt: { not: null, lt: new Date('2026-10-10T00:00:00.000Z') }, expenses: { none: {} }, stockPurchases: { none: {} } } })
   })
 
   it('deletes purchase history only for the authenticated tenant', async () => {
@@ -107,6 +128,6 @@ describe('stock data access', () => {
     db.stockPurchase.deleteMany.mockResolvedValue({ count: 1 })
 
     await deletePurchase(db as never, 'user-a', 'purchase-a')
-    expect(db.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { id: 'purchase-a', userId: 'user-a' } })
+    expect(db.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { id: 'purchase-a', userId: 'user-a', deletedAt: null } })
   })
 })

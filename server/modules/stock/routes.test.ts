@@ -89,9 +89,9 @@ describe('stock routes', () => {
     expect(foreign.status).toHaveBeenCalledWith(403)
     expect(mocks.deleteStockData).not.toHaveBeenCalled()
 
-    mocks.deleteStockData.mockResolvedValue({ kind: 'referenced' })
+    mocks.deleteStockData.mockResolvedValue({ kind: 'deleted', count: 3 })
     const stock = await invoke('/', 'delete', { userId: 'user-a', get: () => 'http://localhost:5173' })
-    expect(stock.status).toHaveBeenCalledWith(409)
+    expect(stock.json).toHaveBeenCalledWith({ deleted: 3 })
     expect(mocks.deleteStockData).toHaveBeenCalledWith('user-a')
 
     mocks.deletePurchase.mockResolvedValue({ kind: 'deleted' })

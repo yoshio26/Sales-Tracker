@@ -2,8 +2,12 @@ import { app } from './app.js'
 import { config } from './infrastructure/config.js'
 import { disconnectDatabase, prisma } from './infrastructure/prisma.js'
 import { deleteExpiredAuthRecords } from './modules/auth/data-access.js'
+import { purgeExpiredDeletedStockData } from './modules/stock/data-access.js'
 
-const cleanup = () => deleteExpiredAuthRecords(prisma, new Date())
+const cleanup = async () => {
+  await deleteExpiredAuthRecords(prisma, new Date())
+  await purgeExpiredDeletedStockData(prisma)
+}
 const server = app.listen(config.PORT, () => {
   console.log(`Sales Tracker listening on port ${config.PORT}`)
 })

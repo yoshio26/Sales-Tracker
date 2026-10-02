@@ -32,10 +32,10 @@ describe('product data access', () => {
     const { db } = database()
 
     await listProducts(db as never, 'user-a', 'active')
-    expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true } }))
+    expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true, deletedAt: null } }))
 
     await listProducts(db as never, 'user-a', 'archived')
-    expect(db.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: false } }))
+    expect(db.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: false, deletedAt: null } }))
   })
 
   it('does not update a product owned by another tenant', async () => {
