@@ -446,6 +446,7 @@ function App() {
                     <path d="M12 16V8" strokeWidth="1.5" />
                   </svg>
                 </button>
+                <span className={styles.addStockLabel}>Add Stock</span>
               </div>
               {productModalOpen && <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProductModalOpen(false) }}>
                 <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="add-stock-heading">
