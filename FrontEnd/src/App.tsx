@@ -375,7 +375,7 @@ function App() {
   }
 
   async function archive(product: Product) {
-    if (!window.confirm(`Archive ${product.name}? It will remain in your archived catalog.`)) return
+    if (!window.confirm(`Delete ${product.name}? It will be removed from active stock and kept in your archived catalog.`)) return
     setCatalogError('')
     setCatalogNotice('')
     setArchiveLoadingId(product.id)
@@ -383,17 +383,27 @@ function App() {
       const response = await productsApi(`/${product.id}`, { method: 'DELETE', body: JSON.stringify({ updatedAt: product.updatedAt }) })
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
-        setCatalogError(body?.error?.message ?? 'Unable to archive the product.')
+        setCatalogError(body?.error?.message ?? 'Unable to delete the stock.')
         if (response.status === 409) await loadProducts()
         return
       }
       await loadProducts()
-      setCatalogNotice(`${product.name} was archived.`)
+      setStockRefreshKey((value) => value + 1)
+      setCatalogNotice(`${product.name} was deleted from active stock.`)
     } catch {
-      setCatalogError('Unable to contact the catalog service. Try again.')
+      setCatalogError('Unable to contact the stock service. Try again.')
     } finally {
       setArchiveLoadingId(null)
     }
+  }
+
+  function editStock(product: { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
+    setEditing({ ...product, active: true, archivedAt: null })
+    setProductName(product.name)
+    setCategory(product.category)
+    setPrice(product.price)
+    setFieldError('')
+    setProductModalOpen(true)
   }
 
   async function refreshAfterStockDeletion() {
@@ -449,10 +459,10 @@ function App() {
                 <span className={styles.addStockLabel}>Add Stock</span>
               </div>
               {productModalOpen && <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProductModalOpen(false) }}>
-                <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="add-stock-heading">
+                <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="stock-form-heading">
                   <div className={styles.modalHeader}>
-                    <h2 id="add-stock-heading">Add a stock</h2>
-                    <button className={styles.modalClose} type="button" aria-label="Close add stock dialog" onClick={() => setProductModalOpen(false)}>×</button>
+                    <h2 id="stock-form-heading">{editing ? 'Edit stock' : 'Add a stock'}</h2>
+                    <button className={styles.modalClose} type="button" aria-label="Close stock dialog" onClick={() => setProductModalOpen(false)}>×</button>
                   </div>
                   <form className={styles.productForm} onSubmit={saveProduct} noValidate>
                     <label htmlFor="stock-product-name">Stock name</label>
@@ -461,14 +471,14 @@ function App() {
                     <input id="stock-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     <label htmlFor="stock-price">Unit price</label>
                     <input id="stock-price" inputMode="decimal" placeholder="0.00" value={price} onChange={(event) => setPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
-                    <label htmlFor="initial-stock">Initial quantity</label>
-                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    {!editing && <><label htmlFor="initial-stock">Initial quantity</label>
+                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} /></>}
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
-                    <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => setProductModalOpen(false)}>Cancel</button></div>
+                    <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>
                 </section>
               </div>}
-              <StockTrackerPage mode="stock" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />
+              <StockTrackerPage mode="stock" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'settings' && <SettingsPage onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}

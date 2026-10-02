@@ -9,9 +9,9 @@ const stockResponseSchema = z.object({ products: z.array(z.object({ id: z.string
 const productIdSchema = z.string().uuid('Select a product.')
 const quantitySchema = z.coerce.number().int('Quantity must be a whole number.').positive('Quantity must be greater than zero.')
 
-type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number }
+type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number; onEdit?: (product: StockProduct) => void; onDelete?: (product: StockProduct) => void }
 
-export function StockTrackerPage({ mode, onChanged, refreshKey = 0 }: Props) {
+export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDelete }: Props) {
   const [products, setProducts] = useState<StockProduct[]>([])
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState('1')
@@ -71,6 +71,6 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0 }: Props) {
       <button disabled={loading} type="submit">{loading ? 'Saving…' : mode === 'buy' ? 'Buy stock' : 'Add stock'}</button>
     </form>
     {notice && <p className={styles.notice} role="status">{notice}</p>}
-    {loading && products.length === 0 ? <p role="status">Loading stock…</p> : products.length === 0 ? <p className={styles.empty}>No active products are available. Add a product first.</p> : <ul className={styles.productList} aria-label="Available stock">{products.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category} · ₱{product.price} each</span></div><strong>{product.stockQuantity} available</strong></li>)}</ul>}
+    {loading && products.length === 0 ? <p role="status">Loading stock…</p> : products.length === 0 ? <p className={styles.empty}>No active products are available. Add a product first.</p> : <ul className={styles.productList} aria-label="Available stock">{products.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category} · ₱{product.price} each</span></div><div className={styles.itemActions}><strong>{product.stockQuantity} available</strong>{mode === 'stock' && onEdit && onDelete && <><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></>}</div></li>)}</ul>}
   </section>
 }

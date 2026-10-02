@@ -4,6 +4,7 @@ Run the application with the seeded database and sign in with an allowlisted add
 
 - Confirm the signed-in workspace provides Dashboard, Buy, Stock Tracker, Purchase History, and Settings navigation, with Settings immediately beside Purchase History.
 - Add stock explicitly from Stock Tracker, then confirm the non-negative available quantity updates and zero-stock products remain visible.
+- In Stocks, edit a product's name/category/price and confirm the updated price is shown in Stocks and used automatically for the next purchase; delete a product and confirm it leaves active Stocks while remaining available in the archived catalog.
 - Buy a quantity within available stock and confirm the quantity decreases exactly once, the success feedback is accessible, and the entered values clear only after success.
 - Attempt to buy more than available and confirm a conflict message appears while the entered quantity and cost remain unchanged.
 - Open Purchase History and confirm records are newest first with quantity, total cost, UTC-derived timestamp, and captured product/category labels.
