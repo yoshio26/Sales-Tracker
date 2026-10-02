@@ -63,7 +63,7 @@ export async function getDashboard(userId: string, now = new Date(), filters: Da
   const totalEarningsCents = typeof purchases.totalCostCents === 'bigint' ? purchases.totalCostCents : BigInt(purchases.totalCostCents)
   const expenseTotalCents = typeof allTimeReport.totalCents === 'bigint' ? allTimeReport.totalCents : BigInt(allTimeReport.totalCents)
   return {
-    currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), ...currentMonth },
+    currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), total: currentMonth.total, trend: currentMonth.trend, byProduct: currentMonth.byProduct, byCategory: currentMonth.byCategory },
     allTime: { total: allTimeReport.total, trend: allTimeReport.trend, byProduct: allTimeReport.byProduct, byCategory: allTimeReport.byCategory },
     stock: { totalUnits: integerValue(stock.totalUnits), productsInStock: integerValue(stock.productsInStock), productsOutOfStock: integerValue(stock.productsOutOfStock) },
     purchases: { count: integerValue(purchases.purchaseCount), quantity: integerValue(purchases.totalQuantity), totalCost: centsToMoney(purchases.totalCostCents) },

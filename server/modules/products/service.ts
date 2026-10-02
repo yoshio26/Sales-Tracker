@@ -4,6 +4,7 @@ import {
   createProduct as createProductRecord,
   database,
   listProducts as listProductRecords,
+  permanentlyDeleteArchivedProduct as permanentlyDeleteArchivedProductRecord,
   type ProductStatus,
   updateProduct as updateProductRecord,
 } from './data-access.js'
@@ -82,4 +83,8 @@ export async function updateProduct(userId: string, id: string, input: { name: s
 export async function archiveProduct(userId: string, id: string, updatedAt: string) {
   const outcome = await archiveProductRecord(database, userId, id, new Date(updatedAt))
   return outcome.kind === 'updated' ? { ...outcome, product: toResponse(outcome.product) } : outcome
+}
+
+export function permanentlyDeleteArchivedProduct(userId: string, id: string) {
+  return permanentlyDeleteArchivedProductRecord(database, userId, id)
 }

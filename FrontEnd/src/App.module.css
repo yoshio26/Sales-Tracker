@@ -181,7 +181,9 @@
 .selectedTab { background: #356b68 !important; color: #fffdf9 !important; }
 .productForm { padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #f7f9fc; }
 .checkboxLabel { display: flex; align-items: center; gap: 0.5rem; margin-top: 0 !important; color: #17243b; font-weight: 700; }
-.checkboxLabel input { width: auto; }
+.checkboxLabel input { width: auto; accent-color: #000; }
+.deductionChoice { display: flex; align-items: center; justify-content: flex-start; gap: 1rem; color: #17243b; font-weight: 700; }
+.deductionChoice > span { margin-right: 0.25rem; }
 .searchLabel { margin-top: 0 !important; }
 .productList { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
 .historyToolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; color: #5c6b82; font-size: 0.9rem; }
@@ -217,6 +219,8 @@
 }
 
 .settingsView { display: grid; gap: 1rem; padding-top: 1.5rem; }
+.settingsTabs { display: flex; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1e8ee; }
+.settingsTabs button { margin-top: 0; }
 .settingsCard, .dangerPanel { display: grid; gap: 1rem; }
 .settingsCard { padding: 1.25rem; border: 1px solid #f1e8ee; background: #fff; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
 .settingsCard h2, .settingsCard h3 { margin: 0; color: #20202a; }

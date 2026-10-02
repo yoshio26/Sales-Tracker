@@ -46,3 +46,18 @@ export async function archiveProduct(db: PrismaClient, userId: string, id: strin
     return { kind: current.active ? 'stale' as const : 'archived' as const }
   })
 }
+
+export async function permanentlyDeleteArchivedProduct(db: PrismaClient, userId: string, id: string) {
+  return db.$transaction(async (tx) => {
+    const product = await tx.product.findFirst({ where: { id, userId, active: false, deletedAt: null }, select: { id: true } })
+    if (!product) {
+      const current = await tx.product.findFirst({ where: { id, userId, deletedAt: null }, select: { active: true } })
+      return current ? { kind: 'active' as const } : { kind: 'not-found' as const }
+    }
+
+    await tx.expense.deleteMany({ where: { userId, productId: product.id } })
+    await tx.stockPurchase.deleteMany({ where: { userId, productId: product.id } })
+    await tx.product.delete({ where: { id: product.id } })
+    return { kind: 'deleted' as const }
+  })
+}

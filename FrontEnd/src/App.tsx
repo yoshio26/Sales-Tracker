@@ -11,7 +11,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) =
 
 type View = 'email' | 'code' | 'signed-in'
 type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings'
-type CatalogStatus = 'active' | 'archived'
 type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; updatedAt: string }
 type Expense = { id: string; productId: string; productName: string; category: string; amount: string; quantity: number; note: string | null; spentAt: string; createdAt: string; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
@@ -78,23 +77,15 @@ function App() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [products, setProducts] = useState<Product[]>([])
   const [activeProducts, setActiveProducts] = useState<Product[]>([])
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
-  const [catalogStatus, setCatalogStatus] = useState<CatalogStatus>('active')
-  const [search, setSearch] = useState('')
   const [productName, setProductName] = useState('')
   const [category, setCategory] = useState('')
   const [price, setPrice] = useState('')
   const [stockQuantity, setStockQuantity] = useState('0')
-    const [initialStockCost, setInitialStockCost] = useState('')
-    const [deductInitialStock, setDeductInitialStock] = useState(false)
+  const [deductInitialStock, setDeductInitialStock] = useState<boolean | null>(null)
   const [editing, setEditing] = useState<Product | null>(null)
-  const [catalogLoading, setCatalogLoading] = useState(false)
-  const [catalogError, setCatalogError] = useState('')
-  const [catalogNotice, setCatalogNotice] = useState('')
   const [fieldError, setFieldError] = useState('')
-  const [archiveLoadingId, setArchiveLoadingId] = useState<string | null>(null)
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [expenseProductId, setExpenseProductId] = useState('')
   const [expenseAmount, setExpenseAmount] = useState('')
@@ -118,7 +109,6 @@ function App() {
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
   const dashboardRequestId = useRef(0)
-  const productRequestId = useRef(0)
 
   useEffect(() => {
     void authApi('session')
@@ -135,7 +125,7 @@ function App() {
       void loadExpenses()
       void loadDashboard()
     }
-  }, [view, catalogStatus])
+  }, [view])
 
   async function loadDashboard() {
     const requestId = ++dashboardRequestId.current
@@ -156,10 +146,7 @@ function App() {
     }
   }
 
-  async function loadProducts(status = catalogStatus): Promise<Product[]> {
-    const requestId = ++productRequestId.current
-    setCatalogLoading(true)
-    setCatalogError('')
+  async function loadProducts(status: 'active' | 'archived' = 'active'): Promise<Product[]> {
     try {
       const response = await productsApi(`?status=${status}`)
       if (!response.ok) throw new Error('Unable to load products.')
@@ -167,13 +154,9 @@ function App() {
       if (!Array.isArray(data.products)) throw new Error('Invalid product response.')
       if (status === 'active') setActiveProducts(data.products)
       if (status === 'archived') setArchivedProducts(data.products)
-      if (requestId === productRequestId.current) setProducts(data.products)
       return data.products
     } catch {
-      if (requestId === productRequestId.current) setCatalogError('Unable to load products. Try again.')
       return []
-    } finally {
-      if (requestId === productRequestId.current) setCatalogLoading(false)
     }
   }
 
@@ -268,8 +251,7 @@ function App() {
     setCategory('')
     setPrice('')
     setStockQuantity('0')
-    setInitialStockCost('')
-    setDeductInitialStock(false)
+    setDeductInitialStock(null)
     setFieldError('')
   }
 
@@ -342,23 +324,20 @@ function App() {
   async function saveProduct(event: FormEvent) {
     event.preventDefault()
     setFieldError('')
-    setCatalogError('')
-    setCatalogNotice('')
     const parsed = productInputSchema.safeParse({ name: productName, category, price, stockQuantity: editing ? 0 : stockQuantity })
     if (!parsed.success) {
       setFieldError(parsed.error.issues[0]?.message ?? 'Enter a valid product name and category.')
       return
     }
-    if (!editing && deductInitialStock && !initialStockCost.trim()) {
-      setFieldError('Enter the initial stock cost to deduct from total earnings.')
+    if (!editing && deductInitialStock === null) {
+      setFieldError('Choose Yes or No for deducting the initial stock cost.')
       return
     }
-    if (!editing && deductInitialStock && parsed.data.stockQuantity === 0) {
+    if (!editing && deductInitialStock === true && parsed.data.stockQuantity === 0) {
       setFieldError('Enter an initial quantity before deducting its cost from total earnings.')
       return
     }
     setLoading(true)
-    const wasEditing = editing !== null
     try {
       const response = await productsApi(editing ? `/${editing.id}` : '', {
         method: editing ? 'PUT' : 'POST',
@@ -367,25 +346,25 @@ function App() {
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
         if (body?.error?.code === 'STALE_PRODUCT') {
-          setCatalogError('This product changed elsewhere. The latest catalog has been loaded; review your changes and try again.')
+          setFieldError('This product changed elsewhere. The latest catalog has been loaded; review your changes and try again.')
           const latest = await loadProducts()
           const refreshed = latest.find((product) => product.id === editing?.id)
           if (refreshed) setEditing(refreshed)
         } else setFieldError(body?.error?.message ?? 'Unable to save the product.')
         return
       }
-      if (!editing && deductInitialStock) {
+      if (!editing && deductInitialStock === true) {
         const created = await response.clone().json() as { product?: Product }
         if (!created.product) {
-          setCatalogError('The stock was added, but its deduction could not be recorded.')
+          setFieldError('The stock was added, but its deduction could not be recorded.')
           return
         }
         const expenseResponse = await expensesApi('', {
           method: 'POST',
-          body: JSON.stringify({ productId: created.product.id, amount: initialStockCost, quantity: parsed.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
+          body: JSON.stringify({ productId: created.product.id, amount: parsed.data.price, quantity: parsed.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
         })
         if (!expenseResponse.ok) {
-          setCatalogError('The stock was added, but its deduction could not be recorded.')
+          setFieldError('The stock was added, but its deduction could not be recorded.')
           return
         }
         await loadExpenses()
@@ -395,9 +374,8 @@ function App() {
       setProductModalOpen(false)
       await loadProducts()
       setStockRefreshKey((value) => value + 1)
-      setCatalogNotice(wasEditing ? 'Product changes saved.' : 'Product added.')
     } catch {
-      setCatalogError('Unable to contact the catalog service. Try again.')
+      setFieldError('Unable to contact the catalog service. Try again.')
     } finally {
       setLoading(false)
     }
@@ -405,24 +383,18 @@ function App() {
 
   async function archive(product: Product) {
     if (!window.confirm(`Delete ${product.name}? It will be removed from active stock and kept in your archived catalog.`)) return
-    setCatalogError('')
-    setCatalogNotice('')
-    setArchiveLoadingId(product.id)
     try {
       const response = await productsApi(`/${product.id}`, { method: 'DELETE', body: JSON.stringify({ updatedAt: product.updatedAt }) })
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
-        setCatalogError(body?.error?.message ?? 'Unable to delete the stock.')
+        setFieldError(body?.error?.message ?? 'Unable to delete the stock.')
         if (response.status === 409) await loadProducts()
         return
       }
       await loadProducts()
       setStockRefreshKey((value) => value + 1)
-      setCatalogNotice(`${product.name} was deleted from active stock.`)
     } catch {
-      setCatalogError('Unable to contact the stock service. Try again.')
-    } finally {
-      setArchiveLoadingId(null)
+      setFieldError('Unable to contact the stock service. Try again.')
     }
   }
 
@@ -445,8 +417,6 @@ function App() {
     await loadDashboard()
     setHistoryRefreshKey((value) => value + 1)
   }
-
-  const visibleProducts = products.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(search.trim().toLowerCase()))
 
   return (
     <main className={styles.shell}>
@@ -503,23 +473,18 @@ function App() {
                     {!editing && <><label htmlFor="initial-stock">Initial quantity</label>
                     <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     <label htmlFor="initial-stock-cost">Initial stock cost (optional)</label>
-                    <input id="initial-stock-cost" inputMode="decimal" placeholder="0.00" value={initialStockCost} onChange={(event) => setInitialStockCost(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
-                    <label className={styles.checkboxLabel}><input type="checkbox" checked={deductInitialStock} onChange={(event) => setDeductInitialStock(event.target.checked)} /> Deduct from total earnings?</label></>}
+                    <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" type="checkbox" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" type="checkbox" checked={deductInitialStock === false} onChange={() => setDeductInitialStock(false)} /> No</label></div></>}
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
-                    <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
+                    <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>
                 </section>
               </div>}
               <StockTrackerPage mode="stock" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
-            {workspaceView === 'settings' && <SettingsPage onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
+            {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
-            <div className={styles.tabs} role="group" aria-label="Catalog status">
-              <button type="button" aria-pressed={catalogStatus === 'active'} className={catalogStatus === 'active' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('active')}>Active</button>
-              <button type="button" aria-pressed={catalogStatus === 'archived'} className={catalogStatus === 'archived' ? styles.selectedTab : styles.tab} onClick={() => setCatalogStatus('archived')}>Archived</button>
-            </div>
             <section className={styles.ledger} aria-labelledby="expense-heading">
               <h2 id="expense-heading">Expense ledger</h2>
               <p>Record what you spent; historical product details are preserved automatically.</p>
@@ -553,13 +518,6 @@ function App() {
               {expenseNotice && <p className={styles.notice} role="status">{expenseNotice}</p>}
               {expenseLoading ? <p>Loading expenses…</p> : expenses.length === 0 ? <p className={styles.empty}>No expenses match these filters.</p> : <ul className={styles.productList} aria-label="Expenses">{expenses.map((expense) => <li key={expense.id} className={styles.productItem}><div><strong>{expense.amount} × {expense.quantity} — {expense.productName}</strong><span>{expense.category} · {new Date(expense.spentAt).toLocaleDateString()}</span>{expense.note && <span>{expense.note}</span>}</div><div className={styles.itemActions}><button className={styles.secondary} disabled={expenseDeleteLoadingId !== null} type="button" onClick={() => { setEditingExpense(expense); setExpenseProductId(expense.productId); setExpenseAmount(expense.amount); setExpenseQuantity(String(expense.quantity)); setExpenseNote(expense.note ?? ''); setExpenseDate(expense.spentAt.slice(0, 10)); setExpenseFieldError('') }}>Edit</button><button className={styles.danger} disabled={expenseDeleteLoadingId !== null} type="button" onClick={() => void deleteExpense(expense)}>{expenseDeleteLoadingId === expense.id ? 'Deleting…' : 'Delete'}</button></div></li>)}</ul>}
             </section>
-            <label className={styles.searchLabel} htmlFor="product-search">Search {catalogStatus} products</label>
-            <input id="product-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or category" />
-            {catalogError && <p className={styles.error} role="alert">{catalogError} <button className={styles.linkButton} type="button" onClick={() => void loadProducts()}>Retry</button></p>}
-            {catalogNotice && <p className={styles.notice} role="status">{catalogNotice}</p>}
-            {catalogLoading ? <p>Loading products…</p> : visibleProducts.length === 0 ? <p className={styles.empty}>No {catalogStatus} products match your search.</p> : <ul className={styles.productList} aria-label={`${catalogStatus} products`}>
-              {visibleProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category} · ₱{product.price} each</span>{!product.active && <span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span>}</div>{product.active && <div className={styles.itemActions}><button className={styles.secondary} disabled={loading || archiveLoadingId !== null} type="button" onClick={() => { setEditing(product); setProductName(product.name); setCategory(product.category); setPrice(product.price); setFieldError('') }}>Edit</button><button className={styles.danger} disabled={archiveLoadingId !== null} type="button" onClick={() => void archive(product)}>{archiveLoadingId === product.id ? 'Archiving…' : 'Archive'}</button></div>}</li>)}
-            </ul>}
             </>}
             </div>
           </div>

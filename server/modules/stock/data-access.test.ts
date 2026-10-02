@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, purgeExpiredDeletedStockData } from './data-access.js'
+import { adjustStock, createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, purgeExpiredDeletedStockData } from './data-access.js'
 
 function database() {
   const tx = {
@@ -10,7 +10,7 @@ function database() {
       deleteMany: vi.fn(),
     },
     stockPurchase: { create: vi.fn(), count: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
-    expense: { count: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+    expense: { create: vi.fn(), count: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   }
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
@@ -52,6 +52,16 @@ describe('stock data access', () => {
 
     await expect(createPurchase(db as never, 'user-a', { productId: 'product-a', quantity: 2 })).resolves.toEqual({ kind: 'insufficient-stock' })
     expect(tx.stockPurchase.create).not.toHaveBeenCalled()
+  })
+
+  it('deducts unit price for each replenished unit when requested', async () => {
+    const { db, tx } = database()
+    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 10_000 })
+    tx.product.updateMany.mockResolvedValue({ count: 1 })
+    tx.product.findFirstOrThrow.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 10_000, stockQuantity: 4, updatedAt: new Date() })
+
+    await expect(adjustStock(db as never, 'user-a', 'product-a', 4, true)).resolves.toMatchObject({ kind: 'adjusted' })
+    expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 10_000, quantity: 4, note: 'Restock deduction' }) })
   })
 
   it('rejects missing and oversized stored prices before changing stock', async () => {

@@ -23,8 +23,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
   const [productId, setProductId] = useState('')
   const [productMenuOpen, setProductMenuOpen] = useState(false)
   const [quantity, setQuantity] = useState('1')
-  const [restockCost, setRestockCost] = useState('')
-  const [deductRestock, setDeductRestock] = useState(false)
+  const [deductRestock, setDeductRestock] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -63,7 +62,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
     setFieldError('')
     setError('')
     setNotice('')
-    if (mode === 'stock' && deductRestock && !restockCost.trim()) { setFieldError('Enter the restock cost to deduct from total earnings.'); return }
+    if (mode === 'stock' && deductRestock === null) { setFieldError('Choose Yes or No for deducting the restock cost.'); return }
     const product = productIdSchema.safeParse(productId)
     const parsedQuantity = quantitySchema.safeParse(quantity)
     if (!product.success || !parsedQuantity.success) {
@@ -73,12 +72,11 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
     }
     setLoading(true)
     try {
-      const response = await fetch(mode === 'buy' ? '/api/stock/purchases' : '/api/stock/replenish', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mode === 'buy' ? { productId: product.data, quantity: parsedQuantity.data } : { productId: product.data, quantity: parsedQuantity.data, deductEarnings: deductRestock, ...(deductRestock ? { cost: restockCost } : {}) }) })
+      const response = await fetch(mode === 'buy' ? '/api/stock/purchases' : '/api/stock/replenish', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mode === 'buy' ? { productId: product.data, quantity: parsedQuantity.data } : { productId: product.data, quantity: parsedQuantity.data, deductEarnings: deductRestock === true }) })
       const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
       if (!response.ok) { setError(body?.error?.code === 'INSUFFICIENT_STOCK' ? 'There is not enough available stock for that purchase. Your entries were preserved.' : body?.error?.message ?? 'Unable to save stock changes.'); return }
       setQuantity('1')
-      setRestockCost('')
-      setDeductRestock(false)
+      setDeductRestock(null)
       setNotice(mode === 'buy' ? 'Purchase recorded and stock updated.' : 'Stock replenished.')
       await load()
       if (mode === 'buy') await loadPurchases()
@@ -139,13 +137,11 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
       </div>
       <label htmlFor="stock-quantity">Quantity</label><input id="stock-quantity" type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
       {mode === 'stock' && <>
-        <label htmlFor="restock-cost">Restock cost (optional)</label>
-        <input id="restock-cost" type="text" inputMode="decimal" placeholder="0.00" value={restockCost} onChange={(event) => setRestockCost(event.target.value)} />
-        <label className={styles.checkboxLabel}><input type="checkbox" checked={deductRestock} onChange={(event) => setDeductRestock(event.target.checked)} /> Deduct from total earnings?</label>
+        <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="restock-deduction-yes"><input id="restock-deduction-yes" type="checkbox" checked={deductRestock === true} onChange={() => setDeductRestock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="restock-deduction-no"><input id="restock-deduction-no" type="checkbox" checked={deductRestock === false} onChange={() => setDeductRestock(false)} /> No</label></div>
       </>}
       {mode === 'buy' && <p>Unit price: ₱{selectedProduct?.price ?? '0.00'} · Total: ₱{calculatedTotal ?? '0.00'}</p>}
       {fieldError && <p className={styles.error} role="alert">{fieldError}</p>}
-      <button disabled={loading} type="submit">{loading ? 'Saving…' : mode === 'buy' ? 'Bought' : 'Add stock'}</button>
+      <button disabled={loading || (mode === 'stock' && deductRestock === null)} type="submit">{loading ? 'Saving…' : mode === 'buy' ? 'Bought' : 'Add stock'}</button>
     </form>
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {mode === 'buy' ? <>

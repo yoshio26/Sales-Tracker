@@ -32,12 +32,14 @@ describe('dashboard service', () => {
   })
 
   it('returns zero totals and empty aggregates for an empty ledger', async () => {
-    await expect(getDashboard('user-a', new Date('2026-10-01T12:00:00.000Z'))).resolves.toMatchObject({
+    const dashboard = await getDashboard('user-a', new Date('2026-10-01T12:00:00.000Z'))
+    expect(dashboard).toMatchObject({
       currentMonth: { total: '0.00', trend: [], byProduct: [], byCategory: [] },
       allTime: { total: '0.00', trend: [], byProduct: [], byCategory: [] },
       stock: { totalUnits: 0, productsInStock: 0, productsOutOfStock: 0 },
       purchases: { count: 0, quantity: 0, totalCost: '0.00' },
     })
+    expect(dashboard).not.toHaveProperty('currentMonth.totalCents')
     expect(mocks.getTotal).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ from: new Date('2026-10-01T00:00:00.000Z') }))
     expect(mocks.getByProduct).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ to: new Date('2026-11-01T00:00:00.000Z') }))
     expect(mocks.getTimeSeries).toHaveBeenCalledWith({}, 'user-a', expect.objectContaining({ from: new Date('2026-10-01T00:00:00.000Z') }), 'day')

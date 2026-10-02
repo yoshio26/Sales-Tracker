@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import styles from '../App.module.css'
 import { PurchaseHistoryPage } from './PurchaseHistoryPage'
 
-type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void> }
+type ArchivedProduct = { id: string; name: string; category: string; price: string; archivedAt: string | null }
+type SettingsSection = 'archive' | 'history' | 'settings'
 
-export function SettingsPage({ onStockDeleted, onHistoryChanged }: Props) {
+type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void>; archivedProducts: ArchivedProduct[] }
+
+export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProducts }: Props) {
+  const [section, setSection] = useState<SettingsSection>('archive')
   const [stockLoading, setStockLoading] = useState(false)
   const [stockError, setStockError] = useState('')
   const [stockNotice, setStockNotice] = useState('')
@@ -12,6 +16,24 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged }: Props) {
   const [stockCountdown, setStockCountdown] = useState(10)
   const deleteStockButtonRef = useRef<HTMLButtonElement>(null)
   const cancelStockRef = useRef<HTMLButtonElement>(null)
+
+  async function permanentlyDelete(product: ArchivedProduct) {
+    if (!window.confirm(`Permanently delete ${product.name} and all of its history? This cannot be undone.`)) return
+    setStockError('')
+    setStockNotice('')
+    try {
+      const response = await fetch(`/api/products/${product.id}/permanent`, { method: 'DELETE', credentials: 'include' })
+      const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+      if (!response.ok) {
+        setStockError(body?.error?.message ?? 'Unable to permanently delete the archived product.')
+        return
+      }
+      await onStockDeleted()
+      setStockNotice(`${product.name} and its history were permanently deleted.`)
+    } catch {
+      setStockError('Unable to contact the product service. Try again.')
+    }
+  }
 
   useEffect(() => {
     if (!stockConfirmationOpen) return
@@ -56,7 +78,14 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged }: Props) {
   }
 
   return <div className={styles.settingsView}>
-    <section className={styles.settingsCard} aria-labelledby="settings-heading">
+    <nav className={styles.settingsTabs} aria-label="Settings pages" role="tablist">
+      {([['archive', 'Archive'], ['history', 'History'], ['settings', 'Settings']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={section === value} aria-controls={`${value}-panel`} className={section === value ? styles.selectedTab : styles.tab} onClick={() => setSection(value)}>{label}</button>)}
+    </nav>
+    {section === 'archive' && <section id="archive-panel" className={styles.settingsCard} aria-labelledby="archived-products-heading" role="tabpanel">
+      <div><h2 id="archived-products-heading">Archived products</h2><p>Products removed from active stocks remain here with their historical details.</p></div>
+      {archivedProducts.length === 0 ? <p className={styles.empty}>No archived products.</p> : <ul className={styles.productList} aria-label="Archived products">{archivedProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category} · ₱{product.price} each</span><span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span></div><button className={styles.danger} type="button" onClick={() => void permanentlyDelete(product)}>Delete permanently</button></li>)}</ul>}
+    </section>}
+    {section === 'settings' && <section id="settings-panel" className={styles.settingsCard} aria-labelledby="settings-heading" role="tabpanel">
       <div><h2 id="settings-heading">Settings</h2><p>Manage your stock and purchase-history data with deliberate confirmation for destructive actions.</p></div>
       <div className={styles.dangerPanel}>
         <div><h3>Delete stocks</h3><p>Remove your stock records and their purchase history and expenses. Deleted data is recoverable for 10 days.</p></div>
@@ -73,7 +102,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged }: Props) {
       </section>}
       {stockError && <p className={styles.error} role="alert">{stockError}</p>}
       {stockNotice && <p className={styles.notice} role="status">{stockNotice}</p>}
-    </section>
-    <PurchaseHistoryPage deletable onChanged={onHistoryChanged} />
+    </section>}
+    {section === 'history' && <div id="history-panel" role="tabpanel"><PurchaseHistoryPage deletable onChanged={onHistoryChanged} /></div>}
   </div>
 }

@@ -29,8 +29,8 @@ export async function listStock(userId: string) {
   return (await listStockRecords(database, userId)).map(toProductResponse)
 }
 
-export async function replenishStock(userId: string, productId: string, quantity: number, costCents?: number) {
-  const outcome = await adjustStockRecord(database, userId, productId, quantity, costCents)
+export async function replenishStock(userId: string, productId: string, quantity: number, deductEarnings = false) {
+  const outcome = await adjustStockRecord(database, userId, productId, quantity, deductEarnings)
   return outcome.kind === 'adjusted' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
 }
 

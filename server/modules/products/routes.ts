@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { archiveProduct, createProduct, listProducts, updateProduct } from './service.js'
+import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, updateProduct } from './service.js'
 
 const idSchema = z.object({ id: z.uuid() })
 const productSchema = z.object({
@@ -53,6 +53,19 @@ productsRouter.put('/:id', requireSession, requireSameOrigin, async (req, res, n
   try {
     const { id } = idSchema.parse(req.params)
     sendOutcome(res, await updateProduct(req.userId!, id, updateSchema.parse(req.body)))
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res)
+    next(error)
+  }
+})
+
+productsRouter.delete('/:id/permanent', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const { id } = idSchema.parse(req.params)
+    const outcome = await permanentlyDeleteArchivedProduct(req.userId!, id)
+    if (outcome.kind === 'deleted') return res.json({ deleted: true })
+    if (outcome.kind === 'active') return res.status(409).json({ error: { code: 'ACTIVE_PRODUCT', message: 'Archive the product before permanently deleting it.' } })
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Archived product not found.' } })
   } catch (error) {
     if (error instanceof z.ZodError) return invalidInput(res)
     next(error)

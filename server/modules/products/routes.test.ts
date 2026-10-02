@@ -4,12 +4,15 @@ const mocks = vi.hoisted(() => ({
   archiveProduct: vi.fn(),
   createProduct: vi.fn(),
   listProducts: vi.fn(),
+  permanentlyDeleteArchivedProduct: vi.fn(),
   updateProduct: vi.fn(),
 }))
 
 vi.mock('./service.js', () => mocks)
 
 import { productsRouter } from './routes.ts'
+
+const appOrigin = process.env.APP_ORIGIN ?? 'http://localhost:5173'
 
 type MockResponse = { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> }
 
@@ -65,7 +68,7 @@ describe('product catalog routes', () => {
   })
 
   it('validates create DTOs before calling the service', async () => {
-    const res = await invoke('post', '/', { userId: 'user-a', body: { name: '', category: '' }, get: () => 'http://localhost:5173' })
+    const res = await invoke('post', '/', { userId: 'user-a', body: { name: '', category: '' }, get: () => appOrigin })
 
     expect(res.status).toHaveBeenCalledWith(400)
     expect(mocks.createProduct).not.toHaveBeenCalled()
@@ -84,8 +87,8 @@ describe('product catalog routes', () => {
     const res = await invoke('put', '/:id', {
       userId: 'user-a',
       params: { id: '123e4567-e89b-12d3-a456-426614174000' },
-      body: { name: 'widget', category: 'hardware', updatedAt: '2026-09-30T12:00:00.000Z' },
-      get: () => 'http://localhost:5173',
+      body: { name: 'widget', category: 'hardware', price: '10.00', updatedAt: '2026-09-30T12:00:00.000Z' },
+      get: () => appOrigin,
     })
 
     expect(res.status).toHaveBeenCalledWith(409)
@@ -98,8 +101,8 @@ describe('product catalog routes', () => {
     const res = await invoke('put', '/:id', {
       userId: 'user-a',
       params: { id: '123e4567-e89b-12d3-a456-426614174000' },
-      body: { name: 'widget', category: 'hardware', updatedAt: '2026-09-30T12:00:00.000Z' },
-      get: () => 'http://localhost:5173',
+      body: { name: 'widget', category: 'hardware', price: '10.00', updatedAt: '2026-09-30T12:00:00.000Z' },
+      get: () => appOrigin,
     })
 
     expect(mocks.updateProduct).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000', expect.anything())

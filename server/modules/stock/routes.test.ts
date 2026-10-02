@@ -5,6 +5,8 @@ vi.mock('./service.js', () => mocks)
 
 import { stockRouter } from './routes.js'
 
+const appOrigin = process.env.APP_ORIGIN ?? 'http://localhost:5173'
+
 function response() {
   const json = vi.fn()
   const send = vi.fn()
@@ -54,7 +56,7 @@ describe('stock routes', () => {
   })
 
   it('validates input and protects mutations with same-origin checks', async () => {
-    const invalid = await invoke('/purchases', 'post', { userId: 'user-a', body: { productId: 'bad', quantity: -1, totalCost: '0' }, get: () => 'http://localhost:5173' })
+    const invalid = await invoke('/purchases', 'post', { userId: 'user-a', body: { productId: 'bad', quantity: -1, totalCost: '0' }, get: () => appOrigin })
     expect(invalid.status).toHaveBeenCalledWith(400)
     expect(mocks.createPurchase).not.toHaveBeenCalled()
 
@@ -65,13 +67,13 @@ describe('stock routes', () => {
 
   it('returns an insufficient-stock conflict without a purchase response', async () => {
     mocks.createPurchase.mockResolvedValue({ kind: 'insufficient-stock' })
-    const res = await invoke('/purchases', 'post', { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 3, totalCost: '12.50' }, get: () => 'http://localhost:5173' })
+    const res = await invoke('/purchases', 'post', { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 3, totalCost: '12.50' }, get: () => appOrigin })
     expect(res.status).toHaveBeenCalledWith(409)
     expect(res.json).toHaveBeenCalledWith({ error: { code: 'INSUFFICIENT_STOCK', message: 'Purchase quantity exceeds available stock.' } })
   })
 
   it('maps pricing conflicts to their documented error envelopes', async () => {
-    const input = { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 1 }, get: () => 'http://localhost:5173' }
+    const input = { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 1 }, get: () => appOrigin }
 
     mocks.createPurchase.mockResolvedValueOnce({ kind: 'product-price-missing' })
     const missingPrice = await invoke('/purchases', 'post', input)
@@ -90,18 +92,18 @@ describe('stock routes', () => {
     expect(mocks.deleteStockData).not.toHaveBeenCalled()
 
     mocks.deleteStockData.mockResolvedValue({ kind: 'deleted', count: 3 })
-    const stock = await invoke('/', 'delete', { userId: 'user-a', get: () => 'http://localhost:5173' })
+    const stock = await invoke('/', 'delete', { userId: 'user-a', get: () => appOrigin })
     expect(stock.json).toHaveBeenCalledWith({ deleted: 3 })
     expect(mocks.deleteStockData).toHaveBeenCalledWith('user-a')
 
     mocks.deletePurchase.mockResolvedValue({ kind: 'deleted' })
-    const deleted = await invoke('/purchases/:id', 'delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
+    const deleted = await invoke('/purchases/:id', 'delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => appOrigin })
     expect(deleted.status).toHaveBeenCalledWith(204)
     expect(deleted.send).toHaveBeenCalledOnce()
     expect(mocks.deletePurchase).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000')
 
     mocks.deletePurchase.mockResolvedValue({ kind: 'not-found' })
-    const missing = await invoke('/purchases/:id', 'delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
+    const missing = await invoke('/purchases/:id', 'delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => appOrigin })
     expect(missing.status).toHaveBeenCalledWith(404)
     expect(missing.json).toHaveBeenCalledWith({ error: { code: 'PURCHASE_NOT_FOUND', message: 'Purchase history entry not found.' } })
   })

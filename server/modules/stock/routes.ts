@@ -4,7 +4,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, parseCost, replenishStock } from './service.js'
+import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, replenishStock } from './service.js'
 
 const quantitySchema = z.number().int().positive().max(2147483647)
 const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema, deductEarnings: z.boolean().default(false), cost: z.string().optional() })
@@ -34,13 +34,10 @@ stockRouter.delete('/', requireSession, requireSameOrigin, async (req, res, next
 stockRouter.post('/replenish', requireSession, requireSameOrigin, async (req, res, next) => {
   try {
     const input = replenishSchema.parse(req.body)
-    let costCents: number | undefined
-    if (input.deductEarnings) {
-      if (!input.cost) return invalidInput(res, 'Enter the restock cost to deduct from total earnings.')
-      try { costCents = parseCost(input.cost) } catch { return invalidInput(res, 'Enter a valid restock cost.') }
-    }
-    const outcome = await replenishStock(req.userId!, input.productId, input.quantity, costCents)
+    const outcome = await replenishStock(req.userId!, input.productId, input.quantity, input.deductEarnings)
     if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
+    if (outcome.kind === 'product-price-missing') return res.status(409).json({ error: { code: 'PRODUCT_PRICE_MISSING', message: 'Set a unit price before deducting from profit.' } })
+    if (outcome.kind === 'deduction-too-large') return res.status(409).json({ error: { code: 'DEDUCTION_TOO_LARGE', message: 'The deduction is too large.' } })
     res.json({ product: outcome.product })
   } catch (error) {
     if (error instanceof z.ZodError) return invalidInput(res)

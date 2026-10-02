@@ -41,7 +41,7 @@ describe('stock service', () => {
 
     await expect(replenishStock('user-a', 'product-id', 3)).resolves.toMatchObject({ kind: 'adjusted', product: { stockQuantity: 4 } })
     await expect(createPurchase('user-a', { productId: 'product-id', quantity: 2 })).resolves.toMatchObject({ kind: 'created', purchase: { totalCost: '12.50' } })
-    expect(mocks.adjustStock).toHaveBeenCalledWith({}, 'user-a', 'product-id', 3)
+    expect(mocks.adjustStock).toHaveBeenCalledWith({}, 'user-a', 'product-id', 3, false)
     expect(mocks.createPurchase).toHaveBeenCalledWith({}, 'user-a', { productId: 'product-id', quantity: 2 })
   })
 

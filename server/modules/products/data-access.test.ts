@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
-import { archiveProduct, createProduct, listProducts, updateProduct } from './data-access.js'
+import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, updateProduct } from './data-access.js'
 
 function database() {
   const tx = {
+    expense: { deleteMany: vi.fn() },
     product: {
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
       findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       updateMany: vi.fn(),
     },
+    stockPurchase: { deleteMany: vi.fn() },
   }
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
@@ -70,5 +74,16 @@ describe('product data access', () => {
 
     await expect(archiveProduct(db as never, 'user-a', 'product-id', new Date('2026-10-01T00:00:00.000Z'))).resolves.toEqual({ kind: 'updated', product: { id: 'product-id', active: false } })
     expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'product-id', userId: 'user-a', active: true }) }))
+  })
+
+  it('permanently deletes an archived product and its dependent history in one transaction', async () => {
+    const { db, tx } = database()
+    tx.product.findFirst.mockResolvedValueOnce({ id: 'product-id' })
+    tx.product.delete.mockResolvedValue({ id: 'product-id' })
+
+    await expect(permanentlyDeleteArchivedProduct(db as never, 'user-a', 'product-id')).resolves.toEqual({ kind: 'deleted' })
+    expect(tx.expense.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
+    expect(tx.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
+    expect(tx.product.delete).toHaveBeenCalledWith({ where: { id: 'product-id' } })
   })
 })
