@@ -16,6 +16,8 @@ const configSchema = z.object({
   RATE_LIMIT_IP_MAX: z.coerce.number().int().positive().default(20),
   AUTH_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
   ALLOWLIST_EMAIL: z.string().email().optional(),
+  MAIL_FROM: z.string().email().default('no-reply@example.test'),
+  RESEND_API_KEY: z.string().min(1).optional(),
 })
 
 export const config = configSchema.parse({
