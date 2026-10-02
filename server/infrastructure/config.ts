@@ -11,13 +11,12 @@ const configSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASSWORD: z.string().default(''),
   MAIL_FROM: z.string().email().default('no-reply@example.test'),
+  RESEND_API_KEY: z.string().min(1).optional(),
   COOKIE_SECURE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   RATE_LIMIT_EMAIL_MAX: z.coerce.number().int().positive().default(3),
   RATE_LIMIT_IP_MAX: z.coerce.number().int().positive().default(20),
   AUTH_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
   ALLOWLIST_EMAIL: z.string().email().optional(),
-  MAIL_FROM: z.string().email().default('no-reply@example.test'),
-  RESEND_API_KEY: z.string().min(1).optional(),
 })
 
 export const config = configSchema.parse({
@@ -30,6 +29,7 @@ export const config = configSchema.parse({
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASSWORD: process.env.SMTP_PASSWORD,
   MAIL_FROM: process.env.MAIL_FROM,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
   COOKIE_SECURE: process.env.COOKIE_SECURE,
   RATE_LIMIT_EMAIL_MAX: process.env.RATE_LIMIT_EMAIL_MAX,
   RATE_LIMIT_IP_MAX: process.env.RATE_LIMIT_IP_MAX,
