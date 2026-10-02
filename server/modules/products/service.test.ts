@@ -26,7 +26,7 @@ describe('product catalog service', () => {
     await createProduct('user-a', { name: '  WiDgEt  ', category: '  Hardware ' })
 
     expect(normalizeProductName('  WiDgEt  ')).toBe('widget')
-    expect(mocks.createProduct).toHaveBeenCalledWith({}, 'user-a', { name: 'widget', category: 'hardware' })
+    expect(mocks.createProduct).toHaveBeenCalledWith({}, 'user-a', { name: 'widget', category: 'hardware', priceCents: 0 })
   })
 
   it('does not expose another user’s products', async () => {

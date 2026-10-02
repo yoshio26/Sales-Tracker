@@ -28,3 +28,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-dashboard.md`
   summary: Optimize or code-split the Recharts client bundle.
   evidence: The production build reports a non-blocking bundle-size warning; bundle optimization is outside the dashboard acceptance criteria.
+- source_spec: `_bmad-output/implementation-artifacts/spec-settings-delete-stocks-history.md`
+  summary: Add automated frontend/browser coverage for Settings confirmation, deletion feedback, and post-delete refresh flows.
+  evidence: The repository has no client test harness; the required flows are documented in FrontEnd/DASHBOARD-MANUAL-CHECKS.md pending the planned E2E testing phase.

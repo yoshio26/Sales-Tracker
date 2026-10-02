@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ createPurchase: vi.fn(), listPurchases: vi.fn(), listStock: vi.fn(), replenishStock: vi.fn() }))
+const mocks = vi.hoisted(() => ({ createPurchase: vi.fn(), deletePurchase: vi.fn(), deleteStockData: vi.fn(), listPurchases: vi.fn(), listStock: vi.fn(), replenishStock: vi.fn() }))
 vi.mock('./service.js', () => mocks)
 
 import { stockRouter } from './routes.js'
 
 function response() {
   const json = vi.fn()
-  return { status: vi.fn(() => ({ json })), json }
+  const send = vi.fn()
+  return { status: vi.fn(() => ({ json, send })), json, send }
 }
 
 type Route = { path?: string; methods?: Record<string, boolean>; stack: Array<{ handle: (...args: never[]) => unknown }> }
@@ -67,5 +68,41 @@ describe('stock routes', () => {
     const res = await invoke('/purchases', 'post', { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 3, totalCost: '12.50' }, get: () => 'http://localhost:5173' })
     expect(res.status).toHaveBeenCalledWith(409)
     expect(res.json).toHaveBeenCalledWith({ error: { code: 'INSUFFICIENT_STOCK', message: 'Purchase quantity exceeds available stock.' } })
+  })
+
+  it('maps pricing conflicts to their documented error envelopes', async () => {
+    const input = { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 1 }, get: () => 'http://localhost:5173' }
+
+    mocks.createPurchase.mockResolvedValueOnce({ kind: 'product-price-missing' })
+    const missingPrice = await invoke('/purchases', 'post', input)
+    expect(missingPrice.status).toHaveBeenCalledWith(409)
+    expect(missingPrice.json).toHaveBeenCalledWith({ error: { code: 'PRODUCT_PRICE_MISSING', message: 'Set a price for this product in Stocks before buying it.' } })
+
+    mocks.createPurchase.mockResolvedValueOnce({ kind: 'purchase-total-too-large' })
+    const oversized = await invoke('/purchases', 'post', input)
+    expect(oversized.status).toHaveBeenCalledWith(409)
+    expect(oversized.json).toHaveBeenCalledWith({ error: { code: 'PURCHASE_TOTAL_TOO_LARGE', message: 'The purchase total is too large.' } })
+  })
+
+  it('protects stock and history deletion and scopes both operations to the session', async () => {
+    const foreign = await invoke('/', 'delete', { userId: 'user-a', get: () => 'https://attacker.example' })
+    expect(foreign.status).toHaveBeenCalledWith(403)
+    expect(mocks.deleteStockData).not.toHaveBeenCalled()
+
+    mocks.deleteStockData.mockResolvedValue({ kind: 'referenced' })
+    const stock = await invoke('/', 'delete', { userId: 'user-a', get: () => 'http://localhost:5173' })
+    expect(stock.status).toHaveBeenCalledWith(409)
+    expect(mocks.deleteStockData).toHaveBeenCalledWith('user-a')
+
+    mocks.deletePurchase.mockResolvedValue({ kind: 'deleted' })
+    const deleted = await invoke('/purchases/:id', 'delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
+    expect(deleted.status).toHaveBeenCalledWith(204)
+    expect(deleted.send).toHaveBeenCalledOnce()
+    expect(mocks.deletePurchase).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000')
+
+    mocks.deletePurchase.mockResolvedValue({ kind: 'not-found' })
+    const missing = await invoke('/purchases/:id', 'delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
+    expect(missing.status).toHaveBeenCalledWith(404)
+    expect(missing.json).toHaveBeenCalledWith({ error: { code: 'PURCHASE_NOT_FOUND', message: 'Purchase history entry not found.' } })
   })
 })

@@ -194,6 +194,13 @@
   font-weight: 700;
 }
 
+.settingsView { display: grid; gap: 1rem; padding-top: 1.5rem; }
+.settingsCard, .dangerPanel { display: grid; gap: 1rem; }
+.settingsCard { padding: 1.25rem; border: 1px solid #f1e8ee; background: #fff; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
+.settingsCard h2, .settingsCard h3 { margin: 0; color: #20202a; }
+.settingsCard p { margin: 0; }
+.dangerPanel { align-items: center; grid-template-columns: minmax(0, 1fr) auto; padding: 1rem; border: 1px solid #f1caca; background: #fff8f8; }
+
 @media (max-width: 32rem) {
   .card {
     padding: 2rem;
@@ -201,4 +208,80 @@
   .workspaceHeader, .productItem { align-items: stretch; flex-direction: column; }
   .summaryCards, .chartGrid { grid-template-columns: 1fr; }
   .chartCard:first-child { grid-column: auto; }
+}
+
+/* Sales V1 dashboard theme */
+.shell { min-height: 100vh; padding: 0; place-items: stretch; background: #f8f8fb; }
+.appFrame { width: 100%; height: 100vh; min-height: 0; overflow: hidden; background: #fff; }
+.workspaceLayout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); height: 100vh; min-height: 0; overflow: hidden; }
+.sidebar { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; padding: 1.5rem 0 1rem; border-radius: 0 0 1rem 1rem; background: linear-gradient(180deg, #ff2f91 0%, #f51f80 100%); color: white; }
+.brand { display: flex; align-items: center; gap: 0.65rem; margin-right: 0.4rem; padding: 0.35rem 0.85rem 2.25rem; border-radius: 0 0 0.75rem 0; color: white; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.04em; }
+.brandMark { display: grid; place-items: center; width: 2rem; height: 2rem; border: 2px solid rgba(255,255,255,0.9); border-radius: 0.65rem; font-size: 1rem; }
+.sidebarNav { display: grid; gap: 0; }
+.sidebarItem, .selectedSidebarItem, .sidebarSettings { display: flex; align-items: center; gap: 0.75rem; width: calc(100% - 0.4rem); min-height: 3rem; margin: 0 0 0 0.4rem !important; padding: 0.75rem 1.35rem !important; border: 0 !important; border-radius: 999px 0 0 999px !important; background: transparent !important; color: rgba(255,255,255,0.88) !important; box-shadow: none !important; font-size: 0.9rem; font-weight: 700; text-align: left; transition: background 180ms ease, color 180ms ease; }
+.sidebarItem::before, .selectedSidebarItem::before, .sidebarSettings::before { display: none !important; }
+.sidebarItem:hover:not(:disabled), .selectedSidebarItem:hover:not(:disabled), .sidebarSettings:hover:not(:disabled) { color: white !important; background: rgba(255,255,255,0.14) !important; }
+.selectedSidebarItem { border-radius: 999px 0 0 999px !important; background: white !important; color: #f51f80 !important; box-shadow: 0 0.65rem 1.5rem rgba(153, 15, 77, 0.12) !important; }
+.selectedSidebarItem:hover:not(:disabled) { color: #f51f80 !important; background: white !important; }
+.sidebarItem + .sidebarItem, .sidebarItem + .selectedSidebarItem, .selectedSidebarItem + .sidebarItem { border-top: 1px solid rgba(255,255,255,0.12) !important; }
+.navIcon { flex: 0 0 auto; width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.sidebarSettings { margin-top: auto !important; }
+.workspaceMain { min-width: 0; height: 100vh; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 3rem; background: #fff; scrollbar-color: #f7afd0 transparent; scrollbar-width: thin; }
+.appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { position: relative; z-index: 0; isolation: isolate; overflow: hidden; margin-top: 1rem; padding: 0.65rem 1.5rem; border: 2px solid #f51f80; border-radius: 999px; background: transparent; color: #e51978; cursor: pointer; font: inherit; font-weight: 700; transition: color 300ms ease, transform 300ms ease, box-shadow 300ms ease; }
+.appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { content: ''; position: absolute; z-index: -1; inset: 50% auto auto 50%; width: 3.125rem; height: 3.125rem; border-radius: inherit; background: #f51f80; transform: translate(-50%, -50%) scale(0); transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1); }
+.appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings):hover:not(:disabled)::before { transform: translate(-50%, -50%) scale(5); }
+.appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings):hover:not(:disabled) { color: white; transform: scale(1.03); box-shadow: 0 0 1.25rem rgba(245, 31, 128, 0.2); }
+.appFrame button.secondary { margin-top: 0; background: transparent; }
+.appFrame input, .appFrame select, .appFrame textarea { box-sizing: border-box; width: 100%; padding: 0.85rem 1rem; border: 1px solid #edc9da; border-radius: 0.65rem; color: #20202a; font: inherit; background: white; }
+.appFrame input:focus, .appFrame select:focus, .appFrame textarea:focus { outline: 3px solid #ffd2e6; border-color: #f51f80; }
+.workspaceHeader { align-items: center; padding-bottom: 1.5rem; border-bottom: 1px solid #f0e8ed; }
+.workspaceHeader h1 { margin: 0.2rem 0 0.35rem; color: #20202a; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.06em; }
+.workspaceHeader p { margin: 0; }
+.dateLabel { color: #f51f80 !important; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.profile { display: flex; align-items: center; gap: 0.65rem; color: #292936; }
+.profile strong, .profile small { display: block; }
+.profile strong { font-size: 0.85rem; }
+.profile small { margin-top: 0.2rem; color: #92909a; font-size: 0.72rem; }
+.avatar { display: grid; place-items: center; width: 2.55rem; height: 2.55rem; border-radius: 50%; background: #ffd2e6; color: #e51978; font-weight: 800; }
+.dashboard { padding: 1.5rem 0 0; border: 0; background: transparent; }
+.dashboard h2 { color: #20202a; font-size: 1.35rem; }
+.dashboard p { color: #92909a; }
+.summaryCards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.summaryCard { padding: 1.25rem; border: 1px solid #f1e8ee; border-radius: 0; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.05); }
+.summaryCard span { color: #92909a; }
+.summaryCard strong { color: #20202a; }
+.chartGrid { gap: 1rem; }
+.chartCard { border: 1px solid #f1e8ee; border-radius: 0; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
+.stockView, .productForm { border-color: #f1e8ee; background: #fff; border-radius: 0; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
+.stockView h2, .workspace h2 { color: #20202a; }
+.tab { border-color: #f7afd0 !important; color: #e51978 !important; border-radius: 0.3rem !important; }
+.selectedTab { background: #f51f80 !important; border-color: #f51f80 !important; color: white !important; border-radius: 0.3rem !important; }
+.card button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { border-color: #f51f80; color: #e51978; }
+.card button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { background: #f51f80; }
+.card button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings):hover:not(:disabled) { box-shadow: 0 0 1.25rem rgba(245, 31, 128, 0.2); }
+.card button:focus-visible { outline-color: #f7afd0; }
+.addNewButton { color: #f51f80 !important; }
+.addNewButton svg { stroke: #f51f80; }
+.modal { border-color: #f1e8ee; }
+
+@media (max-width: 52rem) {
+  .workspaceLayout { grid-template-columns: 5rem minmax(0, 1fr); }
+  .sidebar { padding-inline: 0.5rem; }
+  .brand { justify-content: center; padding-inline: 0; }
+  .brand span:last-child, .sidebarItem span:last-child, .selectedSidebarItem span:last-child, .sidebarSettings span:last-child { display: none; }
+  .sidebarItem, .selectedSidebarItem, .sidebarSettings { justify-content: center; padding-inline: 0 !important; }
+  .workspaceMain { padding-inline: 1.25rem; }
+  .summaryCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 32rem) {
+  .workspaceLayout { display: block; }
+  .sidebar { position: sticky; top: 0; z-index: 5; flex-direction: row; align-items: center; gap: 0.5rem; padding: 0.65rem; }
+  .brand { padding: 0; }
+  .sidebarNav { display: flex; flex: 1; justify-content: flex-end; }
+  .sidebarSettings { margin-top: 0 !important; }
+  .workspaceMain { height: calc(100vh - 4.25rem); padding: 1rem; }
+  .workspaceHeader { align-items: flex-start; flex-direction: column; }
+  .profile { display: none; }
+  .summaryCards { grid-template-columns: 1fr; }
 }

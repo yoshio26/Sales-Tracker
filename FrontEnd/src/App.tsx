@@ -4,14 +4,15 @@ import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
 import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { StockTrackerPage } from './pages/StockTrackerPage'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 type View = 'email' | 'code' | 'signed-in'
-type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history'
+type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings'
 type CatalogStatus = 'active' | 'archived'
-type Product = { id: string; name: string; category: string; stockQuantity: number; active: boolean; archivedAt: string | null; updatedAt: string }
+type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; updatedAt: string }
 type Expense = { id: string; productId: string; productName: string; category: string; amount: string; quantity: number; note: string | null; spentAt: string; createdAt: string; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
@@ -20,6 +21,7 @@ const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ 
 const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Product name is required.').max(200),
   category: z.string().trim().min(1, 'Category is required.').max(100),
+  price: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/, 'Enter a valid price.').refine((value) => Number(value) > 0, 'Price must be greater than zero.'),
   stockQuantity: z.coerce.number().int('Initial stock must be a whole number.').nonnegative('Initial stock cannot be negative.').max(1_000_000_000, 'Initial stock is too large.'),
 })
 const expenseInputSchema = z.object({
@@ -58,6 +60,17 @@ async function dashboardApi(): Promise<Response> {
   return fetch('/api/dashboard', { credentials: 'include' })
 }
 
+function NavIcon({ name }: { name: WorkspaceView | 'settings' }) {
+  const paths: Record<string, string> = {
+    dashboard: 'M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z',
+    buy: 'M3 5h18v14H3V5Zm4 4h10M7 13h4M7 16h7',
+    stock: 'M4 19V9l8-5 8 5v10H4Zm4 0v-6h8v6M8 9h.01M12 9h.01M16 9h.01',
+    history: 'M5 4h14v16H5V4Zm3 4h8M8 12h8M8 16h5',
+    settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-12v2m0 13v2m8.5-8.5h-2m-13 0h-2m15.01-6.01-1.42 1.42M6.91 17.09l-1.42 1.42m13.02 0-1.42-1.42M6.91 6.91 5.49 5.49',
+  }
+  return <svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name]} /></svg>
+}
+
 function App() {
   const [view, setView] = useState<View>('email')
   const [email, setEmail] = useState('')
@@ -72,6 +85,7 @@ function App() {
   const [search, setSearch] = useState('')
   const [productName, setProductName] = useState('')
   const [category, setCategory] = useState('')
+  const [price, setPrice] = useState('')
   const [stockQuantity, setStockQuantity] = useState('0')
   const [editing, setEditing] = useState<Product | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(false)
@@ -98,6 +112,7 @@ function App() {
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
   const [stockRefreshKey, setStockRefreshKey] = useState(0)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
   const dashboardRequestId = useRef(0)
@@ -249,6 +264,7 @@ function App() {
     setEditing(null)
     setProductName('')
     setCategory('')
+    setPrice('')
     setStockQuantity('0')
     setFieldError('')
   }
@@ -324,7 +340,7 @@ function App() {
     setFieldError('')
     setCatalogError('')
     setCatalogNotice('')
-    const parsed = productInputSchema.safeParse({ name: productName, category, stockQuantity: editing ? 0 : stockQuantity })
+    const parsed = productInputSchema.safeParse({ name: productName, category, price, stockQuantity: editing ? 0 : stockQuantity })
     if (!parsed.success) {
       setFieldError(parsed.error.issues[0]?.message ?? 'Enter a valid product name and category.')
       return
@@ -334,7 +350,7 @@ function App() {
     try {
       const response = await productsApi(editing ? `/${editing.id}` : '', {
         method: editing ? 'PUT' : 'POST',
-        body: JSON.stringify(editing ? { name: parsed.data.name, category: parsed.data.category, updatedAt: editing.updatedAt } : parsed.data),
+        body: JSON.stringify(editing ? { name: parsed.data.name, category: parsed.data.category, price: parsed.data.price, updatedAt: editing.updatedAt } : parsed.data),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
@@ -380,24 +396,40 @@ function App() {
     }
   }
 
+  async function refreshAfterStockDeletion() {
+    await Promise.all([loadProducts('active'), loadProducts('archived'), loadDashboard()])
+    setStockRefreshKey((value) => value + 1)
+    setHistoryRefreshKey((value) => value + 1)
+  }
+
+  async function refreshAfterHistoryDeletion() {
+    await loadDashboard()
+    setHistoryRefreshKey((value) => value + 1)
+  }
+
   const visibleProducts = products.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(search.trim().toLowerCase()))
 
   return (
     <main className={styles.shell}>
-      <section className={styles.card} aria-live="polite">
-        <p className={styles.eyebrow}>SALES TRACKER</p>
+      <section className={view === 'signed-in' ? styles.appFrame : styles.card} aria-live="polite">
         {view === 'signed-in' ? (
-          <div className={styles.workspace}>
+          <div className={styles.workspaceLayout}>
+            <aside className={styles.sidebar} aria-label="Sales V1 navigation">
+              <div className={styles.brand}><span className={styles.brandMark}>S</span><span>Sales V1</span></div>
+              <nav className={styles.sidebarNav} aria-label="Workspace views">
+                <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={workspaceView === 'dashboard' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('dashboard')}><NavIcon name="dashboard" /><span>Dashboard</span></button>
+                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('buy')}><NavIcon name="buy" /><span>Buy</span></button>
+                <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={workspaceView === 'stock' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('stock')}><NavIcon name="stock" /><span>Stocks</span></button>
+                <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('history')}><NavIcon name="history" /><span>Purchase History</span></button>
+                <button type="button" aria-current={workspaceView === 'settings' ? 'page' : undefined} className={workspaceView === 'settings' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('settings')}><NavIcon name="settings" /><span>Settings</span></button>
+              </nav>
+              <button className={styles.sidebarSettings} type="button" onClick={() => void logout()}><NavIcon name="settings" /><span>Sign out</span></button>
+            </aside>
+            <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
-              <div><h1>Stocks</h1><p>Manage your products, available stocks, purchases, and sales records.</p></div>
-              <button className={styles.secondary} type="button" onClick={() => void logout()}>Sign out</button>
+              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Buy stock' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : 'Purchase history'}</h1><p>Welcome back — here’s your sales overview.</p></div>
+              <div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div>
             </div>
-            <nav className={styles.workspaceNav} aria-label="Workspace views">
-              <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={workspaceView === 'dashboard' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('dashboard')}>Dashboard</button>
-              <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('buy')}>Buy</button>
-              <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={workspaceView === 'stock' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('stock')}>Stocks</button>
-              <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedTab : styles.tab} onClick={() => setWorkspaceView('history')}>Purchase History</button>
-            </nav>
             {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />}
             {workspaceView === 'stock' && <>
               <div className={styles.stockActions}>
@@ -426,6 +458,8 @@ function App() {
                     <input id="stock-product-name" autoFocus value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     <label htmlFor="stock-category">Category</label>
                     <input id="stock-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    <label htmlFor="stock-price">Unit price</label>
+                    <input id="stock-price" inputMode="decimal" placeholder="0.00" value={price} onChange={(event) => setPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     <label htmlFor="initial-stock">Initial quantity</label>
                     <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
@@ -435,7 +469,8 @@ function App() {
               </div>}
               <StockTrackerPage mode="stock" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />
             </>}
-            {workspaceView === 'history' && <PurchaseHistoryPage />}
+            {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
+            {workspaceView === 'settings' && <SettingsPage onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
             <div className={styles.tabs} role="group" aria-label="Catalog status">
@@ -475,26 +510,18 @@ function App() {
               {expenseNotice && <p className={styles.notice} role="status">{expenseNotice}</p>}
               {expenseLoading ? <p>Loading expenses…</p> : expenses.length === 0 ? <p className={styles.empty}>No expenses match these filters.</p> : <ul className={styles.productList} aria-label="Expenses">{expenses.map((expense) => <li key={expense.id} className={styles.productItem}><div><strong>{expense.amount} × {expense.quantity} — {expense.productName}</strong><span>{expense.category} · {new Date(expense.spentAt).toLocaleDateString()}</span>{expense.note && <span>{expense.note}</span>}</div><div className={styles.itemActions}><button className={styles.secondary} disabled={expenseDeleteLoadingId !== null} type="button" onClick={() => { setEditingExpense(expense); setExpenseProductId(expense.productId); setExpenseAmount(expense.amount); setExpenseQuantity(String(expense.quantity)); setExpenseNote(expense.note ?? ''); setExpenseDate(expense.spentAt.slice(0, 10)); setExpenseFieldError('') }}>Edit</button><button className={styles.danger} disabled={expenseDeleteLoadingId !== null} type="button" onClick={() => void deleteExpense(expense)}>{expenseDeleteLoadingId === expense.id ? 'Deleting…' : 'Delete'}</button></div></li>)}</ul>}
             </section>
-            {catalogStatus === 'active' && <form className={styles.productForm} onSubmit={saveProduct} noValidate>
-              <h2>{editing ? 'Edit product' : 'Add a product'}</h2>
-              <label htmlFor="product-name">Product name</label>
-              <input id="product-name" value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'product-error' : undefined} />
-              <label htmlFor="product-category">Category</label>
-              <input id="product-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'product-error' : undefined} />
-              {!editing && <><label htmlFor="product-initial-stock">Initial stock quantity</label><input id="product-initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'product-error' : undefined} /></>}
-              {fieldError && <p id="product-error" className={styles.error} role="alert">{fieldError}</p>}
-              <div className={styles.formActions}><button disabled={loading} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add product'}</button>{editing && <button className={styles.secondary} type="button" onClick={resetProductForm}>Cancel</button>}</div>
-            </form>}
             <label className={styles.searchLabel} htmlFor="product-search">Search {catalogStatus} products</label>
             <input id="product-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or category" />
             {catalogError && <p className={styles.error} role="alert">{catalogError} <button className={styles.linkButton} type="button" onClick={() => void loadProducts()}>Retry</button></p>}
             {catalogNotice && <p className={styles.notice} role="status">{catalogNotice}</p>}
             {catalogLoading ? <p>Loading products…</p> : visibleProducts.length === 0 ? <p className={styles.empty}>No {catalogStatus} products match your search.</p> : <ul className={styles.productList} aria-label={`${catalogStatus} products`}>
-              {visibleProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category}</span>{!product.active && <span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span>}</div>{product.active && <div className={styles.itemActions}><button className={styles.secondary} disabled={loading || archiveLoadingId !== null} type="button" onClick={() => { setEditing(product); setProductName(product.name); setCategory(product.category); setFieldError('') }}>Edit</button><button className={styles.danger} disabled={archiveLoadingId !== null} type="button" onClick={() => void archive(product)}>{archiveLoadingId === product.id ? 'Archiving…' : 'Archive'}</button></div>}</li>)}
+              {visibleProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category} · ₱{product.price} each</span>{!product.active && <span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span>}</div>{product.active && <div className={styles.itemActions}><button className={styles.secondary} disabled={loading || archiveLoadingId !== null} type="button" onClick={() => { setEditing(product); setProductName(product.name); setCategory(product.category); setPrice(product.price); setFieldError('') }}>Edit</button><button className={styles.danger} disabled={archiveLoadingId !== null} type="button" onClick={() => void archive(product)}>{archiveLoadingId === product.id ? 'Archiving…' : 'Archive'}</button></div>}</li>)}
             </ul>}
             </>}
+            </div>
           </div>
         ) : view === 'email' ? (
+          <><p className={styles.eyebrow}>SALES V1</p>
           <form onSubmit={requestCode}>
             <h1>Sign in without a password</h1>
             <p>Use your email address to receive a one-time code.</p>
@@ -502,7 +529,9 @@ function App() {
             <input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
             <button disabled={loading} type="submit">{loading ? 'Sending…' : 'Send sign-in code'}</button>
           </form>
+          </>
         ) : (
+          <><p className={styles.eyebrow}>SALES V1</p>
           <form onSubmit={verifyCode}>
             <h1>Check your email</h1>
             <p>{message}</p>
@@ -511,6 +540,7 @@ function App() {
             <button disabled={loading} type="submit">{loading ? 'Verifying…' : 'Verify code'}</button>
             <button className={styles.secondary} type="button" onClick={() => setView('email')}>Use another email</button>
           </form>
+          </>
         )}
         {error && <p className={styles.error} role="alert">{error}</p>}
       </section>

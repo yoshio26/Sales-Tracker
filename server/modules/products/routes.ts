@@ -8,13 +8,14 @@ const idSchema = z.object({ id: z.uuid() })
 const productSchema = z.object({
   name: z.string().trim().min(1).max(200),
   category: z.string().trim().min(1).max(100),
+  price: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0 && Number(value) * 100 <= 2147483647),
 })
 const createProductSchema = productSchema.extend({ stockQuantity: z.number().int().nonnegative().max(1_000_000_000).default(0) })
 const updateSchema = productSchema.extend({ updatedAt: z.string().datetime({ offset: true }) })
 const listSchema = z.object({ status: z.enum(['active', 'archived']).default('active') })
 
 function invalidInput(res: { status: (code: number) => { json: (body: unknown) => unknown } }) {
-  return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Enter a valid product name, category, and timestamp.' } })
+  return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Enter a valid product name, category, price, and timestamp.' } })
 }
 
 function sendOutcome(res: { status: (code: number) => { json: (body: unknown) => unknown }; json: (body: unknown) => unknown }, outcome: Awaited<ReturnType<typeof updateProduct | typeof archiveProduct>>) {

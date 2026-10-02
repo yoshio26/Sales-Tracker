@@ -12,16 +12,16 @@ export function listProducts(db: Database, userId: string, status: ProductStatus
   })
 }
 
-export function createProduct(db: Database, userId: string, input: { name: string; category: string; stockQuantity?: number }) {
+export function createProduct(db: Database, userId: string, input: { name: string; category: string; priceCents: number; stockQuantity?: number }) {
   return db.product.create({ data: { userId, ...input } })
 }
 
-export async function updateProduct(db: PrismaClient, userId: string, id: string, input: { name: string; category: string; updatedAt: Date }) {
+export async function updateProduct(db: PrismaClient, userId: string, id: string, input: { name: string; category: string; priceCents: number; updatedAt: Date }) {
   return db.$transaction(async (tx) => {
     const updatedAt = new Date(Math.max(Date.now(), input.updatedAt.getTime() + 1))
     const changed = await tx.product.updateMany({
       where: { id, userId, active: true, updatedAt: input.updatedAt },
-      data: { name: input.name, category: input.category, updatedAt },
+      data: { name: input.name, category: input.category, priceCents: input.priceCents, updatedAt },
     })
     if (changed.count === 1) return { kind: 'updated' as const, product: await tx.product.findUniqueOrThrow({ where: { id } }) }
 

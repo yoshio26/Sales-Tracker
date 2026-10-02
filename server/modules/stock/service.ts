@@ -1,15 +1,15 @@
 import type { Product, StockPurchase } from '@prisma/client'
-import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, database, listPurchases as listPurchaseRecords, listStock as listStockRecords } from './data-access.js'
+import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, listPurchases as listPurchaseRecords, listStock as listStockRecords } from './data-access.js'
 
-export type StockProductResponse = { id: string; name: string; category: string; stockQuantity: number; updatedAt: string }
+export type StockProductResponse = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
 export type PurchaseResponse = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
 
 function centsToMoney(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
-function toProductResponse(product: Pick<Product, 'id' | 'name' | 'category' | 'stockQuantity' | 'updatedAt'>): StockProductResponse {
-  return { id: product.id, name: product.name, category: product.category, stockQuantity: product.stockQuantity, updatedAt: product.updatedAt.toISOString() }
+function toProductResponse(product: Pick<Product, 'id' | 'name' | 'category' | 'priceCents' | 'stockQuantity' | 'updatedAt'>): StockProductResponse {
+  return { id: product.id, name: product.name, category: product.category, price: ((product.priceCents ?? 0) / 100).toFixed(2), stockQuantity: product.stockQuantity, updatedAt: product.updatedAt.toISOString() }
 }
 
 function toPurchaseResponse(purchase: Pick<StockPurchase, 'id' | 'productId' | 'productNameSnapshot' | 'categorySnapshot' | 'quantity' | 'totalCostCents' | 'purchasedAt'>): PurchaseResponse {
@@ -34,11 +34,20 @@ export async function replenishStock(userId: string, productId: string, quantity
   return outcome.kind === 'adjusted' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
 }
 
-export async function createPurchase(userId: string, input: { productId: string; quantity: number; totalCost: string }) {
-  const outcome = await createPurchaseRecord(database, userId, { productId: input.productId, quantity: input.quantity, totalCostCents: parseCost(input.totalCost) })
+export async function createPurchase(userId: string, input: { productId: string; quantity: number }) {
+  const outcome = await createPurchaseRecord(database, userId, input)
   return outcome.kind === 'created' ? { kind: outcome.kind, purchase: toPurchaseResponse(outcome.purchase) } : outcome
 }
 
 export async function listPurchases(userId: string) {
   return (await listPurchaseRecords(database, userId)).map(toPurchaseResponse)
+}
+
+export function deleteStockData(userId: string) {
+  return deleteStockDataRecord(database, userId)
+}
+
+export async function deletePurchase(userId: string, purchaseId: string) {
+  const deleted = await deletePurchaseRecord(database, userId, purchaseId)
+  return deleted.count === 1 ? { kind: 'deleted' as const } : { kind: 'not-found' as const }
 }

@@ -25,6 +25,7 @@ model Product {
   userId     String    @map("user_id") @db.Uuid
   name       String    @db.VarChar(200)
   category   String    @db.VarChar(100)
+  priceCents Int       @default(0) @map("price_cents")
   stockQuantity Int     @default(0) @map("stock_quantity")
   active     Boolean   @default(true)
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)

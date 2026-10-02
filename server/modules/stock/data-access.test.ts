@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createPurchase, listPurchases, listStock } from './data-access.js'
+import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock } from './data-access.js'
 
 function database() {
   const tx = {
@@ -7,13 +7,15 @@ function database() {
       findFirst: vi.fn(),
       findFirstOrThrow: vi.fn(),
       updateMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
-    stockPurchase: { create: vi.fn() },
+    stockPurchase: { create: vi.fn(), count: vi.fn() },
+    expense: { count: vi.fn() },
   }
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
-    product: { findMany: vi.fn() },
-    stockPurchase: { findMany: vi.fn() },
+    product: { findMany: vi.fn(), deleteMany: vi.fn() },
+    stockPurchase: { findMany: vi.fn(), deleteMany: vi.fn() },
   }
   return { db, tx }
 }
@@ -31,11 +33,11 @@ describe('stock data access', () => {
 
   it('decrements stock and creates one snapshot purchase in the same transaction', async () => {
     const { db, tx } = database()
-    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware' })
+    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 625 })
     tx.product.updateMany.mockResolvedValue({ count: 1 })
     tx.stockPurchase.create.mockResolvedValue({ id: 'purchase-a' })
 
-    await expect(createPurchase(db as never, 'user-a', { productId: 'product-a', quantity: 2, totalCostCents: 1250 })).resolves.toEqual({ kind: 'created', purchase: { id: 'purchase-a' } })
+    await expect(createPurchase(db as never, 'user-a', { productId: 'product-a', quantity: 2 })).resolves.toEqual({ kind: 'created', purchase: { id: 'purchase-a' } })
     expect(db.$transaction).toHaveBeenCalledOnce()
     expect(tx.product.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'product-a', userId: 'user-a', active: true } }))
     expect(tx.product.updateMany).toHaveBeenCalledWith({ where: { id: 'product-a', userId: 'user-a', active: true, stockQuantity: { gte: 2 } }, data: { stockQuantity: { decrement: 2 } } })
@@ -44,19 +46,67 @@ describe('stock data access', () => {
 
   it('does not create history when the conditional stock decrement loses the race', async () => {
     const { db, tx } = database()
-    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware' })
+    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 625 })
     tx.product.updateMany.mockResolvedValue({ count: 0 })
 
-    await expect(createPurchase(db as never, 'user-a', { productId: 'product-a', quantity: 2, totalCostCents: 1250 })).resolves.toEqual({ kind: 'insufficient-stock' })
+    await expect(createPurchase(db as never, 'user-a', { productId: 'product-a', quantity: 2 })).resolves.toEqual({ kind: 'insufficient-stock' })
     expect(tx.stockPurchase.create).not.toHaveBeenCalled()
+  })
+
+  it('rejects missing and oversized stored prices before changing stock', async () => {
+    const missingPrice = database()
+    missingPrice.tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 0 })
+    await expect(createPurchase(missingPrice.db as never, 'user-a', { productId: 'product-a', quantity: 1 })).resolves.toEqual({ kind: 'product-price-missing' })
+    expect(missingPrice.tx.product.updateMany).not.toHaveBeenCalled()
+
+    const oversized = database()
+    oversized.tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 2_147_483_647 })
+    await expect(createPurchase(oversized.db as never, 'user-a', { productId: 'product-a', quantity: 2 })).resolves.toEqual({ kind: 'purchase-total-too-large' })
+    expect(oversized.tx.product.updateMany).not.toHaveBeenCalled()
   })
 
   it('does not mutate a foreign or archived product', async () => {
     const { db, tx } = database()
     tx.product.findFirst.mockResolvedValue(null)
 
-    await expect(createPurchase(db as never, 'user-a', { productId: 'foreign-product', quantity: 1, totalCostCents: 100 })).resolves.toEqual({ kind: 'product-not-found' })
+    await expect(createPurchase(db as never, 'user-a', { productId: 'foreign-product', quantity: 1 })).resolves.toEqual({ kind: 'product-not-found' })
     expect(tx.product.updateMany).not.toHaveBeenCalled()
     expect(tx.stockPurchase.create).not.toHaveBeenCalled()
+  })
+
+  it('deletes only unreferenced tenant stock data', async () => {
+    const { db, tx } = database()
+    tx.expense.count.mockResolvedValue(0)
+    tx.stockPurchase.count.mockResolvedValue(0)
+    tx.product.deleteMany.mockResolvedValue({ count: 2 })
+
+    await expect(deleteStockData(db as never, 'user-a')).resolves.toEqual({ kind: 'deleted', count: 2 })
+    expect(tx.product.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a' } })
+  })
+
+  it('refuses stock deletion when tenant history or expenses reference products', async () => {
+    const { db, tx } = database()
+    tx.expense.count.mockResolvedValue(0)
+    tx.stockPurchase.count.mockResolvedValue(1)
+
+    await expect(deleteStockData(db as never, 'user-a')).resolves.toEqual({ kind: 'referenced' })
+    expect(tx.product.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('maps a concurrent foreign-key reference to the safe referenced outcome', async () => {
+    const { db, tx } = database()
+    tx.expense.count.mockResolvedValue(0)
+    tx.stockPurchase.count.mockResolvedValue(0)
+    tx.product.deleteMany.mockRejectedValue({ code: 'P2003' })
+
+    await expect(deleteStockData(db as never, 'user-a')).resolves.toEqual({ kind: 'referenced' })
+  })
+
+  it('deletes purchase history only for the authenticated tenant', async () => {
+    const { db } = database()
+    db.stockPurchase.deleteMany.mockResolvedValue({ count: 1 })
+
+    await deletePurchase(db as never, 'user-a', 'purchase-a')
+    expect(db.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { id: 'purchase-a', userId: 'user-a' } })
   })
 })

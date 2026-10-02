@@ -12,6 +12,7 @@ export type ProductResponse = {
   id: string
   name: string
   category: string
+  price: string
   stockQuantity: number
   active: boolean
   archivedAt: string | null
@@ -27,6 +28,7 @@ function toResponse(product: Product): ProductResponse {
     id: product.id,
     name: product.name,
     category: product.category,
+    price: ((product.priceCents ?? 0) / 100).toFixed(2),
     stockQuantity: product.stockQuantity,
     active: product.active,
     archivedAt: product.archivedAt?.toISOString() ?? null,
@@ -38,11 +40,21 @@ export async function listProducts(userId: string, status: ProductStatus): Promi
   return (await listProductRecords(database, userId, status)).map(toResponse)
 }
 
-export async function createProduct(userId: string, input: { name: string; category: string; stockQuantity?: number }) {
+export function parsePrice(value: string): number {
+  const normalized = value.trim()
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) throw new Error('Invalid price')
+  const [whole, fraction = ''] = normalized.split('.')
+  const cents = Number(`${whole}${fraction.padEnd(2, '0')}`)
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > 2147483647) throw new Error('Invalid price')
+  return cents
+}
+
+export async function createProduct(userId: string, input: { name: string; category: string; price?: string; stockQuantity?: number }) {
   try {
     const createInput = {
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
+      priceCents: input.price === undefined ? 0 : parsePrice(input.price),
       ...(input.stockQuantity === undefined ? {} : { stockQuantity: input.stockQuantity }),
     }
     return { kind: 'created' as const, product: toResponse(await createProductRecord(database, userId, createInput)) }
@@ -52,11 +64,12 @@ export async function createProduct(userId: string, input: { name: string; categ
   }
 }
 
-export async function updateProduct(userId: string, id: string, input: { name: string; category: string; updatedAt: string }) {
+export async function updateProduct(userId: string, id: string, input: { name: string; category: string; price?: string; updatedAt: string }) {
   try {
     const outcome = await updateProductRecord(database, userId, id, {
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
+      priceCents: input.price === undefined ? 0 : parsePrice(input.price),
       updatedAt: new Date(input.updatedAt),
     })
     return outcome.kind === 'updated' ? { ...outcome, product: toResponse(outcome.product) } : outcome
