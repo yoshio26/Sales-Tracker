@@ -17,6 +17,7 @@ export const guideContent = {
       'Open Stocks and use Add stock to create your products, prices, and starting quantities.',
       'Open Bought to record a purchase from available stock.',
       'Review Dashboard for earnings, profit, available stock, and sold totals.',
+      'Open Reports, choose a month, and use Export CSV to download your report files.',
       'Open Purchase History to search and review purchase records newest first.',
     ],
   },
@@ -31,6 +32,17 @@ export const guideContent = {
         'Use the page controls and Rows per page selector to browse the stock table.',
       ],
       tips: ['If a chart has no data yet, add an initial stock cost or record activity from Stocks and Bought.'],
+    },
+    {
+      title: 'Reports',
+      whatItIsFor: 'Review spending charts and download monthly CSV files for purchase costs and current stock performance.',
+      howToUse: [
+        'Open Dashboard and choose the Reports tab.',
+        'Choose the calendar month you want to report on from Report month.',
+        'Select Export CSV to download the purchase report and stock report.',
+        'Open the downloaded files in a spreadsheet application to filter, sort, or share them.',
+      ],
+      tips: ['The export control follows your selected Color Theme and Dark or Light mode, and adapts to smaller screens.'],
     },
     {
       title: 'Bought',
@@ -95,6 +107,7 @@ export const guideContent = {
   faq: [
     { question: 'Can I undo deleting one stock?', answer: 'Yes. Open Settings, find the product under Archive, and choose Restore during the recovery period.' },
     { question: 'Does Color Theme change Dark or Light mode?', answer: 'No. Color Theme changes accent colors only. The existing Dark or Light button controls display mode separately.' },
+    { question: 'What does Export CSV download?', answer: 'For the selected month, it downloads one purchase report with Stock Name, Date Bought, and Cost, plus one stock report with Stock Name, Remaining Stocks, Updated Price, and Sold.' },
     { question: 'Why can’t I record a purchase?', answer: 'The selected product may not have enough available stock. Use Review stock in the warning dialog to check its quantity.' },
   ],
   personalMessage: 'Add your own welcome note here — for example, a reminder about your store’s daily stock routine.',
