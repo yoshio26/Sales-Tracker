@@ -30,6 +30,9 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
   const [soldByProduct, setSoldByProduct] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [searchQuery, setSearchQuery] = useState('')
 
   async function load() {
     setLoading(true)
@@ -41,6 +44,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
       ])
       if (!stockResponse.ok || !purchasesResponse.ok) throw new Error('Unable to load available stock.')
       const stock = stockResponseSchema.parse(await stockResponse.json())
+      setPage(1)
       const purchases = purchaseResponseSchema.parse(await purchasesResponse.json()).purchases
       const sold = purchases.reduce<Record<string, number>>((totals, purchase) => {
         totals[purchase.productId] = (totals[purchase.productId] ?? 0) + purchase.quantity
@@ -59,24 +63,46 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
     void load()
   }, [refreshKey])
 
+  const filteredProducts = products.filter((product) => product.name.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()))
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
+  const visibleProducts = filteredProducts.slice((page - 1) * pageSize, page * pageSize)
+  const firstRow = filteredProducts.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const lastRow = Math.min(page * pageSize, filteredProducts.length)
+
   return <section className={styles.stockTableSection} aria-labelledby="available-stock-heading">
-    <div><h2 id="available-stock-heading">Available stock</h2><p>Review inventory and manage each stock item from the dashboard.</p></div>
+    <div><h2 id="available-stock-heading">Available stock</h2><p>Review inventory and manage each stock item from the dashboard.</p><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-stock-search">Search Product</label><input id="dashboard-stock-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPage(1) }} /></div></div>
     {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={() => void load()}>Retry</button></p>}
-    {loading ? <p role="status" aria-live="polite">Loading available stock…</p> : products.length === 0 ? <p className={styles.empty}>No active stock is available.</p> : <div className={styles.stockTableScroll}>
-      <table className={styles.stockTable}>
-        <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
-        <thead><tr><th scope="col">Stock Name</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
-        <tbody>{products.map((product) => <tr key={product.id}>
-          <th scope="row"><span className={styles.stockTableName}>{product.name}</span><span className={styles.stockTableCategory}>{product.category}</span></th>
-          <td data-label="Stocks">{product.stockQuantity}</td>
-          <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>
-          <td data-label="Updated Price">₱{formatPrice(product.price)}</td>
-          <td data-label="Edit"><div className={styles.stockTableActions}>
-            <button className={styles.iconButton} type="button" title={`Edit ${product.name}`} aria-label={`Edit ${product.name}`} onClick={() => onEdit(product)}><EditIcon /></button>
-            <button className={`${styles.iconButton} ${styles.iconDanger}`} type="button" title={`Delete ${product.name}`} aria-label={`Delete ${product.name}`} onClick={() => onDelete(product)}><DeleteIcon /></button>
-          </div></td>
-        </tr>)}</tbody>
-      </table>
-    </div>}
+    {loading ? <p role="status" aria-live="polite">Loading available stock…</p> : products.length === 0 ? <p className={styles.empty}>No active stock is available.</p> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match “{searchQuery}”.</p> : <>
+      <div className={styles.stockTableScroll}>
+        <table className={styles.stockTable}>
+          <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
+          <thead><tr><th scope="col">Stock Name</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
+          <tbody>{visibleProducts.map((product) => <tr key={product.id}>
+            <th scope="row"><span className={styles.stockTableName}>{product.name}</span><span className={styles.stockTableCategory}>{product.category}</span></th>
+            <td data-label="Stocks">{product.stockQuantity}</td>
+            <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>
+            <td data-label="Updated Price">₱{formatPrice(product.price)}</td>
+            <td data-label="Edit"><div className={styles.stockTableActions}>
+              <button className={styles.iconButton} type="button" title={`Edit ${product.name}`} aria-label={`Edit ${product.name}`} onClick={() => onEdit(product)}><EditIcon /></button>
+              <button className={`${styles.iconButton} ${styles.iconDanger}`} type="button" title={`Delete ${product.name}`} aria-label={`Delete ${product.name}`} onClick={() => onDelete(product)}><DeleteIcon /></button>
+            </div></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div className={styles.dashboardTablePagination}>
+        <div className={styles.stockTableToolbar}>
+          <label htmlFor="dashboard-stock-page-size">Rows per page</label>
+          <select id="dashboard-stock-page-size" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }}>
+            {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+          <span aria-live="polite">{firstRow}–{lastRow} of {products.length} records</span>
+        </div>
+        <nav className={`${styles.pagination} ${styles.dashboardStockPagination}`} aria-label="Dashboard available stock pagination">
+          <button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => setPage((current) => current - 1)}>‹</button>
+          <span aria-live="polite">{page} of {totalPages}</span>
+          <button type="button" aria-label="Next page" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)}>›</button>
+        </nav>
+      </div>
+    </>}
   </section>
 }

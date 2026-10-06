@@ -31,6 +31,9 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
   const [purchaseLoading, setPurchaseLoading] = useState(false)
   const [purchasePage, setPurchasePage] = useState(1)
   const [purchasePageSize, setPurchasePageSize] = useState(10)
+  const [stockPage, setStockPage] = useState(1)
+  const [stockPageSize, setStockPageSize] = useState(25)
+  const [searchQuery, setSearchQuery] = useState('')
   const [insufficientStockOpen, setInsufficientStockOpen] = useState(false)
 
   async function load() {
@@ -40,6 +43,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
       const response = await fetch('/api/stock', { credentials: 'include' })
       if (!response.ok) throw new Error('Unable to load stock.')
       setProducts(stockResponseSchema.parse(await response.json()).products)
+      setStockPage(1)
     } catch { setError('Unable to load stock. Try again.') } finally { setLoading(false) }
   }
 
@@ -94,8 +98,17 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
 
   const selectedProduct = products.find((product) => product.id === productId)
   const calculatedTotal = selectedProduct && mode === 'buy' ? (Number(selectedProduct.price) * Number(quantity || 0)).toFixed(2) : null
-  const purchaseTotalPages = Math.max(1, Math.ceil(purchases.length / purchasePageSize))
-  const visiblePurchases = purchases.slice((purchasePage - 1) * purchasePageSize, purchasePage * purchasePageSize)
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase()
+  const filteredPurchases = purchases.filter((purchase) => purchase.productName.toLocaleLowerCase().includes(normalizedSearchQuery))
+  const purchaseTotalPages = Math.max(1, Math.ceil(filteredPurchases.length / purchasePageSize))
+  const visiblePurchases = filteredPurchases.slice((purchasePage - 1) * purchasePageSize, purchasePage * purchasePageSize)
+  const purchaseFirstRow = filteredPurchases.length === 0 ? 0 : (purchasePage - 1) * purchasePageSize + 1
+  const purchaseLastRow = Math.min(purchasePage * purchasePageSize, filteredPurchases.length)
+  const filteredProducts = products.filter((product) => product.name.toLocaleLowerCase().includes(normalizedSearchQuery))
+  const stockTotalPages = Math.max(1, Math.ceil(filteredProducts.length / stockPageSize))
+  const visibleProducts = filteredProducts.slice((stockPage - 1) * stockPageSize, stockPage * stockPageSize)
+  const stockFirstRow = filteredProducts.length === 0 ? 0 : (stockPage - 1) * stockPageSize + 1
+  const stockLastRow = Math.min(stockPage * stockPageSize, filteredProducts.length)
 
   function chooseProduct(product: StockProduct) {
     setProductId(product.id)
@@ -167,23 +180,46 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
     </div>}
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {mode === 'buy' ? <>
-      <div className={styles.historyToolbar}>
-        <label htmlFor="buy-history-page-size">Bought per page</label>
-        <select id="buy-history-page-size" value={purchasePageSize} onChange={(event) => { setPurchasePageSize(Number(event.target.value)); setPurchasePage(1) }}>
-          {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
-        </select>
-        <span aria-live="polite">{purchases.length} bought records</span>
-      </div>
-      {purchaseLoading ? <p role="status">Loading bought history…</p> : purchases.length === 0 ? <p className={styles.empty}>No bought products recorded yet.</p> : <>
+      <div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="bought-product-search">Search Product</label><input id="bought-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPurchasePage(1) }} /></div>
+      {purchaseLoading ? <p role="status">Loading bought history…</p> : purchases.length === 0 ? <p className={styles.empty}>No bought products recorded yet.</p> : filteredPurchases.length === 0 ? <p className={styles.empty}>No bought products match “{searchQuery}”.</p> : <>
         <div className={styles.historyScrollArea}>
           <ul className={styles.productList} aria-label="Bought product history">{visiblePurchases.map((purchase) => <li className={styles.productItem} key={purchase.id}><div><strong>{purchase.productName} × {purchase.quantity}</strong><span>{purchase.category} · {new Date(purchase.purchasedAt).toLocaleString()}</span></div><strong>₱{purchase.totalCost}</strong></li>)}</ul>
         </div>
-        <nav className={styles.pagination} aria-label="Bought product pagination">
-          <button type="button" disabled={purchasePage === 1} onClick={() => setPurchasePage((current) => current - 1)}>Previous</button>
-          <span>Page {purchasePage} of {purchaseTotalPages}</span>
-          <button type="button" disabled={purchasePage === purchaseTotalPages} onClick={() => setPurchasePage((current) => current + 1)}>Next</button>
-        </nav>
+        <div className={styles.dashboardTablePagination}>
+          <div className={styles.historyToolbar}>
+            <label htmlFor="buy-history-page-size">Bought per page</label>
+            <select id="buy-history-page-size" value={purchasePageSize} onChange={(event) => { setPurchasePageSize(Number(event.target.value)); setPurchasePage(1) }}>
+              {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+            <span aria-live="polite">{purchaseFirstRow}–{purchaseLastRow} of {filteredPurchases.length} records</span>
+          </div>
+          <nav className={`${styles.pagination} ${styles.dashboardStockPagination}`} aria-label="Bought product pagination">
+            <button type="button" aria-label="Previous page" disabled={purchasePage === 1} onClick={() => setPurchasePage((current) => current - 1)}>‹</button>
+            <span aria-live="polite">{purchasePage} of {purchaseTotalPages}</span>
+            <button type="button" aria-label="Next page" disabled={purchasePage === purchaseTotalPages} onClick={() => setPurchasePage((current) => current + 1)}>›</button>
+          </nav>
+        </div>
       </>}
-    </> : loading && products.length === 0 ? <p role="status">Loading stock…</p> : products.length === 0 ? <p className={styles.empty}>No active products are available. Add a product first.</p> : <ul className={styles.productList} aria-label="Available stock">{products.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category}</span></div><div className={styles.stockProductDetails}><div className={styles.stockMeta}><span>Stock: {product.stockQuantity}</span><span>Price: ₱{formatPrice(product.price)}</span></div>{onEdit && onDelete && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></div>}</div></li>)}</ul>}
+    </> : loading && products.length === 0 ? <p role="status">Loading stock…</p> : products.length === 0 ? <p className={styles.empty}>No active products are available. Add a product first.</p> : <>
+      <div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="stock-product-search">Search Product</label><input id="stock-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setStockPage(1) }} /></div>
+      {filteredProducts.length === 0 ? <p className={styles.empty}>No products match “{searchQuery}”.</p> : <><div className={styles.stockListScroll}>
+        <ul className={styles.productList} aria-label="Available stock">{visibleProducts.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category}</span></div><div className={styles.stockProductDetails}><div className={styles.stockMeta}><span>Stock: {product.stockQuantity}</span><span>Price: ₱{formatPrice(product.price)}</span></div>{onEdit && onDelete && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></div>}</div></li>)}</ul>
+      </div>
+      <div className={styles.dashboardTablePagination}>
+        <div className={styles.historyToolbar}>
+          <label htmlFor="stock-page-size">Rows per page</label>
+          <select id="stock-page-size" value={stockPageSize} onChange={(event) => { setStockPageSize(Number(event.target.value)); setStockPage(1) }}>
+            {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+          <span aria-live="polite">{stockFirstRow}–{stockLastRow} of {filteredProducts.length} records</span>
+        </div>
+        <nav className={`${styles.pagination} ${styles.dashboardStockPagination}`} aria-label="Available stock pagination">
+          <button type="button" aria-label="Previous page" disabled={stockPage === 1} onClick={() => setStockPage((current) => current - 1)}>‹</button>
+          <span aria-live="polite">{stockPage} of {stockTotalPages}</span>
+          <button type="button" aria-label="Next page" disabled={stockPage === stockTotalPages} onClick={() => setStockPage((current) => current + 1)}>›</button>
+        </nav>
+      </div>
+      </>}
+    </>}
   </section>
 }

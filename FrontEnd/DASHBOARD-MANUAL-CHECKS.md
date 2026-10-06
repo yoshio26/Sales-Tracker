@@ -4,6 +4,8 @@ Run the application with the seeded database and sign in with an allowlisted add
 
 - Confirm the signed-in workspace provides Dashboard, Buy, Stock Tracker, Purchase History, and Settings navigation, with Settings immediately beside Purchase History.
 - Add stock explicitly from Stock Tracker, then confirm the non-negative available quantity updates and zero-stock products remain visible.
+- In Stocks, enable Add multiple stocks, enter one name per line, use a shared category/price/quantity, and confirm every named stock is created with the shared values.
+- Confirm bulk stock creation rejects empty names, invalid shared values, and more than 50 names before creating any records; confirm duplicate names report the server error without hiding stocks already created.
 - In Stocks, edit a product's name/category/price and confirm the updated price is shown in Stocks and used automatically for the next purchase; delete a product and confirm it leaves active Stocks while remaining available in the archived catalog.
 - Buy a quantity within available stock and confirm the quantity decreases exactly once, the success feedback is accessible, and the entered values clear only after success.
 - Attempt to buy more than available and confirm a conflict message appears while the entered quantity and cost remain unchanged.

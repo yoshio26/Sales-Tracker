@@ -1,4 +1,4 @@
----
+m---
 title: 'Dashboard available-stock table'
 type: 'feature'
 created: '2026-10-02'

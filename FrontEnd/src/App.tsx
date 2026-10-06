@@ -72,6 +72,8 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
   const [productName, setProductName] = useState('')
+  const [bulkProductNames, setBulkProductNames] = useState('')
+  const [bulkAddMode, setBulkAddMode] = useState(false)
   const [category, setCategory] = useState('')
   const [price, setPrice] = useState('')
   const [stockQuantity, setStockQuantity] = useState('0')
@@ -207,6 +209,8 @@ function App() {
   function resetProductForm() {
     setEditing(null)
     setProductName('')
+    setBulkProductNames('')
+    setBulkAddMode(false)
     setCategory('')
     setPrice('')
     setStockQuantity('0')
@@ -217,11 +221,25 @@ function App() {
   async function saveProduct(event: FormEvent) {
     event.preventDefault()
     setFieldError('')
-    const parsed = productInputSchema.safeParse({ name: productName, category, price, stockQuantity: editing ? 0 : stockQuantity })
-    if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? 'Enter a valid product name and category.')
+    const names = editing || !bulkAddMode
+      ? [productName]
+      : bulkProductNames.split(/\r?\n/).map((name) => name.trim()).filter(Boolean)
+    if (names.length === 0) {
+      setFieldError('Enter at least one stock name.')
       return
     }
+    if (names.length > 50) {
+      setFieldError('Add no more than 50 stocks at a time.')
+      return
+    }
+    const parsedProducts = names.map((name) => productInputSchema.safeParse({ name, category, price, stockQuantity: editing ? 0 : stockQuantity }))
+    const invalidProduct = parsedProducts.find((parsed) => !parsed.success)
+    if (invalidProduct && !invalidProduct.success) {
+      setFieldError(invalidProduct.error.issues[0]?.message ?? 'Enter valid stock details.')
+      return
+    }
+    const parsed = parsedProducts[0]
+    if (!parsed || !parsed.success) return
     if (!editing && deductInitialStock === null) {
       setFieldError('Choose Yes or No for deducting the initial stock cost.')
       return
@@ -232,36 +250,42 @@ function App() {
     }
     setLoading(true)
     try {
-      const response = await productsApi(editing ? `/${editing.id}` : '', {
-        method: editing ? 'PUT' : 'POST',
-        body: JSON.stringify(editing ? { name: parsed.data.name, category: parsed.data.category, price: parsed.data.price, updatedAt: editing.updatedAt } : parsed.data),
-      })
-      if (!response.ok) {
-        const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
-        if (body?.error?.code === 'STALE_PRODUCT') {
-          setFieldError('This product changed elsewhere. The latest catalog has been loaded; review your changes and try again.')
-          const latest = await loadProducts()
-          const refreshed = latest.find((product) => product.id === editing?.id)
-          if (refreshed) setEditing(refreshed)
-        } else setFieldError(body?.error?.message ?? 'Unable to save the product.')
-        return
-      }
-      if (!editing && deductInitialStock === true) {
-        const created = await response.clone().json() as { product?: Product }
-        if (!created.product) {
-          setFieldError('The stock was added, but its deduction could not be recorded.')
-          return
-        }
-        const expenseResponse = await expensesApi('', {
-          method: 'POST',
-          body: JSON.stringify({ productId: created.product.id, amount: parsed.data.price, quantity: parsed.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
+      let createdCount = 0
+      for (const parsedProduct of parsedProducts) {
+        if (!parsedProduct.success) continue
+        const response = await productsApi(editing ? `/${editing.id}` : '', {
+          method: editing ? 'PUT' : 'POST',
+          body: JSON.stringify(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt } : parsedProduct.data),
         })
-        if (!expenseResponse.ok) {
-          setFieldError('The stock was added, but its deduction could not be recorded.')
+        if (!response.ok) {
+          const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
+          if (body?.error?.code === 'STALE_PRODUCT') {
+            setFieldError('This stock changed elsewhere. The latest catalog has been loaded; review your changes and try again.')
+            const latest = await loadProducts()
+            const refreshed = latest.find((product) => product.id === editing?.id)
+            if (refreshed) setEditing(refreshed)
+          } else if (createdCount > 0) setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added. ${body?.error?.message ?? 'The remaining stocks could not be added.'}`)
+          else setFieldError(body?.error?.message ?? 'Unable to save the stock.')
           return
         }
-        await loadDashboard()
+        createdCount += 1
+        if (!editing && deductInitialStock === true) {
+          const created = await response.clone().json() as { product?: Product }
+          if (!created.product) {
+            setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
+            return
+          }
+          const expenseResponse = await expensesApi('', {
+            method: 'POST',
+            body: JSON.stringify({ productId: created.product.id, amount: parsedProduct.data.price, quantity: parsedProduct.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
+          })
+          if (!expenseResponse.ok) {
+            setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
+            return
+          }
+        }
       }
+      if (!editing && deductInitialStock === true) await loadDashboard()
       resetProductForm()
       setProductModalOpen(false)
       await loadProducts()
@@ -362,8 +386,11 @@ function App() {
                     <button className={styles.modalClose} type="button" aria-label="Close stock dialog" onClick={() => setProductModalOpen(false)}>×</button>
                   </div>
                   <form className={styles.productForm} onSubmit={saveProduct} noValidate>
-                    <label htmlFor="stock-product-name">Stock name</label>
-                    <input id="stock-product-name" autoFocus value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    <div className={styles.stockNameHeader}>
+                      <label htmlFor={bulkAddMode ? 'bulk-stock-names' : 'stock-product-name'}>{bulkAddMode ? 'Stock names' : 'Stock name'}</label>
+                      {!editing && <button className={`${styles.multipleStockButton} ${bulkAddMode ? styles.multipleStockButtonActive : ''}`} id="bulk-stock-mode" type="button" aria-pressed={bulkAddMode} onClick={() => { setBulkAddMode((enabled) => !enabled); setFieldError('') }}>{bulkAddMode ? 'Single' : 'Multiple'}</button>}
+                    </div>
+                    {bulkAddMode ? <textarea id="bulk-stock-names" autoFocus value={bulkProductNames} onChange={(event) => setBulkProductNames(event.target.value)} placeholder={'One stock name per line\nExample: Red shirt\nBlue shirt'} rows={5} aria-describedby={fieldError ? 'stock-product-error' : undefined} /> : <input id="stock-product-name" autoFocus value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'stock-product-error' : undefined} />}
                     <label htmlFor="stock-category">Category</label>
                     <input id="stock-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     <label htmlFor="stock-price">Unit price</label>
@@ -373,7 +400,7 @@ function App() {
                     <label htmlFor="initial-stock-cost">Initial stock cost (optional)</label>
                     <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" type="checkbox" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" type="checkbox" checked={deductInitialStock === false} onChange={() => setDeductInitialStock(false)} /> No</label></div></>}
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
-                    <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
+                    <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : bulkAddMode ? 'Add stocks' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>
                 </section>
               </div>}

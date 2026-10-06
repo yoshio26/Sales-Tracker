@@ -140,10 +140,16 @@
 .stockTableSection { display: grid; gap: 1rem; padding-top: 1.5rem; }
 .stockTableSection h2 { margin: 0; color: #20202a; font-size: 1.35rem; }
 .stockTableSection p { margin: 0; color: #92909a; }
-.stockTableScroll { overflow-x: auto; border: 1px solid #f1e8ee; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
+.stockSearch { display: grid; gap: 0.35rem; width: min(100%, 28rem); margin-top: 1rem; }
+.stockSearch input { width: 100%; }
+.stockTableToolbar { display: flex; align-items: center; gap: 0.75rem; color: #5c6b82; font-size: 0.9rem; }
+.stockTableToolbar label { color: #17243b; font-weight: 700; }
+.stockTableToolbar select { width: auto; padding: 0.45rem 0.65rem; border: 1px solid #b9c7dc; border-radius: 0.45rem; background: white; color: #17243b; font: inherit; }
+.dashboardTablePagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.stockTableScroll { max-height: 28rem; overflow: auto; border: 1px solid #f1e8ee; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); overscroll-behavior: contain; scrollbar-color: #f7afd0 transparent; scrollbar-width: thin; }
 .stockTable { width: 100%; min-width: 42rem; border-collapse: collapse; background: #fff; color: #20202a; }
 .stockTable th, .stockTable td { padding: 1rem 1.1rem; border-bottom: 1px solid #f1e8ee; text-align: left; vertical-align: middle; }
-.stockTable thead th { color: #92909a; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.stockTable thead th { position: sticky; top: 0; z-index: 1; background: #fff; color: #92909a; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
 .stockTable tbody tr:last-child th, .stockTable tbody tr:last-child td { border-bottom: 0; }
 .stockTable tbody th { font-weight: 700; }
 .stockTableName, .stockTableCategory { display: block; }
@@ -210,6 +216,11 @@
 .productForm { padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #f7f9fc; }
 .checkboxLabel { display: flex; align-items: center; gap: 0.5rem; margin-top: 0 !important; color: #17243b; font-weight: 700; }
 .checkboxLabel input { width: auto; accent-color: #000; }
+.stockNameHeader { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 1rem; }
+.stockNameHeader label { margin-top: 0 !important; }
+.multipleStockButton { margin: 0 !important; padding: 0.35rem 0.75rem !important; border-width: 1px !important; border-radius: 0.4rem !important; font-size: 0.78rem !important; }
+.multipleStockButton::before { display: none !important; }
+.multipleStockButtonActive { background: #f51f80 !important; color: white !important; }
 .deductionChoice { display: flex; align-items: center; justify-content: flex-start; gap: 1rem; color: #17243b; font-weight: 700; }
 .deductionChoice > span { margin-right: 0.25rem; }
 .searchLabel { margin-top: 0 !important; }
@@ -218,9 +229,17 @@
 .historyToolbar label { margin-top: 0 !important; color: #17243b; font-weight: 700; }
 .historyToolbar select { padding: 0.45rem 0.65rem; border: 1px solid #b9c7dc; border-radius: 0.45rem; background: white; color: #17243b; font: inherit; }
 .historyScrollArea { max-height: 28rem; overflow-y: auto; padding: 0.15rem 0.35rem 0.15rem 0; overscroll-behavior: contain; }
+.stockListScroll { max-height: 28rem; overflow-y: auto; padding: 0.15rem 0.35rem 0.15rem 0; overscroll-behavior: contain; scrollbar-color: #f7afd0 transparent; scrollbar-width: thin; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; }
 .pagination button { margin-top: 0; }
 .pagination span { min-width: 6rem; color: #17243b; font-weight: 700; text-align: center; }
+.stockPagination { justify-content: space-between; }
+.dashboardStockPagination { justify-content: flex-end; gap: 0.5rem; }
+.dashboardStockPagination button { width: 2rem; height: 2rem; padding: 0 !important; border: 1px solid #e5e7eb !important; border-radius: 0 !important; color: #64748b !important; font-size: 1.2rem; line-height: 1; }
+.dashboardStockPagination button:disabled { border-color: #edf0f3 !important; color: #cbd5e1 !important; cursor: not-allowed; opacity: 1; }
+.dashboardStockPagination button::before { display: none !important; }
+.dashboardStockPagination button:hover:not(:disabled) { background: #fff0f7 !important; color: #e51978 !important; transform: none !important; box-shadow: none !important; }
+.dashboardStockPagination span { min-width: auto; margin: 0 0.35rem; color: #5c6b82; font-size: 0.85rem; font-weight: 500; }
 .productItem { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.8rem; }
 .productItem strong, .productItem span { display: block; }
 .productItem span { color: #5c6b82; margin-top: 0.2rem; }
@@ -272,9 +291,9 @@
 
 /* Sales V1 dashboard theme */
 .shell { min-height: 100vh; padding: 0; place-items: stretch; background: #f8f8fb; }
-.appFrame { width: 100%; height: 100vh; min-height: 0; overflow: hidden; background: #fff; }
-.workspaceLayout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); height: 100vh; min-height: 0; overflow: hidden; }
-.sidebar { box-sizing: border-box; display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; padding: 1.5rem 0 1rem; border-radius: 0 0 1rem 1rem; background: linear-gradient(180deg, #ff2f91 0%, #f51f80 100%); color: white; }
+.appFrame { box-sizing: border-box; width: 100%; height: 100vh; min-height: 0; overflow: hidden; background: #fff; }
+.workspaceLayout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); height: 100%; min-height: 0; max-height: 100vh; overflow: hidden; }
+.sidebar { box-sizing: border-box; display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; padding: 1.5rem 0 1rem; border-radius: 0 0 1rem 1rem; background: linear-gradient(180deg, #ff2f91 0%, #f51f80 100%); color: white; }
 .brand { display: flex; align-items: center; gap: 0.65rem; margin-right: 0.4rem; padding: 0.35rem 0.85rem 2.25rem; border-radius: 0 0 0.75rem 0; color: white; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.04em; }
 .brandMark { display: grid; place-items: center; width: 2rem; height: 2rem; border: 2px solid rgba(255,255,255,0.9); border-radius: 0.65rem; font-size: 1rem; }
 .sidebarNav { display: grid; gap: 0; }
@@ -286,7 +305,7 @@
 .sidebarItem + .sidebarItem, .sidebarItem + .selectedSidebarItem, .selectedSidebarItem + .sidebarItem { border-top: 1px solid rgba(255,255,255,0.12) !important; }
 .navIcon { flex: 0 0 auto; width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .sidebarSettings { margin-top: auto !important; }
-.workspaceMain { min-width: 0; height: 100vh; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 3rem; background: #fff; scrollbar-color: #f7afd0 transparent; scrollbar-width: thin; }
+.workspaceMain { box-sizing: border-box; min-width: 0; height: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 3rem; background: #fff; scrollbar-color: #f7afd0 transparent; scrollbar-width: thin; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { position: relative; z-index: 0; isolation: isolate; overflow: hidden; margin-top: 1rem; padding: 0.65rem 1.5rem; border: 2px solid #f51f80; border-radius: 999px; background: transparent; color: #e51978; cursor: pointer; font: inherit; font-weight: 700; transition: color 300ms ease, transform 300ms ease, box-shadow 300ms ease; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { content: ''; position: absolute; z-index: -1; inset: 50% auto auto 50%; width: 3.125rem; height: 3.125rem; border-radius: inherit; background: #f51f80; transform: translate(-50%, -50%) scale(0); transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1); }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings):hover:not(:disabled)::before { transform: translate(-50%, -50%) scale(5); }
@@ -330,10 +349,15 @@
 .darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }
 .darkMode .summaryCard, .darkMode .chartCard, .darkMode .stockView, .darkMode .productForm, .darkMode .settingsCard, .darkMode .productItem { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .stockTableSection h2 { color: #fff7fb; }
+.darkMode .stockTableToolbar { color: #c5afbd; }
+.darkMode .stockTableToolbar label { color: #fff7fb; }
+.darkMode .stockTableToolbar select { border-color: #624456; background: #2a202d; color: #fff7fb; }
 .darkMode .stockTableScroll { border-color: #493542; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .stockTable { background: #211a23; color: #fff7fb; }
 .darkMode .stockTable th, .darkMode .stockTable td { border-color: #493542; }
-.darkMode .stockTableCategory, .darkMode .stockTable thead th { color: #c5afbd; }
+.darkMode .stockTableCategory { color: #c5afbd; }
+.darkMode .stockTable thead th { background: #211a23; color: #c5afbd; }
+.darkMode .multipleStockButtonActive { background: #f51f80 !important; color: white !important; }
 .darkMode .iconButton:hover:not(:disabled) { background: #3a2938 !important; }
 .darkMode .summaryCard strong, .darkMode .productItem strong, .darkMode .stockMeta, .darkMode .historyToolbar label, .darkMode .checkboxLabel { color: #fff7fb; }
 .darkMode .chartSummary, .darkMode .historyToolbar, .darkMode .productItem span { color: #c5afbd; }
@@ -346,6 +370,13 @@
 .darkMode .stockErrorModal { border-color: #624456; background: #211a23; }
 .darkMode .stockErrorModal p { color: #c5afbd; }
 .darkMode .themeToggle { background: #ffd2e6; color: #7c174d; }
+.darkMode .dashboardStockPagination button { border-color: #493542 !important; background: #211a23 !important; color: #c5afbd !important; }
+.darkMode .dashboardStockPagination button:disabled { border-color: #352832 !important; color: #6b5965 !important; }
+
+@media (max-width: 32rem) {
+  .dashboardTablePagination { align-items: stretch; flex-direction: column; }
+  .dashboardStockPagination { justify-content: flex-end; }
+}
 
 @media (max-width: 52rem) {
   .workspaceLayout { grid-template-columns: 5rem minmax(0, 1fr); }
@@ -359,11 +390,12 @@
 
 @media (max-width: 32rem) {
   .workspaceLayout { display: block; }
-  .sidebar { position: sticky; top: 0; z-index: 5; flex-direction: row; align-items: center; gap: 0.5rem; padding: 0.65rem; }
+  .sidebar { position: sticky; top: 0; z-index: 5; flex-direction: row; align-items: center; gap: 0.5rem; height: 4.25rem; overflow: hidden; padding: 0.65rem; }
   .brand { padding: 0; }
-  .sidebarNav { display: flex; flex: 1; justify-content: flex-end; }
+  .sidebarNav { display: flex; flex: 1; min-width: 0; justify-content: flex-start; overflow: hidden; }
+  .sidebarItem, .selectedSidebarItem, .sidebarSettings { flex: 0 0 2.4rem; width: 2.4rem; }
   .sidebarSettings { margin-top: 0 !important; }
-  .workspaceMain { height: calc(100vh - 4.25rem); padding: 1rem; }
+  .workspaceMain { height: calc(100vh - 4.25rem); max-height: calc(100vh - 4.25rem); padding: 1rem; }
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
   .headerActions { width: 100%; justify-content: space-between; }
   .profile { display: none; }

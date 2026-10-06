@@ -13,6 +13,7 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [searchQuery, setSearchQuery] = useState('')
 
   async function load() {
     setLoading(true)
@@ -44,8 +45,12 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(purchases.length / pageSize))
-  const visiblePurchases = purchases.slice((page - 1) * pageSize, page * pageSize)
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase()
+  const filteredPurchases = purchases.filter((purchase) => purchase.productName.toLocaleLowerCase().includes(normalizedSearchQuery))
+  const totalPages = Math.max(1, Math.ceil(filteredPurchases.length / pageSize))
+  const visiblePurchases = filteredPurchases.slice((page - 1) * pageSize, page * pageSize)
+  const firstRow = filteredPurchases.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const lastRow = Math.min(page * pageSize, filteredPurchases.length)
 
   function changePageSize(value: string) {
     const nextPageSize = Number(value)
@@ -54,15 +59,15 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
   }
 
   return <section className={styles.stockView} aria-labelledby="history-heading">
-    <div><h2 id="history-heading">Purchase history</h2><p>Records are shown newest first using the labels captured at purchase time.</p></div>
+    <div><h2 id="history-heading">Purchase history</h2><p>Records are shown newest first using the labels captured at purchase time.</p><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="history-product-search">Search Product</label><input id="history-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPage(1) }} /></div></div>
     {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={() => void load()}>Retry</button></p>}
-    {loading ? <p role="status">Loading purchase history…</p> : purchases.length === 0 ? <p className={styles.empty}>No purchases recorded yet.</p> : <>
+    {loading ? <p role="status">Loading purchase history…</p> : purchases.length === 0 ? <p className={styles.empty}>No purchases recorded yet.</p> : filteredPurchases.length === 0 ? <p className={styles.empty}>No purchases match “{searchQuery}”.</p> : <>
       <div className={styles.historyToolbar}>
         <label htmlFor="history-page-size">Records per page</label>
         <select id="history-page-size" value={pageSize} onChange={(event) => changePageSize(event.target.value)}>
           {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
         </select>
-        <span aria-live="polite">{purchases.length} purchase records</span>
+        <span aria-live="polite">{firstRow}–{lastRow} of {filteredPurchases.length} purchase records</span>
       </div>
       <div className={styles.historyScrollArea}>
         <ul className={styles.productList} aria-label="Purchase history">{visiblePurchases.map((purchase) => <li className={styles.productItem} key={purchase.id}><div><strong>{purchase.productName} × {purchase.quantity}</strong><span>{purchase.category} · {new Date(purchase.purchasedAt).toLocaleString()}</span></div><div className={styles.itemActions}><strong>₱{purchase.totalCost}</strong>{deletable && <button className={styles.danger} type="button" disabled={deletingId !== null} onClick={() => void remove(purchase)}>{deletingId === purchase.id ? 'Deleting…' : 'Delete'}</button>}</div></li>)}</ul>
