@@ -354,7 +354,11 @@ function App() {
                 <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('history')}><NavIcon name="history" /><span>Purchase History</span></button>
                 <button type="button" aria-current={workspaceView === 'settings' ? 'page' : undefined} className={workspaceView === 'settings' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('settings')}><NavIcon name="settings" /><span>Settings</span></button>
               </nav>
-              <button className={styles.sidebarSettings} type="button" onClick={() => void logout()}><NavIcon name="settings" /><span>Sign out</span></button>
+              <button className={`${styles.sidebarSettings} ${styles.sidebarUserCard}`} type="button" onClick={() => void logout()} aria-label="Sign out">
+                <span className={styles.sidebarUserAvatar}>A</span>
+                <span className={styles.sidebarUserDetails}><strong>Account owner</strong><small>Sales manager</small></span>
+                <svg className={styles.sidebarSignOutIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9" /></svg>
+              </button>
             </aside>
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>

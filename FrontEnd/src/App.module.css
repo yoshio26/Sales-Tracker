@@ -312,6 +312,14 @@
 .sidebarItem + .sidebarItem, .sidebarItem + .selectedSidebarItem, .selectedSidebarItem + .sidebarItem { border-top: 1px solid rgba(255,255,255,0.12) !important; }
 .navIcon { flex: 0 0 auto; width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .sidebarSettings { margin-top: auto !important; }
+.sidebarUserCard { justify-content: flex-start; min-height: 3.75rem; margin: auto 0.75rem 0 !important; padding: 0.65rem 0.75rem !important; border: 1px solid rgba(255,255,255,0.22) !important; border-radius: 0.75rem !important; background: rgba(0,0,0,0.12) !important; }
+.sidebarUserCard:hover:not(:disabled) { background: rgba(0,0,0,0.22) !important; }
+.sidebarUserAvatar { display: grid; flex: 0 0 auto; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--on-accent); color: var(--accent); font-size: 0.85rem; font-weight: 800; }
+.sidebarUserDetails { display: grid; min-width: 0; flex: 1; gap: 0.15rem; text-align: left; }
+.sidebarUserDetails strong, .sidebarUserDetails small { overflow: hidden; color: var(--on-accent); text-overflow: ellipsis; white-space: nowrap; }
+.sidebarUserDetails strong { font-size: 0.78rem; }
+.sidebarUserDetails small { opacity: 0.72; font-size: 0.68rem; }
+.sidebarSignOutIcon { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .workspaceMain { box-sizing: border-box; min-width: 0; height: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 3rem; background: #fff; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { position: relative; z-index: 0; isolation: isolate; overflow: hidden; margin-top: 1rem; padding: 0.65rem 1.5rem; border: 2px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer; font: inherit; font-weight: 700; transition: color 300ms ease, transform 300ms ease, box-shadow 300ms ease; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { content: ''; position: absolute; z-index: -1; inset: 50% auto auto 50%; width: 3.125rem; height: 3.125rem; border-radius: inherit; background: var(--accent); transform: translate(-50%, -50%) scale(0); transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1); }
