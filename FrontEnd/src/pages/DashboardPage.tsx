@@ -20,6 +20,7 @@ type DashboardPageProps = {
 export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'overview', children }: DashboardPageProps) {
   const [reportMonth, setReportMonth] = useState(currentReportMonth)
   const [reportLoading, setReportLoading] = useState(false)
+  const [reportDownloadComplete, setReportDownloadComplete] = useState(false)
   const [reportError, setReportError] = useState('')
 
   async function exportReport() {
@@ -27,6 +28,8 @@ export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'over
     setReportError('')
     try {
       await downloadReportFiles(reportMonth)
+      setReportDownloadComplete(true)
+      window.setTimeout(() => setReportDownloadComplete(false), 3500)
     } catch {
       setReportError('Unable to export the report. Try again.')
     } finally {
@@ -50,8 +53,18 @@ export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'over
           <div><h3 id="report-export-heading">Monthly report export</h3><p>Download purchase costs and current stock performance for the selected month.</p></div>
           <div className={styles.reportExportControls}>
             <label htmlFor="report-month">Report month</label>
-            <input id="report-month" type="month" value={reportMonth} onChange={(event) => { setReportMonth(event.target.value); setReportError('') }} />
-            <button type="button" onClick={() => void exportReport()} disabled={reportLoading || !reportMonth}>{reportLoading ? 'Exporting…' : 'Export Report?'}</button>
+            <input id="report-month" type="month" value={reportMonth} onChange={(event) => { setReportMonth(event.target.value); setReportError(''); setReportDownloadComplete(false) }} />
+            <label className={styles.reportDownload} aria-label={reportLoading ? 'Exporting CSV' : reportDownloadComplete ? 'CSV exported' : 'Export CSV'}>
+              <input className={styles.reportDownloadInput} type="checkbox" checked={reportLoading || reportDownloadComplete} disabled={reportLoading || reportDownloadComplete || !reportMonth} onChange={() => void exportReport()} />
+              <span className={styles.reportDownloadCircle} aria-hidden="true">
+                <svg className={styles.reportDownloadIcon} viewBox="0 0 24 24" fill="none">
+                  <path d="M12 19V5m0 14-4-4m4 4 4-4" />
+                </svg>
+                <span className={styles.reportDownloadSquare} />
+              </span>
+              <span className={styles.reportDownloadTitle}>{reportLoading ? 'Exporting CSV' : 'Export CSV'}</span>
+              <span className={styles.reportDownloadTitle}>CSV exported</span>
+            </label>
           </div>
           {reportError && <p className={styles.error} role="alert">{reportError}</p>}
         </section>}

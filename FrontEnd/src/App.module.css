@@ -141,6 +141,26 @@
 .reportExportControls label { margin-top: 0 !important; color: #20202a; font-weight: 700; }
 .reportExportControls input { width: auto; }
 .reportExportControls button { margin-top: 0 !important; }
+.reportDownload { box-sizing: border-box; position: relative; display: flex; flex: 0 1 8rem; align-items: center; width: min(8rem, 100%); min-height: 2.75rem; max-width: 100%; padding: 0.2rem; border: 2px solid var(--accent); border-radius: 50px; cursor: pointer; font-family: Arial, Helvetica, sans-serif; transition: width 0.4s ease, border-color 0.4s ease; }
+.reportDownloadInput { display: none !important; }
+.reportDownloadCircle { position: relative; display: grid; flex: 0 0 2.25rem; place-items: center; width: 2.25rem; height: 2.25rem; overflow: hidden; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--on-accent); transition: opacity 0.4s ease, transform 0.4s ease; }
+.reportDownloadCircle::before { content: ''; position: absolute; inset: 0; height: 0; background: var(--accent-hover); transition: height 3s ease-in-out; }
+.reportDownloadIcon { position: absolute; z-index: 1; width: 1.35rem; color: var(--on-accent); stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; transition: opacity 0.4s ease, visibility 0.4s ease; }
+.reportDownloadSquare { position: absolute; z-index: 1; width: 0.7rem; aspect-ratio: 1; border-radius: 2px; background: var(--on-accent); opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease; }
+.reportDownloadTitle { position: absolute; right: 0.75rem; color: var(--on-accent); font-size: 0.75rem; font-weight: 700; transition: opacity 0.4s ease, visibility 0.4s ease; }
+.reportDownloadTitle:last-child { opacity: 0; visibility: hidden; }
+.reportDownload:not(:has(.reportDownloadInput:disabled)):hover { border-color: var(--accent-hover); box-shadow: 0 0.35rem 1rem var(--accent-soft); transform: translateY(-0.1rem); }
+.reportDownload:not(:has(.reportDownloadInput:disabled)):hover .reportDownloadCircle { transform: translateX(0.12rem) scale(1.05); }
+.reportDownload:not(:has(.reportDownloadInput:disabled)):active { transform: translateY(0); }
+.reportDownload:has(.reportDownloadInput:checked) { width: min(7.5rem, 100%); border-color: var(--accent); }
+.reportDownload:has(.reportDownloadInput:checked) .reportDownloadCircle::before { height: 100%; }
+.reportDownloadInput:checked + .reportDownloadCircle { transform: rotate(180deg); }
+.reportDownloadInput:checked + .reportDownloadCircle .reportDownloadIcon { opacity: 0; visibility: hidden; }
+.reportDownloadInput:checked + .reportDownloadCircle .reportDownloadSquare { opacity: 1; visibility: visible; }
+.reportDownloadInput:checked ~ .reportDownloadTitle:not(:last-child) { opacity: 0; visibility: hidden; }
+.reportDownloadInput:checked ~ .reportDownloadTitle:last-child { opacity: 1; visibility: visible; right: 0.75rem; }
+.reportDownload:has(.reportDownloadInput:disabled) { cursor: default; }
+.reportDownload:has(.reportDownloadInput:disabled:not(:checked)) { opacity: 0.65; }
 .ledger { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid #dce4ef; }
 .ledger h2, .ledger h3 { margin: 0; color: #17243b; }
 .ledger p { margin: 0; }
@@ -423,6 +443,7 @@
 .darkMode .summaryCard, .darkMode .chartCard, .darkMode .stockView, .darkMode .productForm, .darkMode .settingsCard, .darkMode .productItem { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .reportExport { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .reportExport h3, .darkMode .reportExportControls label { color: #fff7fb; }
+.darkMode .reportDownload { border-color: var(--accent); }
 .darkMode .stockTableSection h2 { color: #fff7fb; }
 .darkMode .stockTableToolbar { color: #c5afbd; }
 .darkMode .stockTableToolbar label { color: #fff7fb; }
@@ -478,4 +499,7 @@
   .profile { display: none; }
   .summaryCards { grid-template-columns: 1fr; }
   .dangerPanel { grid-template-columns: 1fr; }
+  .reportExportControls { align-items: stretch; }
+  .reportExportControls input { min-width: min(100%, 10rem); }
+  .reportDownload { flex-basis: 8rem; }
 }
