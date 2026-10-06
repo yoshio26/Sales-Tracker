@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   archiveProduct: vi.fn(),
   createProduct: vi.fn(),
   listProducts: vi.fn(),
+  restoreArchivedProduct: vi.fn(),
   updateProduct: vi.fn(),
 }))
 
@@ -12,10 +13,11 @@ vi.mock('./data-access.js', () => ({
   createProduct: mocks.createProduct,
   database: {},
   listProducts: mocks.listProducts,
+  restoreArchivedProduct: mocks.restoreArchivedProduct,
   updateProduct: mocks.updateProduct,
 }))
 
-import { archiveProduct, createProduct, listProducts, normalizeProductName, updateProduct } from './service.js'
+import { archiveProduct, createProduct, listProducts, normalizeProductName, restoreArchivedProduct, updateProduct } from './service.js'
 
 describe('product catalog service', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -58,5 +60,13 @@ describe('product catalog service', () => {
     await expect(archiveProduct('user-a', 'product-id', updatedAt)).resolves.toMatchObject({ kind: 'updated', product: { active: false } })
 
     expect(mocks.archiveProduct).toHaveBeenCalledWith({}, 'user-a', 'product-id', new Date(updatedAt))
+  })
+
+  it('serializes a restored product response', async () => {
+    const updatedAt = new Date('2026-09-30T12:00:00.000Z')
+    mocks.restoreArchivedProduct.mockResolvedValue({ kind: 'restored', product: { id: 'product-id', name: 'widget', category: 'hardware', priceCents: 1250, stockQuantity: 3, active: true, archivedAt: null, deletedAt: null, updatedAt } })
+
+    await expect(restoreArchivedProduct('user-a', 'product-id')).resolves.toEqual({ kind: 'restored', product: { id: 'product-id', name: 'widget', category: 'hardware', price: '12.50', stockQuantity: 3, active: true, archivedAt: null, deletedAt: null, updatedAt: updatedAt.toISOString() } })
+    expect(mocks.restoreArchivedProduct).toHaveBeenCalledWith({}, 'user-a', 'product-id')
   })
 })

@@ -7,7 +7,7 @@ export type ProductStatus = 'active' | 'archived'
 
 export function listProducts(db: Database, userId: string, status: ProductStatus) {
   return db.product.findMany({
-    where: { userId, active: status === 'active', deletedAt: null },
+    where: status === 'active' ? { userId, active: true, deletedAt: null } : { userId, active: false },
     orderBy: [{ category: 'asc' }, { name: 'asc' }],
   })
 }
@@ -49,9 +49,9 @@ export async function archiveProduct(db: PrismaClient, userId: string, id: strin
 
 export async function permanentlyDeleteArchivedProduct(db: PrismaClient, userId: string, id: string) {
   return db.$transaction(async (tx) => {
-    const product = await tx.product.findFirst({ where: { id, userId, active: false, deletedAt: null }, select: { id: true } })
+    const product = await tx.product.findFirst({ where: { id, userId, active: false }, select: { id: true } })
     if (!product) {
-      const current = await tx.product.findFirst({ where: { id, userId, deletedAt: null }, select: { active: true } })
+      const current = await tx.product.findFirst({ where: { id, userId }, select: { active: true } })
       return current ? { kind: 'active' as const } : { kind: 'not-found' as const }
     }
 
@@ -59,5 +59,23 @@ export async function permanentlyDeleteArchivedProduct(db: PrismaClient, userId:
     await tx.stockPurchase.deleteMany({ where: { userId, productId: product.id } })
     await tx.product.delete({ where: { id: product.id } })
     return { kind: 'deleted' as const }
+  })
+}
+
+export async function restoreArchivedProduct(db: PrismaClient, userId: string, id: string) {
+  return db.$transaction(async (tx) => {
+    const product = await tx.product.findFirst({ where: { id, userId, active: false }, select: { id: true } })
+    if (!product) return { kind: 'not-found' as const }
+
+    try {
+      const restoredAt = new Date()
+      const restored = await tx.product.update({ where: { id: product.id }, data: { active: true, archivedAt: null, deletedAt: null, updatedAt: restoredAt } })
+      await tx.expense.updateMany({ where: { userId, productId: product.id, deletedAt: { not: null } }, data: { deletedAt: null, updatedAt: restoredAt } })
+      await tx.stockPurchase.updateMany({ where: { userId, productId: product.id, deletedAt: { not: null } }, data: { deletedAt: null } })
+      return { kind: 'restored' as const, product: restored }
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') return { kind: 'duplicate' as const }
+      throw error
+    }
   })
 }

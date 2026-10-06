@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import styles from '../App.module.css'
 import { PurchaseHistoryPage } from './PurchaseHistoryPage'
 
-type ArchivedProduct = { id: string; name: string; category: string; price: string; archivedAt: string | null }
+type ArchivedProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; archivedAt: string | null; deletedAt: string | null }
 type SettingsSection = 'archive' | 'history' | 'settings'
 
 type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void>; archivedProducts: ArchivedProduct[] }
@@ -30,6 +30,23 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
       }
       await onStockDeleted()
       setStockNotice(`${product.name} and its history were permanently deleted.`)
+    } catch {
+      setStockError('Unable to contact the product service. Try again.')
+    }
+  }
+
+  async function restore(product: ArchivedProduct) {
+    setStockError('')
+    setStockNotice('')
+    try {
+      const response = await fetch(`/api/products/${product.id}/restore`, { method: 'POST', credentials: 'include' })
+      const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+      if (!response.ok) {
+        setStockError(body?.error?.message ?? 'Unable to restore the archived product.')
+        return
+      }
+      await onStockDeleted()
+      setStockNotice(`${product.name} was restored to active stocks.`)
     } catch {
       setStockError('Unable to contact the product service. Try again.')
     }
@@ -83,17 +100,19 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
     </nav>
     {section === 'archive' && <section id="archive-panel" className={styles.settingsCard} aria-labelledby="archived-products-heading" role="tabpanel">
       <div><h2 id="archived-products-heading">Archived products</h2><p>Products removed from active stocks remain here with their historical details.</p></div>
-      {archivedProducts.length === 0 ? <p className={styles.empty}>No archived products.</p> : <ul className={styles.productList} aria-label="Archived products">{archivedProducts.map((product) => <li key={product.id} className={styles.productItem}><div><strong>{product.name}</strong><span>{product.category} · ₱{product.price} each</span><span className={styles.archived}>Archived {product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}</span></div><button className={styles.danger} type="button" onClick={() => void permanentlyDelete(product)}>Delete permanently</button></li>)}</ul>}
+      {archivedProducts.length === 0 ? <p className={styles.empty}>No archived products.</p> : <div className={styles.stockTableScroll}><table className={styles.stockTable}><caption className={styles.visuallyHidden}>Archived products and recovery actions</caption><thead><tr><th scope="col">Stock Name</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Actions</th></tr></thead><tbody>{archivedProducts.map((product) => <tr key={product.id}><th scope="row"><span className={styles.stockTableName}>{product.name}</span><span className={styles.stockTableCategory}>{product.category}</span><span className={styles.archived}>{product.deletedAt ? `Deleted ${new Date(product.deletedAt).toLocaleDateString()}` : `Archived ${product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}`}</span></th><td data-label="Stocks">{product.stockQuantity}</td><td data-label="Sold">—</td><td data-label="Updated Price">₱{product.price}</td><td data-label="Actions"><div className={styles.stockTableActions}><button className={styles.secondary} type="button" onClick={() => void restore(product)}>Restore</button><button className={styles.danger} type="button" onClick={() => void permanentlyDelete(product)}>Delete permanently</button></div></td></tr>)}</tbody></table></div>}
+      {stockError && <p className={styles.error} role="alert">{stockError}</p>}
+      {stockNotice && <p className={styles.notice} role="status">{stockNotice}</p>}
     </section>}
     {section === 'settings' && <section id="settings-panel" className={styles.settingsCard} aria-labelledby="settings-heading" role="tabpanel">
       <div><h2 id="settings-heading">Settings</h2><p>Manage your stock and purchase-history data with deliberate confirmation for destructive actions.</p></div>
       <div className={styles.dangerPanel}>
-        <div><h3>Delete stocks</h3><p>Remove your stock records and their purchase history and expenses. Deleted data is recoverable for 10 days.</p></div>
-        <button ref={deleteStockButtonRef} className={styles.danger} type="button" disabled={stockLoading || stockConfirmationOpen} onClick={openStockConfirmation}>{stockLoading ? 'Deleting…' : 'Delete stocks'}</button>
+        <div><h3>Delete all products</h3><p>Remove all active products, stock records, purchase history, and expenses. Deleted data is recoverable for 10 days, then automatically deleted.</p></div>
+        <button ref={deleteStockButtonRef} className={styles.danger} type="button" disabled={stockLoading || stockConfirmationOpen} onClick={openStockConfirmation}>{stockLoading ? 'Deleting…' : 'Delete all products'}</button>
       </div>
       {stockConfirmationOpen && <section className={styles.stockConfirmation} role="dialog" aria-modal="true" aria-labelledby="delete-stocks-heading">
         <h3 id="delete-stocks-heading">Confirm stock deletion</h3>
-        <p>This will remove your active stocks, purchase history, and expenses. The data will be recoverable for 10 days, then permanently purged.</p>
+        <p>This will remove all products, purchase history, and expenses. The data will be recoverable for 10 days, then automatically deleted.</p>
         <p className={styles.warning} role="status" aria-live="polite">{stockCountdown > 0 ? `Confirm becomes available in ${stockCountdown} seconds.` : 'You can now confirm this deletion.'}</p>
         <div className={styles.formActions}>
           <button ref={cancelStockRef} className={styles.secondary} type="button" onClick={cancelStockDeletion}>Cancel</button>

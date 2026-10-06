@@ -5,6 +5,7 @@ import {
   database,
   listProducts as listProductRecords,
   permanentlyDeleteArchivedProduct as permanentlyDeleteArchivedProductRecord,
+  restoreArchivedProduct as restoreArchivedProductRecord,
   type ProductStatus,
   updateProduct as updateProductRecord,
 } from './data-access.js'
@@ -17,6 +18,7 @@ export type ProductResponse = {
   stockQuantity: number
   active: boolean
   archivedAt: string | null
+  deletedAt: string | null
   updatedAt: string
 }
 
@@ -33,6 +35,7 @@ function toResponse(product: Product): ProductResponse {
     stockQuantity: product.stockQuantity,
     active: product.active,
     archivedAt: product.archivedAt?.toISOString() ?? null,
+    deletedAt: product.deletedAt?.toISOString() ?? null,
     updatedAt: product.updatedAt.toISOString(),
   }
 }
@@ -87,4 +90,9 @@ export async function archiveProduct(userId: string, id: string, updatedAt: stri
 
 export function permanentlyDeleteArchivedProduct(userId: string, id: string) {
   return permanentlyDeleteArchivedProductRecord(database, userId, id)
+}
+
+export async function restoreArchivedProduct(userId: string, id: string) {
+  const outcome = await restoreArchivedProductRecord(database, userId, id)
+  return outcome.kind === 'restored' ? { ...outcome, product: toResponse(outcome.product) } : outcome
 }

@@ -1,17 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
-import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, updateProduct } from './data-access.js'
+import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, restoreArchivedProduct, updateProduct } from './data-access.js'
 
 function database() {
   const tx = {
-    expense: { deleteMany: vi.fn() },
+    expense: { deleteMany: vi.fn(), updateMany: vi.fn() },
     product: {
       delete: vi.fn(),
       deleteMany: vi.fn(),
       findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
+      update: vi.fn(),
       updateMany: vi.fn(),
     },
-    stockPurchase: { deleteMany: vi.fn() },
+    stockPurchase: { deleteMany: vi.fn(), updateMany: vi.fn() },
   }
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
@@ -39,7 +40,7 @@ describe('product data access', () => {
     expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true, deletedAt: null } }))
 
     await listProducts(db as never, 'user-a', 'archived')
-    expect(db.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: false, deletedAt: null } }))
+    expect(db.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: false } }))
   })
 
   it('does not update a product owned by another tenant', async () => {
@@ -85,5 +86,17 @@ describe('product data access', () => {
     expect(tx.expense.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
     expect(tx.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
     expect(tx.product.delete).toHaveBeenCalledWith({ where: { id: 'product-id' } })
+  })
+
+  it('restores a retained product and its soft-deleted history atomically', async () => {
+    const { db, tx } = database()
+    tx.product.findFirst.mockResolvedValue({ id: 'product-id' })
+    tx.product.update.mockResolvedValue({ id: 'product-id', active: true, archivedAt: null, deletedAt: null })
+    tx.expense.updateMany.mockResolvedValue({ count: 1 })
+    tx.stockPurchase.updateMany.mockResolvedValue({ count: 1 })
+
+    await expect(restoreArchivedProduct(db as never, 'user-a', 'product-id')).resolves.toEqual({ kind: 'restored', product: expect.objectContaining({ id: 'product-id', active: true }) })
+    expect(tx.expense.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', productId: 'product-id', deletedAt: { not: null } } }))
+    expect(tx.stockPurchase.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', productId: 'product-id', deletedAt: { not: null } } }))
   })
 })

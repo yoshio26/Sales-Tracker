@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createProduct: vi.fn(),
   listProducts: vi.fn(),
   permanentlyDeleteArchivedProduct: vi.fn(),
+  restoreArchivedProduct: vi.fn(),
   updateProduct: vi.fn(),
 }))
 
@@ -107,5 +108,19 @@ describe('product catalog routes', () => {
 
     expect(mocks.updateProduct).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000', expect.anything())
     expect(res.status).toHaveBeenCalledWith(404)
+  })
+
+  it('restores an archived product for the authenticated tenant', async () => {
+    mocks.restoreArchivedProduct.mockResolvedValue({ kind: 'restored', product: { id: 'product-id', name: 'widget' } })
+
+    const res = await invoke('post', '/:id/restore', {
+      userId: 'user-a',
+      params: { id: '123e4567-e89b-12d3-a456-426614174000' },
+      body: {},
+      get: () => appOrigin,
+    })
+
+    expect(mocks.restoreArchivedProduct).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000')
+    expect(res.json).toHaveBeenCalledWith({ product: { id: 'product-id', name: 'widget' } })
   })
 })

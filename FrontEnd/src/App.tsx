@@ -12,7 +12,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) =
 
 type View = 'email' | 'code' | 'signed-in'
 type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings'
-type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; updatedAt: string }
+type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
 const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
@@ -316,7 +316,7 @@ function App() {
 
   function editStock(product: { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
     setWorkspaceView('stock')
-    setEditing({ ...product, active: true, archivedAt: null })
+    setEditing({ ...product, active: true, archivedAt: null, deletedAt: null })
     setProductName(product.name)
     setCategory(product.category)
     setPrice(product.price)
@@ -404,7 +404,7 @@ function App() {
                   </form>
                 </section>
               </div>}
-              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })} />
+              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
@@ -413,7 +413,7 @@ function App() {
             <DashboardStockTable
               refreshKey={stockRefreshKey}
               onEdit={editStock}
-              onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })}
+              onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })}
             />
             </>}
             </div>

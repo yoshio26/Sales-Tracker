@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, updateProduct } from './service.js'
+import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, restoreArchivedProduct, updateProduct } from './service.js'
 
 const idSchema = z.object({ id: z.uuid() })
 const productSchema = z.object({
@@ -76,6 +76,19 @@ productsRouter.delete('/:id', requireSession, requireSameOrigin, async (req, res
   try {
     const { id } = idSchema.parse(req.params)
     sendOutcome(res, await archiveProduct(req.userId!, id, z.object({ updatedAt: z.string().datetime({ offset: true }) }).parse(req.body).updatedAt))
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res)
+    next(error)
+  }
+})
+
+productsRouter.post('/:id/restore', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const { id } = idSchema.parse(req.params)
+    const outcome = await restoreArchivedProduct(req.userId!, id)
+    if (outcome.kind === 'restored') return res.json({ product: outcome.product })
+    if (outcome.kind === 'duplicate') return res.status(409).json({ error: { code: 'DUPLICATE_PRODUCT', message: 'An active product with that name already exists.' } })
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Archived product not found.' } })
   } catch (error) {
     if (error instanceof z.ZodError) return invalidInput(res)
     next(error)
