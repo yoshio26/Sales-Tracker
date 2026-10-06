@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import styles from '../App.module.css'
 import { PurchaseHistoryPage } from './PurchaseHistoryPage'
 
 type ArchivedProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; archivedAt: string | null; deletedAt: string | null }
-type SettingsSection = 'archive' | 'history' | 'settings'
+type ColorTheme = 'default' | 'blue' | 'green' | 'purple' | 'orange'
+type SettingsSection = 'archive' | 'history' | 'settings' | 'color-theme'
+
+const colorThemes: Array<{ name: ColorTheme; label: string; color: string }> = [
+  { name: 'default', label: 'Pink', color: '#f51f80' },
+  { name: 'blue', label: 'Blue', color: '#2563eb' },
+  { name: 'green', label: 'Green', color: '#159957' },
+  { name: 'purple', label: 'Purple', color: '#7c3aed' },
+  { name: 'orange', label: 'Orange', color: '#ea580c' },
+]
 
 type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void>; archivedProducts: ArchivedProduct[] }
 
@@ -14,8 +24,61 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
   const [stockNotice, setStockNotice] = useState('')
   const [stockConfirmationOpen, setStockConfirmationOpen] = useState(false)
   const [stockCountdown, setStockCountdown] = useState(10)
+  const [selectedColorTheme, setSelectedColorTheme] = useState<ColorTheme>(() => {
+    const color = document.documentElement.getAttribute('data-color')
+    return colorThemes.some((theme) => theme.name === color) ? color as ColorTheme : 'default'
+  })
+  const [customColor, setCustomColor] = useState(() => {
+    try {
+      return window.localStorage.getItem('customColor') ?? ''
+    } catch {
+      return ''
+    }
+  })
   const deleteStockButtonRef = useRef<HTMLButtonElement>(null)
   const cancelStockRef = useRef<HTMLButtonElement>(null)
+
+  function setColorTheme(name: ColorTheme) {
+    document.documentElement.removeAttribute('data-color')
+    document.documentElement.style.removeProperty('--accent')
+    document.documentElement.style.removeProperty('--accent-hover')
+    document.documentElement.style.removeProperty('--accent-soft')
+    document.documentElement.style.removeProperty('--on-accent')
+    if (name !== 'default') document.documentElement.setAttribute('data-color', name)
+    setSelectedColorTheme(name)
+    setCustomColor('')
+    try {
+      window.localStorage.setItem('colorTheme', name)
+      window.localStorage.removeItem('customColor')
+    } catch {
+      // Theme preference remains usable when browser storage is unavailable.
+    }
+  }
+
+  function setCustomAccent(hex: string) {
+    const red = Number.parseInt(hex.slice(1, 3), 16)
+    const green = Number.parseInt(hex.slice(3, 5), 16)
+    const blue = Number.parseInt(hex.slice(5, 7), 16)
+    const darker = (value: number) => Math.round(value * 0.82)
+    const luminance = (value: number) => {
+      const channel = value / 255
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    }
+    const contrast = 0.2126 * luminance(red) + 0.7152 * luminance(green) + 0.0722 * luminance(blue) + 0.05
+    document.documentElement.removeAttribute('data-color')
+    document.documentElement.style.setProperty('--accent', hex)
+    document.documentElement.style.setProperty('--accent-hover', `rgb(${darker(red)}, ${darker(green)}, ${darker(blue)})`)
+    document.documentElement.style.setProperty('--accent-soft', `rgba(${red}, ${green}, ${blue}, 0.12)`)
+    document.documentElement.style.setProperty('--on-accent', contrast > 0.179 ? '#000000' : '#ffffff')
+    setSelectedColorTheme('default')
+    setCustomColor(hex)
+    try {
+      window.localStorage.setItem('customColor', hex)
+      window.localStorage.removeItem('colorTheme')
+    } catch {
+      // Theme preference remains usable when browser storage is unavailable.
+    }
+  }
 
   async function permanentlyDelete(product: ArchivedProduct) {
     if (!window.confirm(`Permanently delete ${product.name} and all of its history? This cannot be undone.`)) return
@@ -96,7 +159,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
 
   return <div className={styles.settingsView}>
     <nav className={styles.settingsTabs} aria-label="Settings pages" role="tablist">
-      {([['archive', 'Archive'], ['history', 'History'], ['settings', 'Settings']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={section === value} aria-controls={`${value}-panel`} className={section === value ? styles.selectedTab : styles.tab} onClick={() => setSection(value)}>{label}</button>)}
+      {([['archive', 'Archive'], ['history', 'History'], ['settings', 'Settings'], ['color-theme', 'Color Theme']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={section === value} aria-controls={`${value}-panel`} className={section === value ? styles.selectedTab : styles.tab} onClick={() => setSection(value)}>{label}</button>)}
     </nav>
     {section === 'archive' && <section id="archive-panel" className={styles.settingsCard} aria-labelledby="archived-products-heading" role="tabpanel">
       <div><h2 id="archived-products-heading">Archived products</h2><p>Products removed from active stocks remain here with their historical details.</p></div>
@@ -123,5 +186,12 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
       {stockNotice && <p className={styles.notice} role="status">{stockNotice}</p>}
     </section>}
     {section === 'history' && <div id="history-panel" role="tabpanel"><PurchaseHistoryPage deletable onChanged={onHistoryChanged} /></div>}
+    {section === 'color-theme' && <section id="color-theme-panel" className={styles.settingsCard} aria-labelledby="color-theme-heading" role="tabpanel">
+      <div><h2 id="color-theme-heading">Color Theme</h2><p>Choose an accent color without changing the existing light or dark mode.</p></div>
+      <div className={styles.colorThemeOptions} role="radiogroup" aria-label="Preset color themes">
+        {colorThemes.map((theme) => <button key={theme.name} type="button" role="radio" aria-checked={!customColor && selectedColorTheme === theme.name} className={`${styles.colorSwatch} ${!customColor && selectedColorTheme === theme.name ? styles.colorSwatchSelected : ''}`} style={{ '--swatch-color': theme.color } as CSSProperties} onClick={() => setColorTheme(theme.name)}><span aria-hidden="true" />{theme.label}</button>)}
+        <label className={`${styles.colorSwatch} ${customColor ? styles.colorSwatchSelected : ''}`}><span aria-hidden="true" style={{ background: customColor || '#ffffff' }} /><span>Custom</span><input type="color" value={customColor || '#f51f80'} onChange={(event) => setCustomAccent(event.target.value)} aria-label="Choose custom accent color" /></label>
+      </div>
+    </section>}
   </div>
 }

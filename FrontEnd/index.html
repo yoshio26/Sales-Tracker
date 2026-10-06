@@ -5,6 +5,36 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sales Tracker</title>
+    <script>
+      (() => {
+        try {
+          const colorTheme = localStorage.getItem('colorTheme')
+          const customColor = localStorage.getItem('customColor')
+          if (customColor && /^#[0-9a-f]{6}$/i.test(customColor)) {
+            const hex = customColor.slice(1)
+            const red = Number.parseInt(hex.slice(0, 2), 16)
+            const green = Number.parseInt(hex.slice(2, 4), 16)
+            const blue = Number.parseInt(hex.slice(4, 6), 16)
+            const darker = (value) => Math.round(value * 0.82)
+            const luminance = (value) => {
+              const channel = value / 255
+              return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+            }
+            const contrast = (redValue, greenValue, blueValue) => (0.2126 * luminance(redValue) + 0.7152 * luminance(greenValue) + 0.0722 * luminance(blueValue) + 0.05)
+            const root = document.documentElement
+            root.style.setProperty('--accent', customColor)
+            root.style.setProperty('--accent-hover', `rgb(${darker(red)}, ${darker(green)}, ${darker(blue)})`)
+            root.style.setProperty('--accent-soft', `rgba(${red}, ${green}, ${blue}, 0.12)`)
+            root.style.setProperty('--on-accent', contrast(red, green, blue) > 0.179 ? '#000000' : '#ffffff')
+            root.removeAttribute('data-color')
+          } else if (['blue', 'green', 'purple', 'orange'].includes(colorTheme ?? '')) {
+            document.documentElement.setAttribute('data-color', colorTheme)
+          }
+        } catch {
+          // Theme preferences are optional when browser storage is unavailable.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

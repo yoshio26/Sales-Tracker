@@ -29,8 +29,8 @@ describe('product data access', () => {
     const { db } = database()
     db.product.create.mockResolvedValue({ id: 'product-id', userId: 'user-a', name: 'Widget', category: 'Hardware' })
 
-    await expect(createProduct(db as never, 'user-a', { name: 'Widget', category: 'Hardware' })).resolves.toEqual(expect.objectContaining({ id: 'product-id', userId: 'user-a' }))
-    expect(db.product.create).toHaveBeenCalledWith({ data: { userId: 'user-a', name: 'Widget', category: 'Hardware' } })
+    await expect(createProduct(db as never, 'user-a', { name: 'Widget', category: 'Hardware', priceCents: 1000 })).resolves.toEqual(expect.objectContaining({ id: 'product-id', userId: 'user-a' }))
+    expect(db.product.create).toHaveBeenCalledWith({ data: { userId: 'user-a', name: 'Widget', category: 'Hardware', priceCents: 1000 } })
   })
 
   it('scopes active and archived lists to the requested tenant', async () => {
@@ -49,7 +49,7 @@ describe('product data access', () => {
     tx.product.findFirst.mockResolvedValue(null)
 
     await expect(updateProduct(db as never, 'user-a', 'foreign-product', {
-      name: 'changed', category: 'hardware', updatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      name: 'changed', category: 'hardware', priceCents: 1000, updatedAt: new Date('2026-10-01T00:00:00.000Z'),
     })).resolves.toEqual({ kind: 'not-found' })
     expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'foreign-product', userId: 'user-a', active: true }) }))
   })
@@ -59,7 +59,7 @@ describe('product data access', () => {
     stale.tx.product.updateMany.mockResolvedValue({ count: 0 })
     stale.tx.product.findFirst.mockResolvedValue({ active: true })
     await expect(updateProduct(stale.db as never, 'user-a', 'product-id', {
-      name: 'changed', category: 'hardware', updatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      name: 'changed', category: 'hardware', priceCents: 1000, updatedAt: new Date('2026-10-01T00:00:00.000Z'),
     })).resolves.toEqual({ kind: 'stale' })
 
     const archived = database()

@@ -1,10 +1,42 @@
 :root {
   font-family: 'DM Sans', system-ui, sans-serif;
+  --accent: #f51f80;
+  --accent-hover: #d8176c;
+  --accent-soft: rgba(245, 31, 128, 0.12);
+  --on-accent: #ffffff;
   color: #17243b;
   background: #f7f9fc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+[data-color="blue"] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --on-accent: #ffffff;
+}
+
+[data-color="green"] {
+  --accent: #159957;
+  --accent-hover: #117a46;
+  --accent-soft: rgba(21, 153, 87, 0.12);
+  --on-accent: #ffffff;
+}
+
+[data-color="purple"] {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-soft: rgba(124, 58, 237, 0.12);
+  --on-accent: #ffffff;
+}
+
+[data-color="orange"] {
+  --accent: #ea580c;
+  --accent-hover: #c2410c;
+  --accent-soft: rgba(234, 88, 12, 0.12);
+  --on-accent: #ffffff;
 }
 
 body { margin: 0; }
