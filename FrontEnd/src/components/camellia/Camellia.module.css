@@ -1,0 +1,16 @@
+.page { display: grid; place-items: center; min-height: calc(100vh - 8rem); padding: 2rem 0; animation: fadeIn 600ms ease both; }
+.card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: clamp(2rem, 6vw, 5rem); width: min(100%, 64rem); padding: clamp(2rem, 5vw, 4.5rem); border: 1px solid var(--accent-soft); border-radius: 1rem; background: #fff; box-shadow: 0 1.25rem 3rem rgba(44, 17, 34, 0.08); }
+.imagePanel { position: relative; display: grid; place-items: center; min-height: 22rem; }
+.imagePanel::before { content: ''; position: absolute; z-index: 0; width: 85%; height: 78%; border-radius: 42% 58% 63% 37% / 42% 38% 62% 58%; background: var(--accent-soft); transform: translate(-1.5rem, 2rem) rotate(-8deg); }
+.image { position: relative; z-index: 1; width: min(100%, 21.25rem); aspect-ratio: 1; border-radius: 50%; object-fit: cover; box-shadow: 0 1rem 2rem rgba(44, 17, 34, 0.12); }
+.copy { display: grid; align-content: center; gap: 1.25rem; }
+.title { margin: 0; color: var(--accent); font-size: clamp(2.8rem, 7vw, 5rem); font-weight: 300; letter-spacing: 0.09em; line-height: 1; }
+.paragraph { margin: 0; color: #4e4a54; font-size: 1.05rem; line-height: 1.8; }
+.closing { margin: 0.25rem 0 0; color: var(--accent); font-family: 'Caveat', 'Dancing Script', cursive; font-size: 1.35rem; }
+.backLink { justify-self: start; margin-top: 0.5rem; color: var(--accent); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-decoration: none; }
+.backLink:hover { color: var(--accent-hover); text-decoration: underline; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(0.75rem); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .page { animation: none; } }
+@media (max-width: 48rem) { .card { grid-template-columns: 1fr; gap: 2rem; } .imagePanel { min-height: 18rem; } .copy { text-align: center; } .backLink { justify-self: center; } }
+.darkMode .card { border-color: #493542; background: #211a23; box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.22); }
+.darkMode .paragraph { color: #c5afbd; }

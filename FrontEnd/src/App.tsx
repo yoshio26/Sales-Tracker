@@ -4,6 +4,7 @@ import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
 import { DashboardStockTable } from './pages/DashboardStockTable'
+import { Camellia } from './components/camellia/Camellia'
 import { GuidePage } from './pages/GuidePage'
 import { MotivationPage } from './pages/MotivationPage'
 import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
@@ -13,7 +14,7 @@ import { StockTrackerPage } from './pages/StockTrackerPage'
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 type View = 'email' | 'code' | 'signed-in'
-type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings' | 'guide' | 'motivation'
+type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings' | 'guide' | 'motivation' | 'camellia'
 type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
@@ -368,7 +369,7 @@ function App() {
             </aside>
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
-              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : 'Purchase history'}</h1></div>
+              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : workspaceView === 'camellia' ? 'Camellia' : 'Purchase history'}</h1></div>
               <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
             {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
@@ -419,7 +420,8 @@ function App() {
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'guide' && <GuidePage />}
-            {workspaceView === 'motivation' && <MotivationPage />}
+            {workspaceView === 'motivation' && <MotivationPage onViewCamellia={() => setWorkspaceView('camellia')} />}
+            {workspaceView === 'camellia' && <Camellia onBack={() => setWorkspaceView('motivation')} />}
             {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
             <DashboardStockTable

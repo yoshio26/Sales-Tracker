@@ -8,3 +8,7 @@ export const motivationParagraphs = [
   "Thank you for always believing in me. This is my way of saying I'll always help you with whatever you're working on. I love you^^",
   'With all my love,\n-Ace',
 ] as const
+
+export const motivationActions = {
+  flowerLabel: 'A flower for you',
+} as const
