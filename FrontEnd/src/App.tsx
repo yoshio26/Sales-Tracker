@@ -4,6 +4,8 @@ import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
 import { DashboardStockTable } from './pages/DashboardStockTable'
+import { GuidePage } from './pages/GuidePage'
+import { MotivationPage } from './pages/MotivationPage'
 import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StockTrackerPage } from './pages/StockTrackerPage'
@@ -11,7 +13,7 @@ import { StockTrackerPage } from './pages/StockTrackerPage'
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 type View = 'email' | 'code' | 'signed-in'
-type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings'
+type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings' | 'guide' | 'motivation'
 type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
@@ -59,6 +61,8 @@ function NavIcon({ name }: { name: WorkspaceView | 'settings' }) {
     stock: 'M4 19V9l8-5 8 5v10H4Zm4 0v-6h8v6M8 9h.01M12 9h.01M16 9h.01',
     history: 'M5 4h14v16H5V4Zm3 4h8M8 12h8M8 16h5',
     settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-12v2m0 13v2m8.5-8.5h-2m-13 0h-2m15.01-6.01-1.42 1.42M6.91 17.09l-1.42 1.42m13.02 0-1.42-1.42M6.91 6.91 5.49 5.49',
+    guide: 'M5 4.5A2.5 2.5 0 0 1 7.5 2H19v18H7.5A2.5 2.5 0 0 0 5 22V4.5Zm0 0A2.5 2.5 0 0 1 7.5 7H19M9 11h6M9 15h6',
+    motivation: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z',
   }
   return <svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name]} /></svg>
 }
@@ -352,6 +356,8 @@ function App() {
                 <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('buy')}><NavIcon name="buy" /><span>Bought</span></button>
                 <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={workspaceView === 'stock' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('stock')}><NavIcon name="stock" /><span>Stocks</span></button>
                 <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('history')}><NavIcon name="history" /><span>Purchase History</span></button>
+                <button type="button" aria-current={workspaceView === 'guide' ? 'page' : undefined} className={workspaceView === 'guide' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('guide')}><NavIcon name="guide" /><span>Guide</span></button>
+                <button type="button" aria-current={workspaceView === 'motivation' ? 'page' : undefined} className={workspaceView === 'motivation' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('motivation')}><NavIcon name="motivation" /><span>Motivation</span></button>
                 <button type="button" aria-current={workspaceView === 'settings' ? 'page' : undefined} className={workspaceView === 'settings' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('settings')}><NavIcon name="settings" /><span>Settings</span></button>
               </nav>
               <button className={`${styles.sidebarSettings} ${styles.sidebarUserCard}`} type="button" onClick={() => void logout()} aria-label="Sign out">
@@ -362,7 +368,7 @@ function App() {
             </aside>
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
-              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : 'Purchase history'}</h1><p>Welcome back — here’s your sales overview.</p></div>
+              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : 'Purchase history'}</h1></div>
               <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
             {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
@@ -412,6 +418,8 @@ function App() {
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
+            {workspaceView === 'guide' && <GuidePage />}
+            {workspaceView === 'motivation' && <MotivationPage />}
             {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
             <DashboardStockTable
