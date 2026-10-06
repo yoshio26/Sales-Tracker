@@ -5,13 +5,14 @@ const mocks = vi.hoisted(() => ({
   createPurchase: vi.fn(),
   deletePurchase: vi.fn(),
   deleteStockData: vi.fn(),
+  getReportData: vi.fn(),
   listPurchases: vi.fn(),
   listStock: vi.fn(),
 }))
 
 vi.mock('./data-access.js', () => ({ ...mocks, database: {} }))
 
-import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, parseCost, replenishStock } from './service.js'
+import { createPurchase, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listPurchases, listStock, monthRange, parseCost, replenishStock } from './service.js'
 
 const product = { id: 'product-id', name: 'widget', category: 'hardware', priceCents: 625, stockQuantity: 4, updatedAt: new Date('2026-10-02T00:00:00.000Z') }
 const purchase = { id: 'purchase-id', productId: 'product-id', productNameSnapshot: 'widget', categorySnapshot: 'hardware', quantity: 2, totalCostCents: 1250, purchasedAt: new Date('2026-10-02T00:00:00.000Z') }
@@ -59,5 +60,32 @@ describe('stock service', () => {
     await expect(deletePurchase('user-a', 'purchase-id')).resolves.toEqual({ kind: 'deleted' })
     expect(mocks.deleteStockData).toHaveBeenCalledWith({}, 'user-a')
     expect(mocks.deletePurchase).toHaveBeenCalledWith({}, 'user-a', 'purchase-id')
+  })
+
+  it('exports only purchases in the selected UTC month and escapes CSV values', async () => {
+    mocks.getReportData.mockResolvedValue({ products: [], purchases: [
+      { productId: 'product-id', productNameSnapshot: 'Widget, "Large"', quantity: 2, totalCostCents: 1250, purchasedAt: new Date('2026-10-02T00:00:00.000Z') },
+      { productId: 'product-id', productNameSnapshot: 'Outside', quantity: 1, totalCostCents: 500, purchasedAt: new Date('2026-11-01T00:00:00.000Z') },
+    ] })
+
+    await expect(exportPurchasesCsv('user-a', monthRange('2026-10'))).resolves.toBe('Stock Name,Date Bought,Cost\r\n"Widget, ""Large""",2026-10-02T00:00:00.000Z,12.50\r\n')
+  })
+
+  it('keeps the purchase export to headers when the selected month is empty', async () => {
+    mocks.getReportData.mockResolvedValue({ products: [], purchases: [{ productId: 'product-id', productNameSnapshot: 'Outside', quantity: 1, totalCostCents: 500, purchasedAt: new Date('2026-11-01T00:00:00.000Z') }] })
+
+    await expect(exportPurchasesCsv('user-a', monthRange('2026-10'))).resolves.toBe('Stock Name,Date Bought,Cost\r\n')
+  })
+
+  it('exports active stock with all-time sold totals and zero for never-sold products', async () => {
+    mocks.getReportData.mockResolvedValue({
+      products: [
+        { id: 'product-id', name: 'Widget', priceCents: 625, stockQuantity: 4 },
+        { id: 'other-id', name: 'Never sold', priceCents: 1000, stockQuantity: 2 },
+      ],
+      purchases: [{ productId: 'product-id', productNameSnapshot: 'Widget', quantity: 3, totalCostCents: 1875, purchasedAt: new Date('2026-10-02T00:00:00.000Z') }],
+    })
+
+    await expect(exportStockCsv('user-a')).resolves.toBe('Stock Name,Remaining Stocks,Updated Price,Sold\r\nWidget,4,6.25,3\r\nNever sold,2,10.00,0\r\n')
   })
 })

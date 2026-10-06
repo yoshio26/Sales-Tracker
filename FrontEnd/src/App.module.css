@@ -134,6 +134,13 @@
 .chartCard:first-child { grid-column: 1 / -1; }
 .chartSummary { min-height: 1.25rem; margin-top: 0.4rem !important; color: #5c6b82; font-size: 0.85rem; }
 .chart { height: 15rem; margin-top: 0.75rem; }
+.reportExport { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--accent-soft); background: #fff; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
+.reportExport h3 { margin: 0; color: #20202a; }
+.reportExport p { margin: 0; }
+.reportExportControls { display: flex; align-items: end; gap: 0.75rem; flex-wrap: wrap; }
+.reportExportControls label { margin-top: 0 !important; color: #20202a; font-weight: 700; }
+.reportExportControls input { width: auto; }
+.reportExportControls button { margin-top: 0 !important; }
 .ledger { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid #dce4ef; }
 .ledger h2, .ledger h3 { margin: 0; color: #17243b; }
 .ledger p { margin: 0; }
@@ -269,6 +276,8 @@
 .settingsView { display: grid; gap: 1rem; padding-top: 1.5rem; }
 .settingsTabs { display: flex; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--accent-soft); }
 .settingsTabs button { margin-top: 0; }
+.dashboardTabs { display: flex; gap: 0.5rem; margin-top: 0.85rem; }
+.dashboardTabs button { margin-top: 0 !important; }
 .settingsCard, .dangerPanel { display: grid; gap: 1rem; }
 .settingsCard { padding: 1.25rem; border: 1px solid var(--accent-soft); background: #fff; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
 .settingsCard h2, .settingsCard h3 { margin: 0; color: #20202a; }
@@ -385,6 +394,11 @@
 .selectedTab { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--on-accent) !important; border-radius: 0.3rem !important; }
 .tab:hover:not(:disabled) { background: var(--accent-soft) !important; color: var(--accent) !important; transform: none !important; box-shadow: none !important; }
 .selectedTab:hover:not(:disabled) { background: var(--accent) !important; color: var(--on-accent) !important; transform: none !important; box-shadow: none !important; }
+.dashboardTabs { gap: 0; margin-top: 0.75rem; border-bottom: 1px solid var(--accent-soft); }
+.dashboardTabs button, .dashboardTabs .tab, .dashboardTabs .selectedTab { margin-top: 0 !important; padding: 0.65rem 0.85rem !important; border: 0 !important; border-bottom: 2px solid transparent !important; border-radius: 0 !important; background: transparent !important; color: #5c5360 !important; box-shadow: none !important; transform: none !important; overflow: visible !important; }
+.dashboardTabs button::before { display: none !important; }
+.dashboardTabs button:hover:not(:disabled), .dashboardTabs .tab:hover:not(:disabled) { background: transparent !important; color: var(--accent) !important; box-shadow: none !important; transform: none !important; }
+.dashboardTabs .selectedTab, .dashboardTabs .selectedTab:hover:not(:disabled) { border-bottom-color: var(--accent) !important; color: var(--accent) !important; background: transparent !important; }
 .card button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { border-color: var(--accent); color: var(--accent); }
 .card button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { background: var(--accent); }
 .card button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings):hover:not(:disabled) { box-shadow: 0 0 1.25rem rgba(245, 31, 128, 0.2); }
@@ -397,6 +411,7 @@
 .darkMode .guideWelcome, .darkMode .guideCard, .darkMode .guideMessage, .darkMode .guideDetails, .darkMode .guideFaq details { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .guideWelcome h2, .darkMode .guideCard h2, .darkMode .guideMessage h2, .darkMode .guideAccordion > h2, .darkMode .guideWarning h2, .darkMode .guideDetails summary, .darkMode .guideDetailsBody h3, .darkMode .guideFaq summary { color: #fff7fb; }
 .darkMode .guideWelcome p, .darkMode .guideCard p, .darkMode .guideMessage p, .darkMode .guideDetailsBody, .darkMode .guideFaq p, .darkMode .guideList, .darkMode .guideTips, .darkMode .guideWarning p { color: #c5afbd; }
+.darkMode .dashboardTabs button, .darkMode .dashboardTabs .tab { color: #c5afbd !important; }
 .darkMode .motivationCard { border-color: #493542; background: #211a23; box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.22); }
 .darkMode .motivationHeader h2, .darkMode .motivationGreeting { color: #fff7fb; }
 .darkMode .motivationLetter { color: #c5afbd; }
@@ -406,6 +421,8 @@
 .darkMode .workspaceHeader h1, .darkMode .dashboard h2, .darkMode .dashboard h3, .darkMode .ledger h2, .darkMode .ledger h3, .darkMode .stockView h2, .darkMode .workspace h2, .darkMode .settingsCard h2, .darkMode .settingsCard h3 { color: #fff7fb; }
 .darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }
 .darkMode .summaryCard, .darkMode .chartCard, .darkMode .stockView, .darkMode .productForm, .darkMode .settingsCard, .darkMode .productItem { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
+.darkMode .reportExport { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
+.darkMode .reportExport h3, .darkMode .reportExportControls label { color: #fff7fb; }
 .darkMode .stockTableSection h2 { color: #fff7fb; }
 .darkMode .stockTableToolbar { color: #c5afbd; }
 .darkMode .stockTableToolbar label { color: #fff7fb; }

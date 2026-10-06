@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ createPurchase: vi.fn(), deletePurchase: vi.fn(), deleteStockData: vi.fn(), listPurchases: vi.fn(), listStock: vi.fn(), replenishStock: vi.fn() }))
+const mocks = vi.hoisted(() => ({ createPurchase: vi.fn(), deletePurchase: vi.fn(), deleteStockData: vi.fn(), exportPurchasesCsv: vi.fn(), exportStockCsv: vi.fn(), listPurchases: vi.fn(), listStock: vi.fn(), monthRange: vi.fn(), replenishStock: vi.fn() }))
 vi.mock('./service.js', () => mocks)
 
 import { stockRouter } from './routes.js'
@@ -10,7 +10,7 @@ const appOrigin = process.env.APP_ORIGIN ?? 'http://localhost:5173'
 function response() {
   const json = vi.fn()
   const send = vi.fn()
-  return { status: vi.fn(() => ({ json, send })), json, send }
+  return { status: vi.fn(() => ({ json, send })), json, send, setHeader: vi.fn() }
 }
 
 type Route = { path?: string; methods?: Record<string, boolean>; stack: Array<{ handle: (...args: never[]) => unknown }> }
@@ -53,6 +53,30 @@ describe('stock routes', () => {
     await invoke('/purchases', 'get', { userId: 'user-a', get: () => undefined })
     expect(mocks.listStock).toHaveBeenCalledWith('user-a')
     expect(mocks.listPurchases).toHaveBeenCalledWith('user-a')
+  })
+
+  it('rejects unauthenticated and malformed report exports', async () => {
+    expect((await invoke('/export/purchases', 'get', { query: {}, get: () => undefined })).status).toHaveBeenCalledWith(401)
+    const invalid = await invoke('/export/purchases', 'get', { query: { month: 'October' }, userId: 'user-a', get: () => undefined })
+    expect(invalid.status).toHaveBeenCalledWith(400)
+    expect(mocks.exportPurchasesCsv).not.toHaveBeenCalled()
+  })
+
+  it('exports both report files for the authenticated tenant and selected month', async () => {
+    mocks.monthRange.mockReturnValue({ from: new Date('2026-10-01T00:00:00.000Z'), to: new Date('2026-11-01T00:00:00.000Z') })
+    mocks.exportPurchasesCsv.mockResolvedValue('purchase csv')
+    mocks.exportStockCsv.mockResolvedValue('stock csv')
+    const purchase = await invoke('/export/purchases', 'get', { query: { month: '2026-10' }, userId: 'user-a', get: () => undefined })
+    const stock = await invoke('/export/stock', 'get', { query: { month: '2026-10' }, userId: 'user-a', get: () => undefined })
+
+    expect(mocks.exportPurchasesCsv).toHaveBeenCalledWith('user-a', expect.any(Object))
+    expect(mocks.exportStockCsv).toHaveBeenCalledWith('user-a')
+    expect(purchase.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8')
+    expect(purchase.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="purchase-report-2026-10.csv"')
+    expect(purchase.send).toHaveBeenCalledWith('purchase csv')
+    expect(stock.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8')
+    expect(stock.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="stock-report-2026-10.csv"')
+    expect(stock.send).toHaveBeenCalledWith('stock csv')
   })
 
   it('validates input and protects mutations with same-origin checks', async () => {

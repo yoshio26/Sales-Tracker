@@ -4,14 +4,19 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, replenishStock } from './service.js'
+import { createPurchase, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listPurchases, listStock, monthRange, replenishStock } from './service.js'
 
 const quantitySchema = z.number().int().positive().max(2147483647)
 const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema, deductEarnings: z.boolean().default(false), cost: z.string().optional() })
 const purchaseSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
+const monthSchema = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/)
 
 function invalidInput(res: { status: (code: number) => { json: (body: unknown) => unknown } }, message = 'Enter a valid product and quantity.') {
   return res.status(400).json({ error: { code: 'INVALID_INPUT', message } })
+}
+
+function invalidMonth(res: { status: (code: number) => { json: (body: unknown) => unknown } }) {
+  return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Enter a valid reporting month.' } })
 }
 
 export const stockRouter = Router()
@@ -69,4 +74,26 @@ stockRouter.delete('/purchases/:id', requireSession, requireSameOrigin, async (r
     if (error instanceof z.ZodError) return invalidInput(res, 'Enter a valid purchase history entry ID.')
     next(error)
   }
+})
+
+stockRouter.get('/export/purchases', requireSession, async (req, res, next) => {
+  try {
+    const parsed = monthSchema.safeParse(req.query.month)
+    if (!parsed.success) return invalidMonth(res)
+    const csv = await exportPurchasesCsv(req.userId!, monthRange(parsed.data))
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="purchase-report-${parsed.data}.csv"`)
+    res.send(csv)
+  } catch (error) { next(error) }
+})
+
+stockRouter.get('/export/stock', requireSession, async (req, res, next) => {
+  try {
+    const parsed = monthSchema.safeParse(req.query.month)
+    if (!parsed.success) return invalidMonth(res)
+    const csv = await exportStockCsv(req.userId!)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="stock-report-${parsed.data}.csv"`)
+    res.send(csv)
+  } catch (error) { next(error) }
 })

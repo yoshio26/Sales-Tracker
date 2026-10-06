@@ -92,6 +92,7 @@ function App() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
+  const [dashboardSection, setDashboardSection] = useState<'overview' | 'reports'>('overview')
   const [darkMode, setDarkMode] = useState(() => {
     try {
       return window.localStorage.getItem('sales-tracker-dark-mode') === 'true'
@@ -369,7 +370,7 @@ function App() {
             </aside>
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
-              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : workspaceView === 'camellia' ? 'Camellia' : 'Purchase history'}</h1></div>
+              <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : workspaceView === 'camellia' ? 'Camellia' : 'Purchase history'}</h1>{workspaceView === 'dashboard' && <nav className={styles.dashboardTabs} aria-label="Dashboard views"><button type="button" aria-current={dashboardSection === 'overview' ? 'page' : undefined} className={dashboardSection === 'overview' ? styles.selectedTab : styles.tab} onClick={() => setDashboardSection('overview')}>Overview</button><button type="button" aria-current={dashboardSection === 'reports' ? 'page' : undefined} className={dashboardSection === 'reports' ? styles.selectedTab : styles.tab} onClick={() => setDashboardSection('reports')}>Reports</button></nav>}</div>
               <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
             {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
@@ -423,12 +424,15 @@ function App() {
             {workspaceView === 'motivation' && <MotivationPage onViewCamellia={() => setWorkspaceView('camellia')} />}
             {workspaceView === 'camellia' && <Camellia onBack={() => setWorkspaceView('motivation')} />}
             {workspaceView === 'dashboard' && <>
-            <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
-            <DashboardStockTable
-              refreshKey={stockRefreshKey}
-              onEdit={editStock}
-              onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })}
-            />
+            <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}>
+              <DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} mode={dashboardSection} onRetry={() => void loadDashboard()}>
+                {dashboardSection === 'overview' && <DashboardStockTable
+                  refreshKey={stockRefreshKey}
+                  onEdit={editStock}
+                  onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })}
+                />}
+              </DashboardPage>
+            </Suspense>
             </>}
             </div>
           </div>

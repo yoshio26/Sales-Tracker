@@ -1,8 +1,9 @@
 import type { Product, StockPurchase } from '@prisma/client'
-import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, listPurchases as listPurchaseRecords, listStock as listStockRecords } from './data-access.js'
+import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords } from './data-access.js'
 
 export type StockProductResponse = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
 export type PurchaseResponse = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
+export type ReportRange = { from: Date; to: Date }
 
 function centsToMoney(cents: number): string {
   return (cents / 100).toFixed(2)
@@ -50,4 +51,37 @@ export function deleteStockData(userId: string) {
 export async function deletePurchase(userId: string, purchaseId: string) {
   const deleted = await deletePurchaseRecord(database, userId, purchaseId)
   return deleted.count === 1 ? { kind: 'deleted' as const } : { kind: 'not-found' as const }
+}
+
+export function monthRange(month: string): ReportRange {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const from = new Date(Date.UTC(year, monthNumber - 1, 1))
+  return { from, to: new Date(Date.UTC(year, monthNumber, 1)) }
+}
+
+function csvValue(value: string | number): string {
+  const text = String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+function toCsv(headers: string[], rows: (string | number)[][]): string {
+  return [headers, ...rows].map((row) => row.map(csvValue).join(',')).join('\r\n') + '\r\n'
+}
+
+export async function exportPurchasesCsv(userId: string, range: ReportRange): Promise<string> {
+  const { purchases } = await getReportData(database, userId)
+  const rows = purchases
+    .filter((purchase) => purchase.purchasedAt >= range.from && purchase.purchasedAt < range.to)
+    .map((purchase) => [purchase.productNameSnapshot, purchase.purchasedAt.toISOString(), centsToMoney(purchase.totalCostCents)])
+  return toCsv(['Stock Name', 'Date Bought', 'Cost'], rows)
+}
+
+export async function exportStockCsv(userId: string): Promise<string> {
+  const { products, purchases } = await getReportData(database, userId)
+  const soldByProduct = purchases.reduce<Record<string, number>>((totals, purchase) => {
+    totals[purchase.productId] = (totals[purchase.productId] ?? 0) + purchase.quantity
+    return totals
+  }, {})
+  const rows = products.map((product) => [product.name, product.stockQuantity, centsToMoney(product.priceCents), soldByProduct[product.id] ?? 0])
+  return toCsv(['Stock Name', 'Remaining Stocks', 'Updated Price', 'Sold'], rows)
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { adjustStock, createPurchase, deletePurchase, deleteStockData, listPurchases, listStock, purgeExpiredDeletedStockData } from './data-access.js'
+import { adjustStock, createPurchase, deletePurchase, deleteStockData, getReportData, listPurchases, listStock, purgeExpiredDeletedStockData } from './data-access.js'
 
 function database() {
   const tx = {
@@ -30,6 +30,15 @@ describe('stock data access', () => {
 
     expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true, deletedAt: null } }))
     expect(db.stockPurchase.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', deletedAt: null }, orderBy: [{ purchasedAt: 'desc' }, { id: 'desc' }] }))
+  })
+
+  it('loads only active products and non-deleted tenant purchases for reports', async () => {
+    const { db } = database()
+
+    await getReportData(db as never, 'user-a')
+
+    expect(db.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', active: true, deletedAt: null } }))
+    expect(db.stockPurchase.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user-a', deletedAt: null } }))
   })
 
   it('decrements stock and creates one snapshot purchase in the same transaction', async () => {

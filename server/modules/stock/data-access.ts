@@ -23,6 +23,21 @@ const purchaseSelection = {
   purchasedAt: true,
 } satisfies Prisma.StockPurchaseSelect
 
+const reportProductSelection = {
+  id: true,
+  name: true,
+  priceCents: true,
+  stockQuantity: true,
+} satisfies Prisma.ProductSelect
+
+const reportPurchaseSelection = {
+  productId: true,
+  productNameSnapshot: true,
+  quantity: true,
+  totalCostCents: true,
+  purchasedAt: true,
+} satisfies Prisma.StockPurchaseSelect
+
 export function listStock(db: Database, userId: string) {
   return db.product.findMany({ where: { userId, active: true, deletedAt: null }, select: productSelection, orderBy: [{ category: 'asc' }, { name: 'asc' }] })
 }
@@ -62,6 +77,13 @@ export async function createPurchase(db: PrismaClient, userId: string, input: { 
 
 export function listPurchases(db: Database, userId: string) {
   return db.stockPurchase.findMany({ where: { userId, deletedAt: null }, select: purchaseSelection, orderBy: [{ purchasedAt: 'desc' }, { id: 'desc' }] })
+}
+
+export function getReportData(db: Database, userId: string) {
+  return Promise.all([
+    db.product.findMany({ where: { userId, active: true, deletedAt: null }, select: reportProductSelection, orderBy: [{ name: 'asc' }, { id: 'asc' }] }),
+    db.stockPurchase.findMany({ where: { userId, deletedAt: null }, select: reportPurchaseSelection, orderBy: [{ purchasedAt: 'asc' }, { productNameSnapshot: 'asc' }] }),
+  ]).then(([products, purchases]) => ({ products, purchases }))
 }
 
 const RETENTION_MS = 10 * 24 * 60 * 60 * 1000
