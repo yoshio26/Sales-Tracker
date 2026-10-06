@@ -137,6 +137,25 @@
 .ledger { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid #dce4ef; }
 .ledger h2, .ledger h3 { margin: 0; color: #17243b; }
 .ledger p { margin: 0; }
+.stockTableSection { display: grid; gap: 1rem; padding-top: 1.5rem; }
+.stockTableSection h2 { margin: 0; color: #20202a; font-size: 1.35rem; }
+.stockTableSection p { margin: 0; color: #92909a; }
+.stockTableScroll { overflow-x: auto; border: 1px solid #f1e8ee; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
+.stockTable { width: 100%; min-width: 42rem; border-collapse: collapse; background: #fff; color: #20202a; }
+.stockTable th, .stockTable td { padding: 1rem 1.1rem; border-bottom: 1px solid #f1e8ee; text-align: left; vertical-align: middle; }
+.stockTable thead th { color: #92909a; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.stockTable tbody tr:last-child th, .stockTable tbody tr:last-child td { border-bottom: 0; }
+.stockTable tbody th { font-weight: 700; }
+.stockTableName, .stockTableCategory { display: block; }
+.stockTableCategory { margin-top: 0.2rem; color: #92909a; font-size: 0.85rem; font-weight: 400; }
+.stockTableActions { display: flex; align-items: center; gap: 0.5rem; }
+.iconButton { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; margin-top: 0 !important; padding: 0 !important; border: 1px solid #f7afd0 !important; border-radius: 0.45rem !important; color: #e51978 !important; }
+.iconButton::before { display: none !important; }
+.iconButton svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.iconButton:hover:not(:disabled) { background: #fff0f7 !important; color: #e51978 !important; transform: none !important; box-shadow: none !important; }
+.iconDanger { border-color: #d9a5a5 !important; color: #a84f4f !important; }
+.iconDanger:hover:not(:disabled) { background: #fff4f4 !important; color: #a84f4f !important; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
 .card select, .card textarea { box-sizing: border-box; width: 100%; padding: 0.85rem 1rem; border: 1px solid #b9c7dc; border-radius: 0.65rem; color: #17243b; font: inherit; background: white; }
 .card select:focus, .card textarea:focus { outline: 3px solid #b9d2ff; border-color: #3f75c5; }
 .filters { display: grid; grid-template-columns: auto minmax(10rem, 1fr) auto minmax(10rem, 1fr) auto minmax(10rem, 1fr) auto; gap: 0.5rem; align-items: center; }
@@ -310,6 +329,12 @@
 .darkMode .workspaceHeader h1, .darkMode .dashboard h2, .darkMode .dashboard h3, .darkMode .ledger h2, .darkMode .ledger h3, .darkMode .stockView h2, .darkMode .workspace h2, .darkMode .settingsCard h2, .darkMode .settingsCard h3 { color: #fff7fb; }
 .darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }
 .darkMode .summaryCard, .darkMode .chartCard, .darkMode .stockView, .darkMode .productForm, .darkMode .settingsCard, .darkMode .productItem { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
+.darkMode .stockTableSection h2 { color: #fff7fb; }
+.darkMode .stockTableScroll { border-color: #493542; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
+.darkMode .stockTable { background: #211a23; color: #fff7fb; }
+.darkMode .stockTable th, .darkMode .stockTable td { border-color: #493542; }
+.darkMode .stockTableCategory, .darkMode .stockTable thead th { color: #c5afbd; }
+.darkMode .iconButton:hover:not(:disabled) { background: #3a2938 !important; }
 .darkMode .summaryCard strong, .darkMode .productItem strong, .darkMode .stockMeta, .darkMode .historyToolbar label, .darkMode .checkboxLabel { color: #fff7fb; }
 .darkMode .chartSummary, .darkMode .historyToolbar, .darkMode .productItem span { color: #c5afbd; }
 .darkMode .ledger { border-color: #3b2b38; }

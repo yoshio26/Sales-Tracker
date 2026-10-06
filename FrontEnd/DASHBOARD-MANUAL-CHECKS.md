@@ -10,6 +10,11 @@ Run the application with the seeded database and sign in with an allowlisted add
 - Open Purchase History and confirm records are newest first with quantity, total cost, UTC-derived timestamp, and captured product/category labels.
 - Rename or archive a product after buying it and confirm the history labels remain unchanged.
 - Confirm the signed-in workspace shows current-month and all-time totals above the charts.
+- On Dashboard, confirm the available-stock table uses the headers Stock Name, Stocks, Sold, Updated Price, and Edit.
+- Confirm Sold equals the sum of each product's bought quantities, including zero for products with no purchase history.
+- Activate a row's edit icon and confirm Stocks opens with that product selected in the existing edit modal; save a price change and confirm Updated Price refreshes.
+- Activate a row's delete icon, cancel the confirmation, and confirm the row remains; confirm deletion archives the stock and removes it from the dashboard table after refresh.
+- Check the dashboard table in dark mode and at mobile width; confirm the table remains readable, horizontally scrollable when needed, and icon buttons expose accessible labels and visible focus states.
 - Record an expense, then confirm the expense totals, daily current-month trend, monthly all-time trend, product breakdown, and category breakdown refresh without changing stock purchase metrics.
 - Archive or edit the product used by an existing expense, then confirm the dashboard still shows the expense's stored product and category labels.
 - Delete an expense and confirm it is removed from every total and chart.

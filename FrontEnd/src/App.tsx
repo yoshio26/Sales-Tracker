@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
+import { DashboardStockTable } from './pages/DashboardStockTable'
 import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StockTrackerPage } from './pages/StockTrackerPage'
@@ -12,7 +13,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) =
 type View = 'email' | 'code' | 'signed-in'
 type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'settings'
 type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; updatedAt: string }
-type Expense = { id: string; productId: string; productName: string; category: string; amount: string; quantity: number; note: string | null; spentAt: string; createdAt: string; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
 const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
@@ -22,13 +22,6 @@ const productInputSchema = z.object({
   category: z.string().trim().min(1, 'Category is required.').max(100),
   price: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/, 'Enter a valid price.').refine((value) => Number(value) > 0, 'Price must be greater than zero.'),
   stockQuantity: z.coerce.number().int('Initial stock must be a whole number.').nonnegative('Initial stock cannot be negative.').max(1_000_000_000, 'Initial stock is too large.'),
-})
-const expenseInputSchema = z.object({
-  productId: z.string().uuid('Select a product.'),
-  amount: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/, 'Enter an amount with up to two decimal places.').refine((value) => Number(value) > 0, 'Amount must be greater than zero.'),
-  quantity: z.coerce.number().int('Quantity must be a whole number.').positive('Quantity must be greater than zero.'),
-  note: z.string().trim().max(2000, 'Note is too long.'),
-  spentAt: z.string().min(1, 'Purchase date is required.'),
 })
 
 async function authApi(path: string, options?: RequestInit): Promise<Response> {
@@ -77,7 +70,6 @@ function App() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [activeProducts, setActiveProducts] = useState<Product[]>([])
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
   const [productName, setProductName] = useState('')
   const [category, setCategory] = useState('')
@@ -86,21 +78,6 @@ function App() {
   const [deductInitialStock, setDeductInitialStock] = useState<boolean | null>(null)
   const [editing, setEditing] = useState<Product | null>(null)
   const [fieldError, setFieldError] = useState('')
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [expenseProductId, setExpenseProductId] = useState('')
-  const [expenseAmount, setExpenseAmount] = useState('')
-  const [expenseQuantity, setExpenseQuantity] = useState('1')
-  const [expenseNote, setExpenseNote] = useState('')
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10))
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
-  const [expenseFilterProduct, setExpenseFilterProduct] = useState('')
-  const [expenseFilterFrom, setExpenseFilterFrom] = useState('')
-  const [expenseFilterTo, setExpenseFilterTo] = useState('')
-  const [expenseLoading, setExpenseLoading] = useState(false)
-  const [expenseError, setExpenseError] = useState('')
-  const [expenseNotice, setExpenseNotice] = useState('')
-  const [expenseFieldError, setExpenseFieldError] = useState('')
-  const [expenseDeleteLoadingId, setExpenseDeleteLoadingId] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
@@ -137,7 +114,6 @@ function App() {
     if (view === 'signed-in') {
       void loadProducts('active')
       void loadProducts('archived')
-      void loadExpenses()
       void loadDashboard()
     }
   }, [view])
@@ -167,42 +143,10 @@ function App() {
       if (!response.ok) throw new Error('Unable to load products.')
       const data = await response.json() as { products: Product[] }
       if (!Array.isArray(data.products)) throw new Error('Invalid product response.')
-      if (status === 'active') setActiveProducts(data.products)
       if (status === 'archived') setArchivedProducts(data.products)
       return data.products
     } catch {
       return []
-    }
-  }
-
-  async function loadExpenses(): Promise<Expense[]> {
-    setExpenseLoading(true)
-    setExpenseError('')
-    if (expenseFilterFrom && expenseFilterTo && expenseFilterFrom > expenseFilterTo) {
-      setExpenseError('The start date must be on or before the end date.')
-      setExpenseLoading(false)
-      return []
-    }
-    const params = new URLSearchParams()
-    if (expenseFilterProduct) params.set('productId', expenseFilterProduct)
-    if (expenseFilterFrom) params.set('from', `${expenseFilterFrom}T00:00:00.000Z`)
-    if (expenseFilterTo) {
-      const end = new Date(`${expenseFilterTo}T00:00:00.000Z`)
-      end.setUTCDate(end.getUTCDate() + 1)
-      params.set('to', end.toISOString())
-    }
-    try {
-      const response = await expensesApi(params.size ? `?${params}` : '')
-      if (!response.ok) throw new Error('Unable to load expenses.')
-      const data = await response.json() as { expenses: Expense[] }
-      if (!Array.isArray(data.expenses)) throw new Error('Invalid expense response.')
-      setExpenses(data.expenses)
-      return data.expenses
-    } catch {
-      setExpenseError('Unable to load expenses. Try again.')
-      return []
-    } finally {
-      setExpenseLoading(false)
     }
   }
 
@@ -270,72 +214,6 @@ function App() {
     setFieldError('')
   }
 
-  function resetExpenseForm() {
-    setEditingExpense(null)
-    setExpenseProductId('')
-    setExpenseAmount('')
-    setExpenseQuantity('1')
-    setExpenseNote('')
-    setExpenseDate(new Date().toISOString().slice(0, 10))
-    setExpenseFieldError('')
-  }
-
-  async function saveExpense(event: FormEvent) {
-    event.preventDefault()
-    setExpenseFieldError('')
-    setExpenseError('')
-    setExpenseNotice('')
-    const parsed = expenseInputSchema.safeParse({ productId: expenseProductId, amount: expenseAmount, quantity: expenseQuantity, note: expenseNote, spentAt: expenseDate })
-    if (!parsed.success) {
-      setExpenseFieldError(parsed.error.issues[0]?.message ?? 'Enter valid expense details.')
-      return
-    }
-    setExpenseLoading(true)
-    const wasEditing = editingExpense !== null
-    try {
-      const response = await expensesApi(editingExpense ? `/${editingExpense.id}` : '', {
-        method: editingExpense ? 'PUT' : 'POST',
-        body: JSON.stringify({ ...parsed.data, spentAt: new Date(`${parsed.data.spentAt}T00:00:00.000Z`).toISOString(), ...(editingExpense ? { updatedAt: editingExpense.updatedAt } : {}) }),
-      })
-      const body = await response.json().catch(() => undefined) as { expense?: Expense; error?: { code?: string; message?: string } } | undefined
-      if (!response.ok) {
-        if (body?.error?.code === 'STALE_EXPENSE') {
-          setExpenseError('This expense changed elsewhere. The latest ledger has been loaded; review your changes and try again.')
-          const latest = await loadExpenses()
-          const refreshed = latest.find((expense) => expense.id === editingExpense?.id)
-          if (refreshed) setEditingExpense(refreshed)
-        } else setExpenseFieldError(body?.error?.message ?? 'Unable to save the expense.')
-        return
-      }
-      resetExpenseForm()
-      await loadExpenses()
-      await loadDashboard()
-      setExpenseNotice(wasEditing ? 'Expense changes saved.' : 'Expense recorded.')
-    } catch {
-      setExpenseError('Unable to contact the expense service. Try again.')
-    } finally {
-      setExpenseLoading(false)
-    }
-  }
-
-  async function deleteExpense(expense: Expense) {
-    if (!window.confirm(`Delete the ${expense.amount} expense for ${expense.productName}?`)) return
-    setExpenseDeleteLoadingId(expense.id)
-    setExpenseError('')
-    setExpenseNotice('')
-    try {
-      const response = await expensesApi(`/${expense.id}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('Unable to delete the expense.')
-      await loadExpenses()
-      await loadDashboard()
-      setExpenseNotice('Expense deleted.')
-    } catch {
-      setExpenseError('Unable to delete the expense. Try again.')
-    } finally {
-      setExpenseDeleteLoadingId(null)
-    }
-  }
-
   async function saveProduct(event: FormEvent) {
     event.preventDefault()
     setFieldError('')
@@ -382,7 +260,6 @@ function App() {
           setFieldError('The stock was added, but its deduction could not be recorded.')
           return
         }
-        await loadExpenses()
         await loadDashboard()
       }
       resetProductForm()
@@ -414,6 +291,7 @@ function App() {
   }
 
   function editStock(product: { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
+    setWorkspaceView('stock')
     setEditing({ ...product, active: true, archivedAt: null })
     setProductName(product.name)
     setCategory(product.category)
@@ -431,6 +309,11 @@ function App() {
   async function refreshAfterHistoryDeletion() {
     await loadDashboard()
     setHistoryRefreshKey((value) => value + 1)
+  }
+
+  function refreshStockViews() {
+    void loadDashboard()
+    setStockRefreshKey((value) => value + 1)
   }
 
   return (
@@ -454,7 +337,7 @@ function App() {
               <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : 'Purchase history'}</h1><p>Welcome back — here’s your sales overview.</p></div>
               <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
-            {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
+            {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
             {workspaceView === 'stock' && <>
               <div className={styles.stockActions}>
                 <button
@@ -494,45 +377,17 @@ function App() {
                   </form>
                 </section>
               </div>}
-              <StockTrackerPage mode="stock" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })} />
+              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}><DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></Suspense>
-            <section className={styles.ledger} aria-labelledby="expense-heading">
-              <h2 id="expense-heading">Expense ledger</h2>
-              <p>Record what you spent; historical product details are preserved automatically.</p>
-              <form className={styles.productForm} onSubmit={saveExpense} noValidate>
-                <h3>{editingExpense ? 'Edit expense' : 'Record an expense'}</h3>
-                <label htmlFor="expense-product">Product</label>
-                <select id="expense-product" value={expenseProductId} onChange={(event) => setExpenseProductId(event.target.value)}>
-                  <option value="">Select an active product</option>
-                  {activeProducts.map((product) => <option key={product.id} value={product.id}>{product.name} — {product.category}</option>)}
-                  {editingExpense && archivedProducts.some((product) => product.id === editingExpense.productId) && <option value={editingExpense.productId}>{editingExpense.productName} — archived historical product</option>}
-                </select>
-                <label htmlFor="expense-amount">Amount</label>
-                <input id="expense-amount" inputMode="decimal" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="0.00" aria-describedby={expenseFieldError ? 'expense-error' : undefined} />
-                <label htmlFor="expense-quantity">Quantity</label>
-                <input id="expense-quantity" type="number" min="1" step="1" value={expenseQuantity} onChange={(event) => setExpenseQuantity(event.target.value)} aria-describedby={expenseFieldError ? 'expense-error' : undefined} />
-                <label htmlFor="expense-date">Purchase date</label>
-                <input id="expense-date" type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} />
-                <label htmlFor="expense-note">Note <span>(optional)</span></label>
-                <textarea id="expense-note" value={expenseNote} onChange={(event) => setExpenseNote(event.target.value)} maxLength={2000} rows={2} />
-                {expenseFieldError && <p id="expense-error" className={styles.error} role="alert">{expenseFieldError}</p>}
-                <div className={styles.formActions}><button disabled={expenseLoading} type="submit">{expenseLoading ? 'Saving…' : editingExpense ? 'Save changes' : 'Record expense'}</button>{editingExpense && <button className={styles.secondary} type="button" onClick={resetExpenseForm}>Cancel</button>}</div>
-              </form>
-              <div className={styles.filters} aria-label="Expense filters">
-                <label htmlFor="expense-filter-product">Filter by product</label>
-                <select id="expense-filter-product" value={expenseFilterProduct} onChange={(event) => setExpenseFilterProduct(event.target.value)}><option value="">All products</option>{[...activeProducts, ...archivedProducts].map((product) => <option key={product.id} value={product.id}>{product.name}{product.active ? '' : ' (archived)'}</option>)}</select>
-                <label htmlFor="expense-filter-from">From</label><input id="expense-filter-from" type="date" value={expenseFilterFrom} onChange={(event) => setExpenseFilterFrom(event.target.value)} />
-                <label htmlFor="expense-filter-to">To</label><input id="expense-filter-to" type="date" value={expenseFilterTo} onChange={(event) => setExpenseFilterTo(event.target.value)} />
-                <button className={styles.secondary} type="button" onClick={() => void loadExpenses()}>Apply filters</button>
-              </div>
-              {expenseError && <p className={styles.error} role="alert">{expenseError} <button className={styles.linkButton} type="button" onClick={() => void loadExpenses()}>Retry</button></p>}
-              {expenseNotice && <p className={styles.notice} role="status">{expenseNotice}</p>}
-              {expenseLoading ? <p>Loading expenses…</p> : expenses.length === 0 ? <p className={styles.empty}>No expenses match these filters.</p> : <ul className={styles.productList} aria-label="Expenses">{expenses.map((expense) => <li key={expense.id} className={styles.productItem}><div><strong>{expense.amount} × {expense.quantity} — {expense.productName}</strong><span>{expense.category} · {new Date(expense.spentAt).toLocaleDateString()}</span>{expense.note && <span>{expense.note}</span>}</div><div className={styles.itemActions}><button className={styles.secondary} disabled={expenseDeleteLoadingId !== null} type="button" onClick={() => { setEditingExpense(expense); setExpenseProductId(expense.productId); setExpenseAmount(expense.amount); setExpenseQuantity(String(expense.quantity)); setExpenseNote(expense.note ?? ''); setExpenseDate(expense.spentAt.slice(0, 10)); setExpenseFieldError('') }}>Edit</button><button className={styles.danger} disabled={expenseDeleteLoadingId !== null} type="button" onClick={() => void deleteExpense(expense)}>{expenseDeleteLoadingId === expense.id ? 'Deleting…' : 'Delete'}</button></div></li>)}</ul>}
-            </section>
+            <DashboardStockTable
+              refreshKey={stockRefreshKey}
+              onEdit={editStock}
+              onDelete={(product) => void archive({ ...product, active: true, archivedAt: null })}
+            />
             </>}
             </div>
           </div>
