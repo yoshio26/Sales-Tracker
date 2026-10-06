@@ -144,6 +144,9 @@
 .filters button { margin-top: 0; }
 .workspaceHeader { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
 .workspaceHeader button { margin-top: 0; white-space: nowrap; }
+.headerActions { display: flex; align-items: center; gap: 1rem; }
+.themeToggle { min-width: 5.25rem; padding: 0.5rem 0.8rem !important; font-size: 0.78rem !important; }
+.themeToggle::before { display: none !important; }
 .workspaceNav { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 0.5rem; border-bottom: 1px solid #dce4ef; }
 .workspaceNav button { margin-top: 0; }
 .stockView { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #fbfcff; }
@@ -174,6 +177,12 @@
 .modalClose { width: 2.5rem; height: 2.5rem; margin-top: 0 !important; padding: 0 !important; border: 0 !important; color: #5c6b82 !important; font-size: 1.75rem; line-height: 1; }
 .modalClose::before { display: none; }
 .modal .productForm { margin-top: 1rem; }
+.stockErrorModal { width: min(100%, 25rem); padding: 1.5rem; border: 1px solid #f1c1d9; border-radius: 0.9rem; background: #fff; box-shadow: 0 1.5rem 4rem rgba(44, 17, 34, 0.22); }
+.stockErrorModal h3 { margin: 1rem 0 0.5rem; color: #20202a; font-size: 1.5rem; }
+.stockErrorModal p { margin: 0; color: #5c5360; line-height: 1.5; }
+.stockErrorModal .formActions { justify-content: flex-end; margin-top: 1.5rem; }
+.stockErrorIcon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #fff0f7; color: #e51978; font-size: 1.25rem; font-weight: 800; }
+.stockErrorLabel { color: #e51978; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .workspace h2 { margin: 0; color: #17243b; font-size: 1.1rem; }
 .tabs, .formActions, .itemActions { display: flex; gap: 0.65rem; flex-wrap: wrap; }
 .tabs button, .itemActions button, .formActions button { margin-top: 0; }
@@ -246,7 +255,7 @@
 .shell { min-height: 100vh; padding: 0; place-items: stretch; background: #f8f8fb; }
 .appFrame { width: 100%; height: 100vh; min-height: 0; overflow: hidden; background: #fff; }
 .workspaceLayout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); height: 100vh; min-height: 0; overflow: hidden; }
-.sidebar { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; padding: 1.5rem 0 1rem; border-radius: 0 0 1rem 1rem; background: linear-gradient(180deg, #ff2f91 0%, #f51f80 100%); color: white; }
+.sidebar { box-sizing: border-box; display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; padding: 1.5rem 0 1rem; border-radius: 0 0 1rem 1rem; background: linear-gradient(180deg, #ff2f91 0%, #f51f80 100%); color: white; }
 .brand { display: flex; align-items: center; gap: 0.65rem; margin-right: 0.4rem; padding: 0.35rem 0.85rem 2.25rem; border-radius: 0 0 0.75rem 0; color: white; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.04em; }
 .brandMark { display: grid; place-items: center; width: 2rem; height: 2rem; border: 2px solid rgba(255,255,255,0.9); border-radius: 0.65rem; font-size: 1rem; }
 .sidebarNav { display: grid; gap: 0; }
@@ -279,7 +288,7 @@
 .dashboard h2 { color: #20202a; font-size: 1.35rem; }
 .dashboard p { color: #92909a; }
 .summaryCards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
-.summaryCard { padding: 1.25rem; border: 1px solid #f1e8ee; border-radius: 0; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.05); }
+.summaryCard { padding: 1.25rem; border: 1px solid #f1e8ee; border-radius: 0.75rem; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.05); }
 .summaryCard span { color: #92909a; }
 .summaryCard strong { color: #20202a; }
 .chartGrid { gap: 1rem; }
@@ -295,6 +304,23 @@
 .addNewButton { color: #f51f80 !important; }
 .addNewButton svg { stroke: #f51f80; }
 .modal { border-color: #f1e8ee; }
+
+.darkMode .workspaceMain { background: #17131a; color: #f8edf4; }
+.darkMode .workspaceHeader { border-color: #3b2b38; }
+.darkMode .workspaceHeader h1, .darkMode .dashboard h2, .darkMode .dashboard h3, .darkMode .ledger h2, .darkMode .ledger h3, .darkMode .stockView h2, .darkMode .workspace h2, .darkMode .settingsCard h2, .darkMode .settingsCard h3 { color: #fff7fb; }
+.darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }
+.darkMode .summaryCard, .darkMode .chartCard, .darkMode .stockView, .darkMode .productForm, .darkMode .settingsCard, .darkMode .productItem { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
+.darkMode .summaryCard strong, .darkMode .productItem strong, .darkMode .stockMeta, .darkMode .historyToolbar label, .darkMode .checkboxLabel { color: #fff7fb; }
+.darkMode .chartSummary, .darkMode .historyToolbar, .darkMode .productItem span { color: #c5afbd; }
+.darkMode .ledger { border-color: #3b2b38; }
+.darkMode .appFrame input, .darkMode .appFrame select, .darkMode .appFrame textarea, .darkMode .productPickerButton, .darkMode .productPickerOption, .darkMode .historyToolbar select { border-color: #624456 !important; background: #2a202d !important; color: #fff7fb !important; }
+.darkMode .productPickerMenu { border-color: #624456; background: #2a202d; }
+.darkMode .productPickerOption:hover, .darkMode .productPickerOption:focus-visible { background: #3a2938 !important; color: #fff7fb !important; }
+.darkMode .modal { border-color: #493542; background: #211a23; }
+.darkMode .modalHeader h2, .darkMode .stockErrorModal h3 { color: #fff7fb; }
+.darkMode .stockErrorModal { border-color: #624456; background: #211a23; }
+.darkMode .stockErrorModal p { color: #c5afbd; }
+.darkMode .themeToggle { background: #ffd2e6; color: #7c174d; }
 
 @media (max-width: 52rem) {
   .workspaceLayout { grid-template-columns: 5rem minmax(0, 1fr); }
@@ -314,6 +340,7 @@
   .sidebarSettings { margin-top: 0 !important; }
   .workspaceMain { height: calc(100vh - 4.25rem); padding: 1rem; }
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
+  .headerActions { width: 100%; justify-content: space-between; }
   .profile { display: none; }
   .summaryCards { grid-template-columns: 1fr; }
   .dangerPanel { grid-template-columns: 1fr; }

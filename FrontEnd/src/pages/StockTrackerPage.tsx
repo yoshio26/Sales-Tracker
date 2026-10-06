@@ -15,9 +15,9 @@ function formatPrice(price: string): string {
   return Number(price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number; onEdit?: (product: StockProduct) => void; onDelete?: (product: StockProduct) => void }
+type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number; onEdit?: (product: StockProduct) => void; onDelete?: (product: StockProduct) => void; onReviewStock?: () => void }
 
-export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDelete }: Props) {
+export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDelete, onReviewStock }: Props) {
   const [products, setProducts] = useState<StockProduct[]>([])
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([])
   const [productId, setProductId] = useState('')
@@ -31,6 +31,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
   const [purchaseLoading, setPurchaseLoading] = useState(false)
   const [purchasePage, setPurchasePage] = useState(1)
   const [purchasePageSize, setPurchasePageSize] = useState(10)
+  const [insufficientStockOpen, setInsufficientStockOpen] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -74,7 +75,14 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
     try {
       const response = await fetch(mode === 'buy' ? '/api/stock/purchases' : '/api/stock/replenish', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mode === 'buy' ? { productId: product.data, quantity: parsedQuantity.data } : { productId: product.data, quantity: parsedQuantity.data, deductEarnings: deductRestock === true }) })
       const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
-      if (!response.ok) { setError(body?.error?.code === 'INSUFFICIENT_STOCK' ? 'There is not enough available stock for that purchase. Your entries were preserved.' : body?.error?.message ?? 'Unable to save stock changes.'); return }
+      if (!response.ok) {
+        if (body?.error?.code === 'INSUFFICIENT_STOCK') {
+          setInsufficientStockOpen(true)
+          return
+        }
+        setError(body?.error?.message ?? 'Unable to save stock changes.')
+        return
+      }
       setQuantity('1')
       setDeductRestock(null)
       setNotice(mode === 'buy' ? 'Purchase recorded and stock updated.' : 'Stock replenished.')
@@ -143,6 +151,20 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, onEdit, onDe
       {fieldError && <p className={styles.error} role="alert">{fieldError}</p>}
       <button disabled={loading || (mode === 'stock' && deductRestock === null)} type="submit">{loading ? 'Saving…' : mode === 'buy' ? 'Bought' : 'Add stock'}</button>
     </form>
+    {insufficientStockOpen && <div className={styles.modalBackdrop} role="presentation">
+      <section className={styles.stockErrorModal} role="alertdialog" aria-modal="true" aria-labelledby="insufficient-stock-heading" aria-describedby="insufficient-stock-message">
+        <div className={styles.modalHeader}>
+          <span className={styles.stockErrorIcon} aria-hidden="true">!</span>
+          <span className={styles.stockErrorLabel}>Purchase not completed</span>
+        </div>
+        <h3 id="insufficient-stock-heading">Not enough stock</h3>
+        <p id="insufficient-stock-message">Review your available stock before trying again. Your entries were preserved.</p>
+        <div className={styles.formActions}>
+          <button autoFocus type="button" onClick={() => setInsufficientStockOpen(false)}>Okay</button>
+          <button className={styles.secondary} type="button" onClick={() => { setInsufficientStockOpen(false); onReviewStock?.() }}>Review stock</button>
+        </div>
+      </section>
+    </div>}
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {mode === 'buy' ? <>
       <div className={styles.historyToolbar}>

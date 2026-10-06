@@ -108,7 +108,22 @@ function App() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return window.localStorage.getItem('sales-tracker-dark-mode') === 'true'
+    } catch {
+      return false
+    }
+  })
   const dashboardRequestId = useRef(0)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('sales-tracker-dark-mode', String(darkMode))
+    } catch {
+      // Theme preference remains usable when browser storage is unavailable.
+    }
+  }, [darkMode])
 
   useEffect(() => {
     void authApi('session')
@@ -422,7 +437,7 @@ function App() {
     <main className={styles.shell}>
       <section className={view === 'signed-in' ? styles.appFrame : styles.card} aria-live="polite">
         {view === 'signed-in' ? (
-          <div className={styles.workspaceLayout}>
+          <div className={`${styles.workspaceLayout} ${darkMode ? styles.darkMode : ''}`}>
             <aside className={styles.sidebar} aria-label="Sales V1 navigation">
               <div className={styles.brand}><span className={styles.brandMark}>S</span><span>Sales V1</span></div>
               <nav className={styles.sidebarNav} aria-label="Workspace views">
@@ -437,9 +452,9 @@ function App() {
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
               <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'settings' ? 'Settings' : 'Purchase history'}</h1><p>Welcome back — here’s your sales overview.</p></div>
-              <div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div>
+              <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
-            {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} />}
+            {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={() => void loadDashboard()} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
             {workspaceView === 'stock' && <>
               <div className={styles.stockActions}>
                 <button
