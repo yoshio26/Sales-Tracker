@@ -328,6 +328,27 @@
 .guideFaq details { border: 1px solid var(--accent-soft); }
 .guideFaq p { padding: 0 1.1rem 1rem; color: #5c5360; line-height: 1.5; }
 .guideMessage { border-left: 0.3rem solid var(--accent); }
+.notesPage { display: grid; gap: 1.25rem; padding-top: 1.5rem; }
+.notesIntro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
+.notesIntro h2 { margin: 0; color: #20202a; font-size: 1.35rem; }
+.notesIntro p { margin: 0.35rem 0 0; color: #92909a; }
+.notesIntro button { margin-top: 0 !important; min-width: 5rem; }
+.notesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1.25rem; align-items: start; }
+.stickyNote { min-height: 13rem; padding: 1.1rem; border: 0; box-shadow: 0 0.8rem 1.5rem rgba(83, 58, 27, 0.14); transform: rotate(-1deg); transition: transform 180ms ease, box-shadow 180ms ease; }
+.stickyNote:hover { z-index: 1; box-shadow: 0 1rem 2rem rgba(83, 58, 27, 0.2); transform: rotate(0) translateY(-0.2rem); }
+.stickyNote1 { background: #dff4eb; transform: rotate(1.2deg); }
+.stickyNote2 { background: #dfeeff; transform: rotate(-0.5deg); }
+.stickyNote3 { background: #f3e4ff; transform: rotate(1.8deg); }
+.stickyNoteHeader { display: flex; align-items: center; justify-content: space-between; color: #735e3a; font-size: 0.76rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.stickyNote textarea { min-height: 9.5rem; margin-top: 0.7rem; padding: 0 !important; border: 0 !important; outline: 0 !important; resize: vertical; background: transparent !important; color: #4b3c2a !important; line-height: 1.5; }
+.stickyNote small { display: block; color: #927d5a; font-size: 0.72rem; text-align: right; }
+.noteDelete { width: 1.7rem; height: 1.7rem; margin: 0 !important; padding: 0 !important; border: 0 !important; color: #735e3a !important; font-size: 1.2rem; line-height: 1; }
+.noteDelete::before { display: none !important; }
+.noteDelete:hover:not(:disabled) { color: #a84f4f !important; background: transparent !important; box-shadow: none !important; transform: none !important; }
+.notesEmpty { display: grid; justify-items: center; gap: 0.35rem; padding: 4rem 1rem; border: 1px dashed var(--accent-soft); background: #fff; text-align: center; }
+.notesEmpty span { color: var(--accent); font-size: 2rem; }
+.notesEmpty h3 { margin: 0.5rem 0 0; color: #20202a; }
+.notesEmpty p { margin: 0; color: #92909a; }
 .motivationPage { display: grid; place-items: start center; padding: clamp(1.5rem, 5vw, 4rem) 0; }
 .motivationCard { box-sizing: border-box; width: min(100%, 45rem); padding: clamp(2rem, 6vw, 4rem); border: 1px solid var(--accent-soft); border-radius: 1rem; background: #fff; box-shadow: 0 1.25rem 3rem rgba(44, 17, 34, 0.08); animation: motivationFadeIn 600ms ease both; }
 .motivationHeader { margin-bottom: 2rem; text-align: center; }
@@ -438,6 +459,9 @@
 .darkMode .motivationLetter { color: #c5afbd; }
 .darkMode .selectedSidebarItem { background: #211a23 !important; color: var(--accent) !important; box-shadow: 0 0.65rem 1.5rem rgba(0, 0, 0, 0.18) !important; }
 .darkMode .selectedSidebarItem:hover:not(:disabled) { background: #211a23 !important; color: var(--accent) !important; }
+.darkMode .notesIntro h2, .darkMode .notesEmpty h3 { color: #fff7fb; }
+.darkMode .notesIntro p, .darkMode .notesEmpty p { color: #c5afbd; }
+.darkMode .notesEmpty { border-color: #493542; background: #211a23; }
 .darkMode .workspaceHeader { border-color: #3b2b38; }
 .darkMode .workspaceHeader h1, .darkMode .dashboard h2, .darkMode .dashboard h3, .darkMode .ledger h2, .darkMode .ledger h3, .darkMode .stockView h2, .darkMode .workspace h2, .darkMode .settingsCard h2, .darkMode .settingsCard h3 { color: #fff7fb; }
 .darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }

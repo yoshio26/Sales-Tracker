@@ -11,6 +11,7 @@ import { productsRouter } from './modules/products/routes.js'
 import { expensesRouter } from './modules/expenses/routes.js'
 import { dashboardRouter } from './modules/dashboard/routes.js'
 import { stockRouter } from './modules/stock/routes.js'
+import { notesRouter } from './modules/notes/routes.js'
 import { sessionMiddleware } from './middleware/session.js'
 
 const app = express()
@@ -34,6 +35,7 @@ app.use('/api/products', productsRouter)
 app.use('/api/expenses', expensesRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/stock', stockRouter)
+app.use('/api/notes', notesRouter)
 
 if (config.NODE_ENV === 'production') {
   const clientDist = path.resolve(process.cwd(), 'FrontEnd/dist')
