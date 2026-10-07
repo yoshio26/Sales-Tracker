@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { adjustStock, createPurchase, deletePurchase, deleteStockData, getReportData, listPurchases, listStock, purgeExpiredDeletedStockData } from './data-access.js'
+import { adjustStock, createPurchase, deletePurchase, deleteStockData, getReportData, listPurchases, listStock, purgeExpiredDeletedStockData, setStockQuantity } from './data-access.js'
 
 function database() {
   const tx = {
@@ -71,6 +71,17 @@ describe('stock data access', () => {
 
     await expect(adjustStock(db as never, 'user-a', 'product-a', 4, true)).resolves.toMatchObject({ kind: 'adjusted' })
     expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 10_000, quantity: 4, note: 'Restock deduction' }) })
+  })
+
+  it('deducts only the increase when setting a higher exact quantity', async () => {
+    const { db, tx } = database()
+    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 1_000, stockQuantity: 4 })
+    tx.product.updateMany.mockResolvedValue({ count: 1 })
+    tx.product.findFirstOrThrow.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 1_000, stockQuantity: 7, updatedAt: new Date() })
+
+    await expect(setStockQuantity(db as never, 'user-a', 'product-a', 7, true)).resolves.toMatchObject({ kind: 'updated' })
+    expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ stockQuantity: 4 }), data: { stockQuantity: 7 } }))
+    expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 1_000, quantity: 3, note: 'Quantity increase deduction' }) })
   })
 
   it('rejects missing and oversized stored prices before changing stock', async () => {

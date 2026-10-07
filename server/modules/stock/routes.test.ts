@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ createPurchase: vi.fn(), deletePurchase: vi.fn(), deleteStockData: vi.fn(), exportPurchasesCsv: vi.fn(), exportStockCsv: vi.fn(), listPurchases: vi.fn(), listStock: vi.fn(), monthRange: vi.fn(), replenishStock: vi.fn() }))
+const mocks = vi.hoisted(() => ({ createPurchase: vi.fn(), createPurchases: vi.fn(), deletePurchase: vi.fn(), deleteStockData: vi.fn(), exportPurchasesCsv: vi.fn(), exportStockCsv: vi.fn(), listPurchases: vi.fn(), listStock: vi.fn(), monthRange: vi.fn(), replenishStock: vi.fn(), setStockQuantity: vi.fn() }))
 vi.mock('./service.js', () => mocks)
 
 import { stockRouter } from './routes.js'
@@ -108,6 +108,28 @@ describe('stock routes', () => {
     const oversized = await invoke('/purchases', 'post', input)
     expect(oversized.status).toHaveBeenCalledWith(409)
     expect(oversized.json).toHaveBeenCalledWith({ error: { code: 'PURCHASE_TOTAL_TOO_LARGE', message: 'The purchase total is too large.' } })
+  })
+
+  it('validates and submits a unique multi-item checkout', async () => {
+    const productA = '123e4567-e89b-12d3-a456-426614174000'
+    const productB = '123e4567-e89b-12d3-a456-426614174001'
+    const invalid = await invoke('/purchases/checkout', 'post', { userId: 'user-a', body: { items: [{ productId: productA, quantity: 1 }, { productId: productA, quantity: 2 }] }, get: () => appOrigin })
+    expect(invalid.status).toHaveBeenCalledWith(400)
+    expect(mocks.createPurchases).not.toHaveBeenCalled()
+
+    mocks.createPurchases.mockResolvedValue({ kind: 'created', purchases: [{ id: 'purchase-1' }] })
+    const valid = await invoke('/purchases/checkout', 'post', { userId: 'user-a', body: { items: [{ productId: productA, quantity: 1 }, { productId: productB, quantity: 2 }] }, get: () => appOrigin })
+    expect(valid.status).toHaveBeenCalledWith(201)
+    expect(valid.json).toHaveBeenCalledWith({ purchases: [{ id: 'purchase-1' }] })
+    expect(mocks.createPurchases).toHaveBeenCalledWith('user-a', [{ productId: productA, quantity: 1 }, { productId: productB, quantity: 2 }])
+  })
+
+  it('passes the quantity deduction choice to exact quantity updates', async () => {
+    const productId = '123e4567-e89b-12d3-a456-426614174000'
+    mocks.setStockQuantity.mockResolvedValue({ kind: 'updated', product: { id: productId } })
+    const res = await invoke('/set-quantity', 'post', { userId: 'user-a', body: { productId, quantity: 7, deductEarnings: true }, get: () => appOrigin })
+    expect(res.json).toHaveBeenCalledWith({ product: { id: productId } })
+    expect(mocks.setStockQuantity).toHaveBeenCalledWith('user-a', productId, 7, true)
   })
 
   it('protects stock and history deletion and scopes both operations to the session', async () => {

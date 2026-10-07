@@ -13,7 +13,7 @@ const productSelection = {
   updatedAt: true,
 } satisfies Prisma.ProductSelect
 
-const purchaseSelection = {
+export const purchaseSelection = {
   id: true,
   productId: true,
   productNameSnapshot: true,
@@ -110,4 +110,45 @@ export async function deleteStockData(db: PrismaClient, userId: string) {
 
 export function deletePurchase(db: Database, userId: string, purchaseId: string) {
   return db.stockPurchase.deleteMany({ where: { id: purchaseId, userId, deletedAt: null } })
+}
+
+export async function createPurchases(db: PrismaClient, userId: string, inputs: Array<{ productId: string; quantity: number }>) {
+  try {
+    return await db.$transaction(async (tx) => {
+      const products = await Promise.all(inputs.map((input) => tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, stockQuantity: true } })))
+      if (products.some((product) => !product)) return { kind: 'product-not-found' as const }
+      const validProducts = products as Array<NonNullable<(typeof products)[number]>>
+      if (validProducts.some((product) => (product.priceCents ?? 0) <= 0)) return { kind: 'product-price-missing' as const }
+      if (validProducts.some((product, index) => product.stockQuantity < inputs[index]!.quantity)) return { kind: 'insufficient-stock' as const }
+      const totals = validProducts.map((product, index) => product.priceCents! * inputs[index]!.quantity)
+      if (totals.some((total) => !Number.isSafeInteger(total) || total > 2_147_483_647) || totals.reduce((sum, total) => sum + total, 0) > 2_147_483_647) return { kind: 'purchase-total-too-large' as const }
+      const purchases = []
+      for (const [index, product] of validProducts.entries()) {
+        const input = inputs[index]!
+        const changed = await tx.product.updateMany({ where: { id: product.id, userId, active: true, deletedAt: null, stockQuantity: { gte: input.quantity } }, data: { stockQuantity: { decrement: input.quantity } } })
+        if (changed.count !== 1) throw new Error('insufficient-stock')
+        purchases.push(await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, quantity: input.quantity, totalCostCents: product.priceCents! * input.quantity }, select: purchaseSelection }))
+      }
+      return { kind: 'created' as const, purchases }
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'insufficient-stock') return { kind: 'insufficient-stock' as const }
+    throw error
+  }
+}
+
+export async function setStockQuantity(db: PrismaClient, userId: string, productId: string, quantity: number, deductEarnings = false) {
+  return db.$transaction(async (tx) => {
+    const product = await tx.product.findFirst({ where: { id: productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, stockQuantity: true } })
+    if (!product) return { kind: 'not-found' as const }
+    const increase = quantity - product.stockQuantity
+    if (deductEarnings && increase > 0 && (!product.priceCents || product.priceCents <= 0)) return { kind: 'product-price-missing' as const }
+    if (deductEarnings && increase > 0 && (!Number.isSafeInteger(product.priceCents! * increase) || product.priceCents! * increase > 2_147_483_647)) return { kind: 'deduction-too-large' as const }
+    const changed = await tx.product.updateMany({ where: { id: productId, userId, active: true, deletedAt: null, stockQuantity: product.stockQuantity }, data: { stockQuantity: quantity } })
+    if (changed.count !== 1) return { kind: 'conflict' as const }
+    if (deductEarnings && increase > 0) {
+      await tx.expense.create({ data: { userId, productId, productNameSnapshot: product.name, categorySnapshot: product.category, amountCents: product.priceCents!, quantity: increase, note: 'Quantity increase deduction', spentAt: new Date() } })
+    }
+    return { kind: 'updated' as const, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
+  })
 }

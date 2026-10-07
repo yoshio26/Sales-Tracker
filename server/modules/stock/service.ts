@@ -1,5 +1,5 @@
 import type { Product, StockPurchase } from '@prisma/client'
-import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords } from './data-access.js'
+import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, createPurchases as createPurchasesRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords, setStockQuantity as setStockQuantityRecord } from './data-access.js'
 
 export type StockProductResponse = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
 export type PurchaseResponse = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
@@ -84,4 +84,14 @@ export async function exportStockCsv(userId: string): Promise<string> {
   }, {})
   const rows = products.map((product) => [product.name, product.stockQuantity, centsToMoney(product.priceCents), soldByProduct[product.id] ?? 0])
   return toCsv(['Stock Name', 'Remaining Stocks', 'Updated Price', 'Sold'], rows)
+}
+
+export async function createPurchases(userId: string, inputs: Array<{ productId: string; quantity: number }>) {
+  const outcome = await createPurchasesRecord(database, userId, inputs)
+  return outcome.kind === 'created' ? { kind: outcome.kind, purchases: outcome.purchases.map(toPurchaseResponse) } : outcome
+}
+
+export async function setStockQuantity(userId: string, productId: string, quantity: number, deductEarnings = false) {
+  const outcome = await setStockQuantityRecord(database, userId, productId, quantity, deductEarnings)
+  return outcome.kind === 'updated' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
 }

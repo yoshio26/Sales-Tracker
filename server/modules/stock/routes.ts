@@ -4,11 +4,13 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { createPurchase, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listPurchases, listStock, monthRange, replenishStock } from './service.js'
+import { createPurchase, createPurchases, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listPurchases, listStock, monthRange, replenishStock, setStockQuantity } from './service.js'
 
 const quantitySchema = z.number().int().positive().max(2147483647)
 const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema, deductEarnings: z.boolean().default(false), cost: z.string().optional() })
+const setQuantitySchema = z.object({ productId: z.uuid(), quantity: z.number().int().nonnegative().max(2147483647), deductEarnings: z.boolean().default(false) })
 const purchaseSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
+const checkoutSchema = z.object({ items: z.array(purchaseSchema).min(1).max(100).superRefine((items, context) => { if (new Set(items.map((item) => item.productId)).size !== items.length) context.addIssue({ code: 'custom', message: 'Each product may only appear once in the cart.' }) }) })
 const monthSchema = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/)
 
 function invalidInput(res: { status: (code: number) => { json: (body: unknown) => unknown } }, message = 'Enter a valid product and quantity.') {
@@ -96,4 +98,33 @@ stockRouter.get('/export/stock', requireSession, async (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename="stock-report-${parsed.data}.csv"`)
     res.send(csv)
   } catch (error) { next(error) }
+})
+
+stockRouter.post('/purchases/checkout', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const outcome = await createPurchases(req.userId!, checkoutSchema.parse(req.body).items)
+    if (outcome.kind === 'product-not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
+    if (outcome.kind === 'product-price-missing') return res.status(409).json({ error: { code: 'PRODUCT_PRICE_MISSING', message: 'Set a price for every product before checking out.' } })
+    if (outcome.kind === 'purchase-total-too-large') return res.status(409).json({ error: { code: 'PURCHASE_TOTAL_TOO_LARGE', message: 'The purchase total is too large.' } })
+    if (outcome.kind === 'insufficient-stock') return res.status(409).json({ error: { code: 'INSUFFICIENT_STOCK', message: 'One or more quantities exceed available stock.' } })
+    res.status(201).json({ purchases: outcome.purchases })
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res, 'Add at least one unique product with a valid quantity.')
+    next(error)
+  }
+})
+
+stockRouter.post('/set-quantity', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const input = setQuantitySchema.parse(req.body)
+    const outcome = await setStockQuantity(req.userId!, input.productId, input.quantity, input.deductEarnings)
+    if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
+    if (outcome.kind === 'conflict') return res.status(409).json({ error: { code: 'STALE_STOCK', message: 'Stock changed before the quantity update. Refresh and try again.' } })
+    if (outcome.kind === 'product-price-missing') return res.status(409).json({ error: { code: 'PRODUCT_PRICE_MISSING', message: 'Set a unit price before deducting from profit.' } })
+    if (outcome.kind === 'deduction-too-large') return res.status(409).json({ error: { code: 'DEDUCTION_TOO_LARGE', message: 'The deduction is too large.' } })
+    res.json({ product: outcome.product })
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res, 'Enter a valid non-negative stock quantity.')
+    next(error)
+  }
 })

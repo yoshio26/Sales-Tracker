@@ -101,6 +101,8 @@ function App() {
   const [stockRefreshKey, setStockRefreshKey] = useState(0)
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [productModalOpen, setProductModalOpen] = useState(false)
+  const [quantityEditProduct, setQuantityEditProduct] = useState<Product | null>(null)
+  const [quantityEditRequest, setQuantityEditRequest] = useState(0)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
   const [dashboardSection, setDashboardSection] = useState<'overview' | 'reports'>('overview')
   const [darkMode, setDarkMode] = useState(() => {
@@ -340,6 +342,14 @@ function App() {
     setProductModalOpen(true)
   }
 
+  function editStockQuantity() {
+    if (!editing) return
+    setQuantityEditProduct(editing)
+    setQuantityEditRequest((value) => value + 1)
+    setProductModalOpen(false)
+    resetProductForm()
+  }
+
   async function refreshAfterStockDeletion() {
     await Promise.all([loadProducts('active'), loadProducts('archived'), loadDashboard()])
     setStockRefreshKey((value) => value + 1)
@@ -423,11 +433,11 @@ function App() {
                     <label htmlFor="initial-stock-cost">Initial stock cost (optional)</label>
                     <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" type="checkbox" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" type="checkbox" checked={deductInitialStock === false} onChange={() => setDeductInitialStock(false)} /> No</label></div></>}
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
-                    <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : bulkAddMode ? 'Add stocks' : 'Add stock'}</button><button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
+                    <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : bulkAddMode ? 'Add stocks' : 'Add stock'}</button>{editing && <button className={styles.secondary} type="button" onClick={editStockQuantity}>Edit quantity?</button>}<button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>
                 </section>
               </div>}
-              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })} />
+              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillProduct={quantityEditProduct} prefillRequest={quantityEditRequest} onQuantityEditCancel={() => setQuantityEditProduct(null)} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'notes' && <NotesPage api={notesApi} />}

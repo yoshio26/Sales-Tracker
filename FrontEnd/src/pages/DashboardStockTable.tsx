@@ -33,6 +33,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
 
   async function load() {
     setLoading(true)
@@ -63,22 +64,25 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
     void load()
   }, [refreshKey])
 
-  const filteredProducts = products.filter((product) => product.name.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()))
+  const categories = [...new Set(products.map((product) => product.category))].sort((first, second) => first.localeCompare(second))
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase()
+  const filteredProducts = products.filter((product) => product.name.toLocaleLowerCase().includes(normalizedSearchQuery) && (!categoryFilter || product.category === categoryFilter))
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const visibleProducts = filteredProducts.slice((page - 1) * pageSize, page * pageSize)
   const firstRow = filteredProducts.length === 0 ? 0 : (page - 1) * pageSize + 1
   const lastRow = Math.min(page * pageSize, filteredProducts.length)
 
   return <section className={styles.stockTableSection} aria-labelledby="available-stock-heading">
-    <div><h2 id="available-stock-heading">Available stock</h2><p>Review inventory and manage each stock item from the dashboard.</p><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-stock-search">Search Product</label><input id="dashboard-stock-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPage(1) }} /></div></div>
+    <div><h2 id="available-stock-heading">Available stock</h2><p>Review inventory and manage each stock item from the dashboard.</p><div className={styles.stockFilters}><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-stock-search">Search Product</label><input id="dashboard-stock-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPage(1) }} /></div><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-category-filter">Filter Category</label><select id="dashboard-category-filter" value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1) }}><option value="">All categories</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></div></div></div>
     {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={() => void load()}>Retry</button></p>}
-    {loading ? <p role="status" aria-live="polite">Loading available stock…</p> : products.length === 0 ? <p className={styles.empty}>No active stock is available.</p> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match “{searchQuery}”.</p> : <>
+    {loading ? <p role="status" aria-live="polite">Loading available stock…</p> : products.length === 0 ? <p className={styles.empty}>No active stock is available.</p> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match the selected filters.</p> : <>
       <div className={styles.stockTableScroll}>
         <table className={styles.stockTable}>
           <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
-          <thead><tr><th scope="col">Stock Name</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
+          <thead><tr><th scope="col">Stock Name</th><th scope="col">Category</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
           <tbody>{visibleProducts.map((product) => <tr key={product.id}>
-            <th scope="row"><span className={styles.stockTableName}>{product.name}</span><span className={styles.stockTableCategory}>{product.category}</span></th>
+            <th scope="row"><span className={styles.stockTableName}>{product.name}</span></th>
+            <td data-label="Category">{product.category}</td>
             <td data-label="Stocks">{product.stockQuantity}</td>
             <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>
             <td data-label="Updated Price">₱{formatPrice(product.price)}</td>
