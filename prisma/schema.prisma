@@ -16,6 +16,7 @@ model User {
   products      Product[]
   expenses      Expense[]
   stockPurchases StockPurchase[]
+  profitAdjustments ProfitAdjustment[]
   notes         Note[]
 
   @@map("users")
@@ -114,6 +115,20 @@ model Expense {
   @@index([userId, categorySnapshot, deletedAt])
   @@index([userId, deletedAt, updatedAt])
   @@map("expenses")
+}
+
+model ProfitAdjustment {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  amountCents Int      @map("amount_cents")
+  note       String?
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deletedAt, updatedAt])
+  @@map("profit_adjustments")
 }
 
 model Note {

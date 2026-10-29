@@ -11,6 +11,7 @@ export type CategoryTotalRow = { label: string; totalCents: bigint | number }
 export type TimeSeriesRow = { bucketUtc: Date; totalCents: bigint | number }
 export type StockSummaryRow = { totalUnits: bigint | number; productsInStock: bigint | number; productsOutOfStock: bigint | number }
 export type PurchaseSummaryRow = { purchaseCount: bigint | number; totalQuantity: bigint | number; totalCostCents: bigint | number }
+export type AdjustmentTotalRow = { totalCents: bigint | number }
 
 export function getStockSummary(db: DashboardDatabase, userId: string) {
   return db.$queryRaw<StockSummaryRow[]>(Prisma.sql`
@@ -74,5 +75,13 @@ export function getTimeSeries(db: DashboardDatabase, userId: string, range: { fr
       ${range ? Prisma.sql`AND spent_at >= ${range.from} AND spent_at < ${range.to}` : Prisma.empty}
     GROUP BY "bucketUtc"
     ORDER BY "bucketUtc" ASC
+  `)
+}
+
+export function getProfitAdjustmentTotal(db: DashboardDatabase, userId: string) {
+  return db.$queryRaw<AdjustmentTotalRow[]>(Prisma.sql`
+    SELECT COALESCE(SUM(amount_cents), 0)::bigint AS "totalCents"
+    FROM profit_adjustments
+    WHERE user_id = ${userId}::uuid AND deleted_at IS NULL
   `)
 }

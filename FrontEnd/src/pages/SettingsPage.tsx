@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
 import styles from '../App.module.css'
 import { PurchaseHistoryPage } from './PurchaseHistoryPage'
 
 type ArchivedProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; archivedAt: string | null; deletedAt: string | null }
 type ColorTheme = 'default' | 'blue' | 'green' | 'purple' | 'orange'
 type SettingsSection = 'archive' | 'history' | 'settings' | 'color-theme'
+type ProfitAdjustment = { id: string; amount: string; note: string | null; updatedAt: string }
 
 const colorThemes: Array<{ name: ColorTheme; label: string; color: string }> = [
   { name: 'default', label: 'Pink', color: '#f51f80' },
@@ -15,15 +16,22 @@ const colorThemes: Array<{ name: ColorTheme; label: string; color: string }> = [
   { name: 'orange', label: 'Orange', color: '#ea580c' },
 ]
 
-type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void>; archivedProducts: ArchivedProduct[] }
+type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void>; onProfitChanged: () => Promise<void>; archivedProducts: ArchivedProduct[] }
 
-export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProducts }: Props) {
+export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged, archivedProducts }: Props) {
   const [section, setSection] = useState<SettingsSection>('archive')
   const [stockLoading, setStockLoading] = useState(false)
   const [stockError, setStockError] = useState('')
   const [stockNotice, setStockNotice] = useState('')
   const [stockConfirmationOpen, setStockConfirmationOpen] = useState(false)
   const [stockCountdown, setStockCountdown] = useState(10)
+  const [profitAdjustment, setProfitAdjustment] = useState<ProfitAdjustment | null>(null)
+  const [profitAmount, setProfitAmount] = useState('')
+  const [profitOperation, setProfitOperation] = useState<'add' | 'deduct'>('add')
+  const [profitNote, setProfitNote] = useState('')
+  const [profitLoading, setProfitLoading] = useState(false)
+  const [profitError, setProfitError] = useState('')
+  const [profitNotice, setProfitNotice] = useState('')
   const [selectedColorTheme, setSelectedColorTheme] = useState<ColorTheme>(() => {
     const color = document.documentElement.getAttribute('data-color')
     return colorThemes.some((theme) => theme.name === color) ? color as ColorTheme : 'default'
@@ -37,6 +45,22 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
   })
   const deleteStockButtonRef = useRef<HTMLButtonElement>(null)
   const cancelStockRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (section !== 'settings') return
+    setProfitError('')
+    void fetch('/api/profit-adjustment', { credentials: 'include' }).then(async (response) => {
+      if (!response.ok) throw new Error()
+      const body = await response.json() as { adjustment: ProfitAdjustment | null }
+      setProfitAdjustment(body.adjustment)
+      if (body.adjustment) {
+        const negative = body.adjustment.amount.startsWith('-')
+        setProfitOperation(negative ? 'deduct' : 'add')
+        setProfitAmount(body.adjustment.amount.replace('-', ''))
+        setProfitNote(body.adjustment.note ?? '')
+      }
+    }).catch(() => setProfitError('Unable to load the profit adjustment. Try again.'))
+  }, [section])
 
   function setColorTheme(name: ColorTheme) {
     document.documentElement.removeAttribute('data-color')
@@ -157,6 +181,51 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
     }
   }
 
+  async function saveProfitAdjustment(event: FormEvent) {
+    event.preventDefault()
+    setProfitLoading(true)
+    setProfitError('')
+    setProfitNotice('')
+    try {
+      const response = await fetch('/api/profit-adjustment', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: profitAmount, operation: profitOperation, note: profitNote, ...(profitAdjustment ? { updatedAt: profitAdjustment.updatedAt } : {}) }) })
+      const body = await response.json().catch(() => undefined) as { adjustment?: ProfitAdjustment; error?: { message?: string } } | undefined
+      if (!response.ok) {
+        setProfitError(body?.error?.message ?? 'Unable to save the profit adjustment.')
+        return
+      }
+      setProfitAdjustment(body?.adjustment ?? null)
+      setProfitNotice('Profit adjustment saved.')
+      await onProfitChanged()
+    } catch {
+      setProfitError('Unable to contact the profit service. Try again.')
+    } finally {
+      setProfitLoading(false)
+    }
+  }
+
+  async function removeProfitAdjustment() {
+    setProfitLoading(true)
+    setProfitError('')
+    setProfitNotice('')
+    try {
+      const response = await fetch('/api/profit-adjustment', { method: 'DELETE', credentials: 'include' })
+      if (!response.ok) {
+        const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+        setProfitError(body?.error?.message ?? 'Unable to remove the profit adjustment.')
+        return
+      }
+      setProfitAdjustment(null)
+      setProfitAmount('')
+      setProfitNote('')
+      setProfitNotice('Profit adjustment removed.')
+      await onProfitChanged()
+    } catch {
+      setProfitError('Unable to contact the profit service. Try again.')
+    } finally {
+      setProfitLoading(false)
+    }
+  }
+
   return <div className={styles.settingsView}>
     <nav className={styles.settingsTabs} aria-label="Settings pages" role="tablist">
       {([['archive', 'Archive'], ['history', 'History'], ['settings', 'Settings'], ['color-theme', 'Color Theme']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={section === value} aria-controls={`${value}-panel`} className={section === value ? styles.selectedTab : styles.tab} onClick={() => setSection(value)}>{label}</button>)}
@@ -168,7 +237,19 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, archivedProduct
       {stockNotice && <p className={styles.notice} role="status">{stockNotice}</p>}
     </section>}
     {section === 'settings' && <section id="settings-panel" className={styles.settingsCard} aria-labelledby="settings-heading" role="tabpanel">
-      <div><h2 id="settings-heading">Settings</h2><p>Manage your stock and purchase-history data with deliberate confirmation for destructive actions.</p></div>
+      <div><h2 id="settings-heading">Settings</h2><p>Manage your stock, profit adjustment, and purchase-history data.</p></div>
+      <form className={styles.productForm} onSubmit={(event) => void saveProfitAdjustment(event)} noValidate>
+        <div><h3>Manual profit adjustment</h3><p>Add or deduct an all-time amount from the calculated dashboard profit.</p></div>
+        <label htmlFor="profit-operation">Adjustment</label>
+        <select id="profit-operation" value={profitOperation} onChange={(event) => setProfitOperation(event.target.value as 'add' | 'deduct')}><option value="add">Add profit</option><option value="deduct">Deduct profit</option></select>
+        <label htmlFor="profit-amount">Amount</label>
+        <input id="profit-amount" inputMode="decimal" placeholder="0.00" value={profitAmount} onChange={(event) => setProfitAmount(event.target.value)} required />
+        <label htmlFor="profit-note">Note (optional)</label>
+        <textarea id="profit-note" maxLength={2000} value={profitNote} onChange={(event) => setProfitNote(event.target.value)} rows={3} />
+        {profitError && <p className={styles.error} role="alert">{profitError}</p>}
+        {profitNotice && <p className={styles.notice} role="status">{profitNotice}</p>}
+        <div className={styles.formActions}><button type="submit" disabled={profitLoading}>{profitLoading ? 'Saving…' : profitAdjustment ? 'Save changes' : 'Save adjustment'}</button>{profitAdjustment && <button className={styles.secondary} type="button" disabled={profitLoading} onClick={() => void removeProfitAdjustment()}>Remove adjustment</button>}</div>
+      </form>
       <div className={styles.dangerPanel}>
         <div><h3>Delete all products</h3><p>Remove all active products, stock records, purchase history, and expenses. Deleted data is recoverable for 10 days, then automatically deleted.</p></div>
         <button ref={deleteStockButtonRef} className={styles.danger} type="button" disabled={stockLoading || stockConfirmationOpen} onClick={openStockConfirmation}>{stockLoading ? 'Deleting…' : 'Delete all products'}</button>

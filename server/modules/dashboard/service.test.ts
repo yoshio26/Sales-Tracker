@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getByCategory: vi.fn(),
   getByProduct: vi.fn(),
+  getProfitAdjustmentTotal: vi.fn(),
   getPurchaseSummary: vi.fn(),
   getStockSummary: vi.fn(),
   getTimeSeries: vi.fn(),
@@ -22,6 +23,7 @@ describe('dashboard service', () => {
     mocks.getPurchaseSummary.mockResolvedValue([{ purchaseCount: 0n, totalQuantity: 0n, totalCostCents: 0n }])
     mocks.getStockSummary.mockResolvedValue([{ totalUnits: 0n, productsInStock: 0n, productsOutOfStock: 0n }])
     mocks.getTimeSeries.mockResolvedValue([])
+    mocks.getProfitAdjustmentTotal.mockResolvedValue([{ totalCents: 0n }])
   })
 
   it('creates a half-open UTC month range', () => {
@@ -59,6 +61,17 @@ describe('dashboard service', () => {
       allTime: { total: '9.87', byCategory: [{ label: 'Old category', amount: '9.87' }] },
       stock: { totalUnits: 5, productsInStock: 1, productsOutOfStock: 2 },
       purchases: { count: 2, quantity: 3, totalCost: '45.67' },
+    })
+  })
+
+  it('adds the signed all-time adjustment without changing expense totals', async () => {
+    mocks.getPurchaseSummary.mockResolvedValue([{ purchaseCount: 1n, totalQuantity: 1n, totalCostCents: 10000n }])
+    mocks.getTotal.mockResolvedValue([{ totalCents: 2500n }])
+    mocks.getProfitAdjustmentTotal.mockResolvedValue([{ totalCents: -300n }])
+
+    await expect(getDashboard('user-a', new Date('2026-10-03T12:00:00.000Z'))).resolves.toMatchObject({
+      totalEarnings: '100.00',
+      profit: '72.00',
     })
   })
 })

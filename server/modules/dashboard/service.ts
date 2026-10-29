@@ -1,4 +1,4 @@
-import { dashboardDatabase, getByCategory, getByProduct, getPurchaseSummary, getStockSummary, getTimeSeries, getTotal } from './data-access.js'
+import { dashboardDatabase, getByCategory, getByProduct, getProfitAdjustmentTotal, getPurchaseSummary, getStockSummary, getTimeSeries, getTotal } from './data-access.js'
 
 export type ReportingRange = { from: Date; to: Date }
 export type DashboardFilters = Partial<ReportingRange>
@@ -52,22 +52,25 @@ async function reportForRange(userId: string, range: ReportingRange | undefined,
 
 export async function getDashboard(userId: string, now = new Date(), filters: DashboardFilters = {}): Promise<DashboardResponse> {
   const month = filters.from && filters.to ? { from: filters.from, to: filters.to } : currentUtcMonth(now)
-  const [currentMonth, allTimeReport, stockRows, purchaseRows] = await Promise.all([
+  const [currentMonth, allTimeReport, stockRows, purchaseRows, adjustmentRows] = await Promise.all([
     reportForRange(userId, month, 'day'),
     reportForRange(userId, undefined, 'month'),
     getStockSummary(dashboardDatabase, userId),
     getPurchaseSummary(dashboardDatabase, userId),
+    getProfitAdjustmentTotal(dashboardDatabase, userId),
   ])
   const stock = stockRows[0] ?? { totalUnits: 0, productsInStock: 0, productsOutOfStock: 0 }
   const purchases = purchaseRows[0] ?? { purchaseCount: 0, totalQuantity: 0, totalCostCents: 0 }
   const totalEarningsCents = typeof purchases.totalCostCents === 'bigint' ? purchases.totalCostCents : BigInt(purchases.totalCostCents)
   const expenseTotalCents = typeof allTimeReport.totalCents === 'bigint' ? allTimeReport.totalCents : BigInt(allTimeReport.totalCents)
+  const adjustmentCents = adjustmentRows[0]?.totalCents ?? 0
+  const profitAdjustmentCents = typeof adjustmentCents === 'bigint' ? adjustmentCents : BigInt(adjustmentCents)
   return {
     currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), total: currentMonth.total, trend: currentMonth.trend, byProduct: currentMonth.byProduct, byCategory: currentMonth.byCategory },
     allTime: { total: allTimeReport.total, trend: allTimeReport.trend, byProduct: allTimeReport.byProduct, byCategory: allTimeReport.byCategory },
     stock: { totalUnits: integerValue(stock.totalUnits), productsInStock: integerValue(stock.productsInStock), productsOutOfStock: integerValue(stock.productsOutOfStock) },
     purchases: { count: integerValue(purchases.purchaseCount), quantity: integerValue(purchases.totalQuantity), totalCost: centsToMoney(purchases.totalCostCents) },
     totalEarnings: centsToMoney(totalEarningsCents),
-    profit: centsToMoney(totalEarningsCents - expenseTotalCents),
+    profit: centsToMoney(totalEarningsCents - expenseTotalCents + profitAdjustmentCents),
   }
 }

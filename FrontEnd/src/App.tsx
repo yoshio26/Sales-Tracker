@@ -450,7 +450,7 @@ function App() {
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'notes' && <NotesPage api={notesApi} />}
-            {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} />}
+            {workspaceView === 'settings' && <SettingsPage archivedProducts={archivedProducts} onStockDeleted={refreshAfterStockDeletion} onHistoryChanged={refreshAfterHistoryDeletion} onProfitChanged={loadDashboard} />}
             {workspaceView === 'guide' && <GuidePage />}
             {workspaceView === 'motivation' && <MotivationPage onViewCamellia={() => setWorkspaceView('camellia')} />}
             {workspaceView === 'camellia' && <Camellia onBack={() => setWorkspaceView('motivation')} />}
