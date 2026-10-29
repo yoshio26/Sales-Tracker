@@ -23,9 +23,12 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
   const [stockLoading, setStockLoading] = useState(false)
   const [stockError, setStockError] = useState('')
   const [stockNotice, setStockNotice] = useState('')
+  const [selectedArchivedProductIds, setSelectedArchivedProductIds] = useState<Set<string>>(new Set())
+  const [archiveLoading, setArchiveLoading] = useState(false)
   const [stockConfirmationOpen, setStockConfirmationOpen] = useState(false)
   const [stockCountdown, setStockCountdown] = useState(10)
   const [profitAdjustments, setProfitAdjustments] = useState<ProfitAdjustment[]>([])
+  const [selectedProfitAdjustmentIds, setSelectedProfitAdjustmentIds] = useState<Set<string>>(new Set())
   const [profitAmount, setProfitAmount] = useState('')
   const [profitOperation, setProfitOperation] = useState<'add' | 'deduct'>('add')
   const [profitNote, setProfitNote] = useState('')
@@ -53,8 +56,13 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       if (!response.ok) throw new Error()
       const body = await response.json() as { adjustments: ProfitAdjustment[] }
       setProfitAdjustments(body.adjustments)
+      setSelectedProfitAdjustmentIds(new Set())
     }).catch(() => setProfitError('Unable to load the profit adjustment. Try again.'))
   }, [section])
+
+  useEffect(() => {
+    setSelectedArchivedProductIds((current) => new Set([...current].filter((id) => archivedProducts.some((product) => product.id === id))))
+  }, [archivedProducts])
 
   function setColorTheme(name: ColorTheme) {
     document.documentElement.removeAttribute('data-color')
@@ -113,6 +121,51 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       setStockNotice(`${product.name} and its history were permanently deleted.`)
     } catch {
       setStockError('Unable to contact the product service. Try again.')
+    }
+  }
+
+  function toggleArchivedProduct(id: string) {
+    setSelectedArchivedProductIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllArchivedProducts() {
+    setSelectedArchivedProductIds((current) => current.size === archivedProducts.length
+      ? new Set()
+      : new Set(archivedProducts.map((product) => product.id)))
+  }
+
+  async function permanentlyDeleteSelected() {
+    const selectedProducts = archivedProducts.filter((product) => selectedArchivedProductIds.has(product.id))
+    if (selectedProducts.length === 0) return
+    if (!window.confirm(`Permanently delete ${selectedProducts.length} selected archived product${selectedProducts.length === 1 ? '' : 's'} and all of their history? This cannot be undone.`)) return
+    setArchiveLoading(true)
+    setStockError('')
+    setStockNotice('')
+    try {
+      const results = await Promise.all(selectedProducts.map(async (product) => {
+        try {
+          const response = await fetch(`/api/products/${product.id}/permanent`, { method: 'DELETE', credentials: 'include' })
+          const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+          return { id: product.id, ok: response.ok, message: body?.error?.message }
+        } catch {
+          return { id: product.id, ok: false, message: 'Unable to contact the product service.' }
+        }
+      }))
+      const removedIds = results.filter((result) => result.ok).map((result) => result.id)
+      const failures = results.filter((result) => !result.ok)
+      if (removedIds.length > 0) {
+        await onStockDeleted()
+        setSelectedArchivedProductIds((current) => new Set([...current].filter((id) => !removedIds.includes(id))))
+      }
+      if (failures.length > 0) setStockError(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
+      else if (removedIds.length > 0) setStockNotice(`${removedIds.length} archived product${removedIds.length === 1 ? '' : 's'} permanently deleted.`)
+    } finally {
+      setArchiveLoading(false)
     }
   }
 
@@ -211,10 +264,76 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
         return
       }
       setProfitAdjustments((current) => current.filter((adjustment) => adjustment.id !== id))
+      setSelectedProfitAdjustmentIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
       setProfitNotice('Profit adjustment removed.')
       await onProfitChanged()
     } catch {
       setProfitError('Unable to contact the profit service. Try again.')
+    } finally {
+      setProfitLoading(false)
+    }
+  }
+
+  function toggleProfitAdjustment(id: string) {
+    setSelectedProfitAdjustmentIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllProfitAdjustments() {
+    setSelectedProfitAdjustmentIds((current) => current.size === profitAdjustments.length
+      ? new Set()
+      : new Set(profitAdjustments.map((adjustment) => adjustment.id)))
+  }
+
+  async function removeSelectedProfitAdjustments() {
+    const ids = profitAdjustments
+      .filter((adjustment) => selectedProfitAdjustmentIds.has(adjustment.id))
+      .map((adjustment) => adjustment.id)
+    if (ids.length === 0) return
+    if (!window.confirm(`Remove ${ids.length} selected profit adjustment${ids.length === 1 ? '' : 's'}?`)) return
+
+    setProfitLoading(true)
+    setProfitError('')
+    setProfitNotice('')
+    try {
+      const results = await Promise.all(ids.map(async (id) => {
+        try {
+          const response = await fetch(`/api/profit-adjustment/${id}`, { method: 'DELETE', credentials: 'include' })
+          if (response.ok) return { id, ok: true }
+          const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+          return { id, ok: false, message: body?.error?.message ?? 'Unable to remove the profit adjustment.' }
+        } catch {
+          return { id, ok: false, message: 'Unable to contact the profit service. Try again.' }
+        }
+      }))
+      const removedIds = results.filter((result) => result.ok).map((result) => result.id)
+      const failures = results.filter((result) => !result.ok)
+      if (removedIds.length > 0) {
+        setProfitAdjustments((current) => current.filter((adjustment) => !removedIds.includes(adjustment.id)))
+        setSelectedProfitAdjustmentIds((current) => {
+          const next = new Set(current)
+          removedIds.forEach((id) => next.delete(id))
+          return next
+        })
+        try {
+          await onProfitChanged()
+        } catch {
+          setProfitError('Adjustments were removed, but the dashboard could not be refreshed.')
+        }
+      }
+      if (failures.length > 0) {
+        setProfitError(`${removedIds.length} removed; ${failures.length} could not be removed. ${failures[0]?.message ?? ''}`.trim())
+      } else if (removedIds.length > 0) {
+        setProfitNotice(`${removedIds.length} profit adjustment${removedIds.length === 1 ? '' : 's'} removed.`)
+      }
     } finally {
       setProfitLoading(false)
     }
@@ -226,7 +345,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
     </nav>
     {section === 'archive' && <section id="archive-panel" className={styles.settingsCard} aria-labelledby="archived-products-heading" role="tabpanel">
       <div><h2 id="archived-products-heading">Archived products</h2><p>Products removed from active stocks remain here with their historical details.</p></div>
-      {archivedProducts.length === 0 ? <p className={styles.empty}>No archived products.</p> : <div className={styles.stockTableScroll}><table className={styles.stockTable}><caption className={styles.visuallyHidden}>Archived products and recovery actions</caption><thead><tr><th scope="col">Stock Name</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Actions</th></tr></thead><tbody>{archivedProducts.map((product) => <tr key={product.id}><th scope="row"><span className={styles.stockTableName}>{product.name}</span><span className={styles.stockTableCategory}>{product.category}</span><span className={styles.archived}>{product.deletedAt ? `Deleted ${new Date(product.deletedAt).toLocaleDateString()}` : `Archived ${product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}`}</span></th><td data-label="Stocks">{product.stockQuantity}</td><td data-label="Sold">—</td><td data-label="Updated Price">₱{product.price}</td><td data-label="Actions"><div className={styles.stockTableActions}><button className={styles.secondary} type="button" onClick={() => void restore(product)}>Restore</button><button className={styles.danger} type="button" onClick={() => void permanentlyDelete(product)}>Delete permanently</button></div></td></tr>)}</tbody></table></div>}
+      {archivedProducts.length === 0 ? <p className={styles.empty}>No archived products.</p> : <><div className={styles.selectionToolbar}><label className={styles.selectAllLabel}><input type="checkbox" checked={archivedProducts.length > 0 && selectedArchivedProductIds.size === archivedProducts.length} onChange={toggleAllArchivedProducts} aria-label="Select all archived products" /> <span>Select all archived</span></label><span className={styles.selectionCount} aria-live="polite">{selectedArchivedProductIds.size} selected</span><button className={styles.danger} type="button" disabled={archiveLoading || selectedArchivedProductIds.size === 0} onClick={() => void permanentlyDeleteSelected()}>{archiveLoading ? 'Deleting…' : 'Delete selected permanently'}</button></div><div className={styles.stockTableScroll}><table className={styles.stockTable}><caption className={styles.visuallyHidden}>Archived products and recovery actions</caption><thead><tr><th scope="col" className={styles.selectionColumn}>Select</th><th scope="col">Stock Name</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Actions</th></tr></thead><tbody>{archivedProducts.map((product) => <tr key={product.id}><td data-label="Select" className={styles.selectionColumn}><input type="checkbox" checked={selectedArchivedProductIds.has(product.id)} onChange={() => toggleArchivedProduct(product.id)} aria-label={`Select archived product ${product.name}`} /></td><th scope="row"><span className={styles.stockTableName}>{product.name}</span><span className={styles.stockTableCategory}>{product.category}</span><span className={styles.archived}>{product.deletedAt ? `Deleted ${new Date(product.deletedAt).toLocaleDateString()}` : `Archived ${product.archivedAt ? new Date(product.archivedAt).toLocaleDateString() : ''}`}</span></th><td data-label="Stocks">{product.stockQuantity}</td><td data-label="Sold">—</td><td data-label="Updated Price">₱{product.price}</td><td data-label="Actions"><div className={styles.stockTableActions}><button className={styles.secondary} type="button" disabled={archiveLoading} onClick={() => void restore(product)}>Restore</button><button className={styles.danger} type="button" disabled={archiveLoading} onClick={() => void permanentlyDelete(product)}>Delete permanently</button></div></td></tr>)}</tbody></table></div></>}
       {stockError && <p className={styles.error} role="alert">{stockError}</p>}
       {stockNotice && <p className={styles.notice} role="status">{stockNotice}</p>}
     </section>}
@@ -246,10 +365,16 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       </form>
       <section className={styles.profitHistory} aria-labelledby="profit-history-heading">
         <div><h3 id="profit-history-heading">Adjustment history</h3><p>Removing an entry reverses its add or deduct amount from profit.</p></div>
-        {profitAdjustments.length === 0 ? <p className={styles.empty}>No profit adjustments yet.</p> : <ul className={styles.profitHistoryList}>{profitAdjustments.map((adjustment) => {
+        {profitAdjustments.length === 0 ? <p className={styles.empty}>No profit adjustments yet.</p> : <>
+          <div className={styles.selectionToolbar}>
+            <label className={styles.selectAllLabel}><input type="checkbox" checked={profitAdjustments.length > 0 && profitAdjustments.every((adjustment) => selectedProfitAdjustmentIds.has(adjustment.id))} onChange={toggleAllProfitAdjustments} aria-label="Select all profit adjustments" /> <span>Select all adjustments</span></label>
+            <span className={styles.selectionCount} aria-live="polite">{selectedProfitAdjustmentIds.size} selected</span>
+            <button className={styles.danger} type="button" disabled={profitLoading || selectedProfitAdjustmentIds.size === 0} onClick={() => void removeSelectedProfitAdjustments()}>Remove selected</button>
+          </div>
+          <ul className={styles.profitHistoryList}>{profitAdjustments.map((adjustment) => {
           const isDeduction = adjustment.amount.startsWith('-')
-          return <li key={adjustment.id} className={styles.profitHistoryItem}><div><strong>{isDeduction ? 'Deducted' : 'Added'} ₱{adjustment.amount.replace('-', '')}</strong><small>{new Date(adjustment.createdAt).toLocaleString()}{adjustment.note ? ` · ${adjustment.note}` : ''}</small></div><button className={styles.danger} type="button" disabled={profitLoading} onClick={() => void removeProfitAdjustment(adjustment.id)}>Remove</button></li>
-        })}</ul>}
+          return <li key={adjustment.id} className={styles.profitHistoryItem}><label className={styles.profitHistoryCheckbox}><input type="checkbox" checked={selectedProfitAdjustmentIds.has(adjustment.id)} onChange={() => toggleProfitAdjustment(adjustment.id)} aria-label={`Select ${isDeduction ? 'deducted' : 'added'} adjustment of ₱${adjustment.amount.replace('-', '')}`} /></label><div><strong>{isDeduction ? 'Deducted' : 'Added'} ₱{adjustment.amount.replace('-', '')}</strong><small>{new Date(adjustment.createdAt).toLocaleString()}{adjustment.note ? ` · ${adjustment.note}` : ''}</small></div><button className={styles.danger} type="button" disabled={profitLoading} onClick={() => void removeProfitAdjustment(adjustment.id)}>Remove</button></li>
+        })}</ul></>}
       </section>
       <div className={styles.dangerPanel}>
         <div><h3>Delete all products</h3><p>Remove all active products, stock records, purchase history, and expenses. Deleted data is recoverable for 10 days, then automatically deleted.</p></div>

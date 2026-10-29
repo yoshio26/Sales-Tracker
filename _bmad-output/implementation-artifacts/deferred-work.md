@@ -34,3 +34,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-settings-delete-stocks-history.md`
   summary: Add automated frontend/browser coverage for Settings confirmation, deletion feedback, and post-delete refresh flows.
   evidence: The repository has no client test harness; the required flows are documented in FrontEnd/DASHBOARD-MANUAL-CHECKS.md pending the planned E2E testing phase.
+- source_spec: `_bmad-output/implementation-artifacts/spec-profit-adjustment-bulk-selection.md`
+  summary: Add automated frontend/browser coverage for adjustment-history selection, check-all, partial failure, and bulk-removal refresh flows.
+  evidence: The repository has no client test harness; the required selection and bulk-removal interactions are deferred to the planned E2E testing phase.
