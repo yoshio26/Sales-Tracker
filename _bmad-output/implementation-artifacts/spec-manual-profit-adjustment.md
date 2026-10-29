@@ -9,15 +9,15 @@ review_loop_iteration: 0
 context: []
 ---
 
-<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
+<frozen-after-approval reason="human-owned intent — updated after human renegotiation of adjustment history behavior">
 
 ## Intent
 
 **Problem:** The Settings page has no way to correct or record profit amounts that are not represented by stock purchases and expenses, so the dashboard profit can remain inaccurate for legitimate manual adjustments.
 
-**Approach:** Add a tenant-owned manual profit-adjustment record managed from Settings. Users can add a positive adjustment, deduct a negative adjustment, and edit or delete an existing adjustment; the dashboard profit incorporates the active adjustment while purchase and expense totals remain unchanged and auditable.
+**Approach:** Add tenant-owned manual profit-adjustment history managed from Settings. Users can append a positive adjustment or deduct a negative adjustment, then remove an individual history entry; the dashboard profit incorporates all active signed entries while purchase and expense totals remain unchanged and auditable.
 
-**Decisions:** Profit is calculated as existing profit plus one signed manual adjustment; the adjustment affects all-time profit only; and each user has one editable current adjustment rather than an adjustment history.
+**Decisions:** Profit is calculated as existing profit plus the sum of all active signed manual adjustments; adjustments affect all-time profit only; and each user has append-only adjustment history with per-entry removal rather than one editable current adjustment.
 
 ## Boundaries & Constraints
 
@@ -31,9 +31,9 @@ context: []
 |----------|--------------|---------------------------|----------------|
 | Add profit | Positive amount and optional note | Adjustment is stored and dashboard profit increases | Invalid amount returns a validation error |
 | Deduct profit | Positive amount selected as deduction | Signed adjustment is stored and dashboard profit decreases | Invalid amount returns a validation error |
-| Edit adjustment | Existing adjustment and concurrency timestamp | Same record is updated and dashboard reflects the new signed amount | Stale or missing record returns a conflict/not-found error |
-| Delete adjustment | Existing adjustment | Adjustment is excluded from profit | Missing record returns not-found |
-| Empty state | No active adjustment | Settings shows no adjustment and dashboard uses calculated profit | N/A |
+| Remove an add entry | Existing positive adjustment | Selected entry is excluded and its amount is deducted from profit | Missing or foreign record returns not-found |
+| Remove a deduct entry | Existing negative adjustment | Selected entry is excluded and its amount is restored to profit | Missing or foreign record returns not-found |
+| Empty state | No active adjustments | Settings shows no history and dashboard uses calculated profit | N/A |
 
 </frozen-after-approval>
 
@@ -52,25 +52,28 @@ context: []
 ## Tasks & Acceptance
 
 **Execution:**
-- [x] Add a tenant-owned profit-adjustment schema, migration, and data-access/service/route layer using existing money, ownership, concurrency, and mutation patterns.
+- [x] Add a tenant-owned profit-adjustment history schema, migration, and data-access/service/route layer using existing money, ownership, and mutation patterns.
 - [x] Extend dashboard aggregation and response with the selected adjustment semantics without changing purchase or expense totals.
-- [x] Add the Settings UI for add, deduct, edit, and delete flows with loading, validation, error, and empty states.
+- [x] Add the Settings UI for append, remove, loading, validation, error, and empty history states.
 - [x] Refresh dashboard data after successful Settings mutations and add regression tests for all matrix cases.
 
 **Acceptance Criteria:**
-- Given an authenticated user, when a valid profit adjustment is saved, then only that user's dashboard profit reflects it.
+- Given an authenticated user, when a valid profit adjustment is saved, then a new history entry is created and only that user's dashboard profit reflects it.
 - Given a deduction adjustment, when the dashboard loads, then profit decreases by the signed adjustment while total earnings and expense totals remain unchanged.
-- Given an existing adjustment, when the user edits or deletes it, then the dashboard reflects the new or removed value after refresh.
-- Given malformed, oversized, stale, or foreign adjustment input, when the API receives it, then it rejects the request without changing another user's data.
-- Given no adjustment, when Settings and the dashboard load, then the existing calculated profit and a clear empty Settings state are shown.
+- Given an active add entry, when the user removes it, then its signed contribution is deducted from profit after refresh.
+- Given an active deduct entry, when the user removes it, then its signed contribution is restored to profit after refresh.
+- Given malformed, oversized, or foreign adjustment input, when the API receives it, then it rejects the request without changing another user's data.
+- Given no active adjustments, when Settings and the dashboard load, then the existing calculated profit and a clear empty history state are shown.
 
 ## Implementation Notes
 
-Implemented a single signed, tenant-owned adjustment with a partial unique database index enforcing one active record per user. Add and deduct inputs remain positive in the UI/API and are converted to signed cents in the service. Monthly expense reporting remains unchanged by the all-time-only decision.
+Implemented append-only signed, tenant-owned adjustment history. Add and deduct inputs remain positive in the UI/API and are converted to signed cents in the service. Each entry is independently soft-deleted, so removing an entry automatically reverses its contribution to the dashboard sum. Monthly expense reporting remains unchanged by the all-time-only decision.
 
-Verification completed: Prisma generation, typecheck, full Vitest suite (135 passed, 1 skipped), production build, and `git diff --check`.
+Verification completed: typecheck, focused history/dashboard tests (8 passed), full Vitest suite (135 passed, 1 skipped), production build, and `git diff --check`. Prisma generation was attempted but could not replace the Windows Prisma query engine because the file was locked; existing generated client types remain sufficient for the passing checks.
 
 ## Spec Change Log
+
+- 2026-10-29: Human renegotiated the feature from one editable adjustment to append-only adjustment history with per-entry removal that reverses the selected signed contribution.
 
 
 ## Review Triage Log

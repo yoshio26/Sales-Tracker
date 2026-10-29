@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ deleteAdjustment: vi.fn(), getAdjustment: vi.fn(), saveAdjustment: vi.fn() }))
+const mocks = vi.hoisted(() => ({ createAdjustment: vi.fn(), deleteAdjustment: vi.fn(), listAdjustments: vi.fn() }))
 vi.mock('./service.js', () => mocks)
 
 import { profitAdjustmentRouter } from './routes.ts'
@@ -10,10 +10,10 @@ function response(): MockResponse {
   const json = vi.fn()
   return { status: vi.fn(() => ({ json, send: vi.fn() })), json, send: vi.fn() }
 }
-async function invoke(method: 'get' | 'put' | 'delete', req: Record<string, unknown>) {
+async function invoke(method: 'get' | 'post' | 'delete', req: Record<string, unknown>) {
   const layer = profitAdjustmentRouter.stack.find((candidate) => {
     const route = candidate.route as { path?: string; methods?: Record<string, boolean> } | undefined
-    return route?.path === '/' && route.methods?.[method] === true
+    return route?.path === (method === 'delete' ? '/:id' : '/') && route.methods?.[method] === true
   })
   const route = layer?.route as { stack: Array<{ handle: (...args: never[]) => unknown }> } | undefined
   if (!route) throw new Error(`Route ${method} / is missing.`)
@@ -34,36 +34,32 @@ const validBody = { amount: '12.50', operation: 'add', note: 'Correction' }
 describe('profit adjustment routes', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns an empty adjustment for an authenticated user', async () => {
-    mocks.getAdjustment.mockResolvedValue(null)
+  it('returns adjustment history for an authenticated user', async () => {
+    mocks.listAdjustments.mockResolvedValue([])
     const res = await invoke('get', { userId: 'user-a', get: () => undefined })
-    expect(mocks.getAdjustment).toHaveBeenCalledWith('user-a')
-    expect(res.json).toHaveBeenCalledWith({ adjustment: null })
+    expect(mocks.listAdjustments).toHaveBeenCalledWith('user-a')
+    expect(res.json).toHaveBeenCalledWith({ adjustments: [] })
   })
 
   it('rejects invalid input and foreign origins', async () => {
-    const invalid = await invoke('put', { userId: 'user-a', body: { ...validBody, amount: '0' }, get: () => 'http://localhost:5173' })
-    const foreign = await invoke('put', { userId: 'user-a', body: validBody, get: () => 'https://attacker.example' })
+    const invalid = await invoke('post', { userId: 'user-a', body: { ...validBody, amount: '0' }, get: () => 'http://localhost:5173' })
+    const foreign = await invoke('post', { userId: 'user-a', body: validBody, get: () => 'https://attacker.example' })
     expect(invalid.status).toHaveBeenCalledWith(400)
     expect(foreign.status).toHaveBeenCalledWith(403)
-    expect(mocks.saveAdjustment).not.toHaveBeenCalled()
+    expect(mocks.createAdjustment).not.toHaveBeenCalled()
   })
 
-  it('saves an additive or deductive adjustment and handles stale edits', async () => {
-    mocks.saveAdjustment.mockResolvedValue({ kind: 'saved', adjustment: { id: 'adjustment-a' } })
-    const saved = await invoke('put', { userId: 'user-a', body: validBody, get: () => 'http://localhost:5173' })
-    expect(mocks.saveAdjustment).toHaveBeenCalledWith('user-a', validBody)
+  it('creates an additive or deductive history entry', async () => {
+    mocks.createAdjustment.mockResolvedValue({ id: 'adjustment-a' })
+    const saved = await invoke('post', { userId: 'user-a', body: validBody, get: () => 'http://localhost:5173' })
+    expect(mocks.createAdjustment).toHaveBeenCalledWith('user-a', validBody)
     expect(saved.json).toHaveBeenCalledWith({ adjustment: { id: 'adjustment-a' } })
-
-    mocks.saveAdjustment.mockResolvedValue({ kind: 'stale' })
-    const stale = await invoke('put', { userId: 'user-a', body: { ...validBody, operation: 'deduct', updatedAt: '2026-10-29T00:00:00.000Z' }, get: () => 'http://localhost:5173' })
-    expect(stale.status).toHaveBeenCalledWith(409)
   })
 
-  it('soft-deletes the current adjustment', async () => {
+  it('soft-deletes the selected history entry', async () => {
     mocks.deleteAdjustment.mockResolvedValue({ kind: 'deleted' })
-    const res = await invoke('delete', { userId: 'user-a', get: () => 'http://localhost:5173' })
-    expect(mocks.deleteAdjustment).toHaveBeenCalledWith('user-a')
+    const res = await invoke('delete', { userId: 'user-a', params: { id: '123e4567-e89b-12d3-a456-426614174000' }, get: () => 'http://localhost:5173' })
+    expect(mocks.deleteAdjustment).toHaveBeenCalledWith('user-a', '123e4567-e89b-12d3-a456-426614174000')
     expect(res.status).toHaveBeenCalledWith(204)
   })
 })

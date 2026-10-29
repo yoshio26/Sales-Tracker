@@ -1,5 +1,5 @@
 import type { ProfitAdjustment } from '@prisma/client'
-import { database, deleteAdjustment as deleteAdjustmentRecord, getAdjustment as getAdjustmentRecord, saveAdjustment as saveAdjustmentRecord } from './data-access.js'
+import { createAdjustment as createAdjustmentRecord, database, deleteAdjustment as deleteAdjustmentRecord, listAdjustments as listAdjustmentRecords } from './data-access.js'
 
 export type ProfitAdjustmentResponse = { id: string; amount: string; note: string | null; createdAt: string; updatedAt: string }
 
@@ -20,17 +20,15 @@ export function parseAmount(value: string): number {
   return cents
 }
 
-export async function getAdjustment(userId: string) {
-  const adjustment = await getAdjustmentRecord(database, userId)
-  return adjustment ? toResponse(adjustment) : null
+export async function listAdjustments(userId: string) {
+  return (await listAdjustmentRecords(database, userId)).map(toResponse)
 }
 
-export async function saveAdjustment(userId: string, input: { amount: string; operation: 'add' | 'deduct'; note?: string; updatedAt?: string }) {
+export async function createAdjustment(userId: string, input: { amount: string; operation: 'add' | 'deduct'; note?: string }) {
   const amountCents = parseAmount(input.amount) * (input.operation === 'deduct' ? -1 : 1)
-  const outcome = await saveAdjustmentRecord(database, userId, { amountCents, note: input.note, updatedAt: input.updatedAt ? new Date(input.updatedAt) : undefined })
-  return outcome.kind === 'saved' ? { kind: outcome.kind, adjustment: toResponse(outcome.adjustment) } : outcome
+  return toResponse(await createAdjustmentRecord(database, userId, { amountCents, note: input.note }))
 }
 
-export async function deleteAdjustment(userId: string) {
-  return deleteAdjustmentRecord(database, userId)
+export async function deleteAdjustment(userId: string, id: string) {
+  return deleteAdjustmentRecord(database, userId, id)
 }

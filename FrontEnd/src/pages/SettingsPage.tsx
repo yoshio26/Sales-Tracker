@@ -6,7 +6,7 @@ import { PurchaseHistoryPage } from './PurchaseHistoryPage'
 type ArchivedProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; archivedAt: string | null; deletedAt: string | null }
 type ColorTheme = 'default' | 'blue' | 'green' | 'purple' | 'orange'
 type SettingsSection = 'archive' | 'history' | 'settings' | 'color-theme'
-type ProfitAdjustment = { id: string; amount: string; note: string | null; updatedAt: string }
+type ProfitAdjustment = { id: string; amount: string; note: string | null; createdAt: string; updatedAt: string }
 
 const colorThemes: Array<{ name: ColorTheme; label: string; color: string }> = [
   { name: 'default', label: 'Pink', color: '#f51f80' },
@@ -25,7 +25,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
   const [stockNotice, setStockNotice] = useState('')
   const [stockConfirmationOpen, setStockConfirmationOpen] = useState(false)
   const [stockCountdown, setStockCountdown] = useState(10)
-  const [profitAdjustment, setProfitAdjustment] = useState<ProfitAdjustment | null>(null)
+  const [profitAdjustments, setProfitAdjustments] = useState<ProfitAdjustment[]>([])
   const [profitAmount, setProfitAmount] = useState('')
   const [profitOperation, setProfitOperation] = useState<'add' | 'deduct'>('add')
   const [profitNote, setProfitNote] = useState('')
@@ -51,14 +51,8 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
     setProfitError('')
     void fetch('/api/profit-adjustment', { credentials: 'include' }).then(async (response) => {
       if (!response.ok) throw new Error()
-      const body = await response.json() as { adjustment: ProfitAdjustment | null }
-      setProfitAdjustment(body.adjustment)
-      if (body.adjustment) {
-        const negative = body.adjustment.amount.startsWith('-')
-        setProfitOperation(negative ? 'deduct' : 'add')
-        setProfitAmount(body.adjustment.amount.replace('-', ''))
-        setProfitNote(body.adjustment.note ?? '')
-      }
+      const body = await response.json() as { adjustments: ProfitAdjustment[] }
+      setProfitAdjustments(body.adjustments)
     }).catch(() => setProfitError('Unable to load the profit adjustment. Try again.'))
   }, [section])
 
@@ -187,13 +181,15 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
     setProfitError('')
     setProfitNotice('')
     try {
-      const response = await fetch('/api/profit-adjustment', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: profitAmount, operation: profitOperation, note: profitNote, ...(profitAdjustment ? { updatedAt: profitAdjustment.updatedAt } : {}) }) })
+      const response = await fetch('/api/profit-adjustment', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: profitAmount, operation: profitOperation, note: profitNote }) })
       const body = await response.json().catch(() => undefined) as { adjustment?: ProfitAdjustment; error?: { message?: string } } | undefined
       if (!response.ok) {
         setProfitError(body?.error?.message ?? 'Unable to save the profit adjustment.')
         return
       }
-      setProfitAdjustment(body?.adjustment ?? null)
+      if (body?.adjustment) setProfitAdjustments((current) => [body.adjustment!, ...current])
+      setProfitAmount('')
+      setProfitNote('')
       setProfitNotice('Profit adjustment saved.')
       await onProfitChanged()
     } catch {
@@ -203,20 +199,18 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
     }
   }
 
-  async function removeProfitAdjustment() {
+  async function removeProfitAdjustment(id: string) {
     setProfitLoading(true)
     setProfitError('')
     setProfitNotice('')
     try {
-      const response = await fetch('/api/profit-adjustment', { method: 'DELETE', credentials: 'include' })
+      const response = await fetch(`/api/profit-adjustment/${id}`, { method: 'DELETE', credentials: 'include' })
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
         setProfitError(body?.error?.message ?? 'Unable to remove the profit adjustment.')
         return
       }
-      setProfitAdjustment(null)
-      setProfitAmount('')
-      setProfitNote('')
+      setProfitAdjustments((current) => current.filter((adjustment) => adjustment.id !== id))
       setProfitNotice('Profit adjustment removed.')
       await onProfitChanged()
     } catch {
@@ -248,8 +242,15 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
         <textarea id="profit-note" maxLength={2000} value={profitNote} onChange={(event) => setProfitNote(event.target.value)} rows={3} />
         {profitError && <p className={styles.error} role="alert">{profitError}</p>}
         {profitNotice && <p className={styles.notice} role="status">{profitNotice}</p>}
-        <div className={styles.formActions}><button type="submit" disabled={profitLoading}>{profitLoading ? 'Saving…' : profitAdjustment ? 'Save changes' : 'Save adjustment'}</button>{profitAdjustment && <button className={styles.secondary} type="button" disabled={profitLoading} onClick={() => void removeProfitAdjustment()}>Remove adjustment</button>}</div>
+        <div className={styles.formActions}><button type="submit" disabled={profitLoading}>{profitLoading ? 'Saving…' : 'Save adjustment'}</button></div>
       </form>
+      <section className={styles.profitHistory} aria-labelledby="profit-history-heading">
+        <div><h3 id="profit-history-heading">Adjustment history</h3><p>Removing an entry reverses its add or deduct amount from profit.</p></div>
+        {profitAdjustments.length === 0 ? <p className={styles.empty}>No profit adjustments yet.</p> : <ul className={styles.profitHistoryList}>{profitAdjustments.map((adjustment) => {
+          const isDeduction = adjustment.amount.startsWith('-')
+          return <li key={adjustment.id} className={styles.profitHistoryItem}><div><strong>{isDeduction ? 'Deducted' : 'Added'} ₱{adjustment.amount.replace('-', '')}</strong><small>{new Date(adjustment.createdAt).toLocaleString()}{adjustment.note ? ` · ${adjustment.note}` : ''}</small></div><button className={styles.danger} type="button" disabled={profitLoading} onClick={() => void removeProfitAdjustment(adjustment.id)}>Remove</button></li>
+        })}</ul>}
+      </section>
       <div className={styles.dangerPanel}>
         <div><h3>Delete all products</h3><p>Remove all active products, stock records, purchase history, and expenses. Deleted data is recoverable for 10 days, then automatically deleted.</p></div>
         <button ref={deleteStockButtonRef} className={styles.danger} type="button" disabled={stockLoading || stockConfirmationOpen} onClick={openStockConfirmation}>{stockLoading ? 'Deleting…' : 'Delete all products'}</button>

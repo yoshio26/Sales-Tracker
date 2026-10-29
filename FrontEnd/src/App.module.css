@@ -335,6 +335,12 @@
 .settingsCard { padding: 1.25rem; border: 1px solid var(--accent-soft); background: #fff; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); }
 .settingsCard h2, .settingsCard h3 { margin: 0; color: #20202a; }
 .settingsCard p { margin: 0; }
+.profitHistory { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--accent-soft); background: #fff; }
+.profitHistoryList { display: grid; gap: 0.65rem; margin: 0; padding: 0; list-style: none; }
+.profitHistoryItem { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem; border: 1px solid #eadfe4; border-radius: 0.55rem; }
+.profitHistoryItem div { display: grid; gap: 0.2rem; min-width: 0; }
+.profitHistoryItem strong { color: #20202a; }
+.profitHistoryItem small { color: #92909a; overflow-wrap: anywhere; }
 .colorThemeOptions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .colorSwatch { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0 !important; padding: 0.55rem 0.8rem !important; border: 2px solid transparent !important; border-radius: 0.6rem !important; color: #20202a !important; }
 .colorSwatch::before { display: none !important; }
