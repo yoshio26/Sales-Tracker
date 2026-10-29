@@ -63,13 +63,13 @@ describe('stock data access', () => {
     expect(tx.stockPurchase.create).not.toHaveBeenCalled()
   })
 
-  it('deducts unit price for each replenished unit when requested', async () => {
+  it('deducts the supplied original cost for each replenished unit when requested', async () => {
     const { db, tx } = database()
     tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 10_000 })
     tx.product.updateMany.mockResolvedValue({ count: 1 })
     tx.product.findFirstOrThrow.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 10_000, stockQuantity: 4, updatedAt: new Date() })
 
-    await expect(adjustStock(db as never, 'user-a', 'product-a', 4, true)).resolves.toMatchObject({ kind: 'adjusted' })
+    await expect(adjustStock(db as never, 'user-a', 'product-a', 4, true, 2_500)).resolves.toMatchObject({ kind: 'adjusted' })
     expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 10_000, quantity: 4, note: 'Restock deduction' }) })
   })
 
@@ -79,9 +79,19 @@ describe('stock data access', () => {
     tx.product.updateMany.mockResolvedValue({ count: 1 })
     tx.product.findFirstOrThrow.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 1_000, stockQuantity: 7, updatedAt: new Date() })
 
-    await expect(setStockQuantity(db as never, 'user-a', 'product-a', 7, true)).resolves.toMatchObject({ kind: 'updated' })
+    await expect(setStockQuantity(db as never, 'user-a', 'product-a', 7, true, 750)).resolves.toMatchObject({ kind: 'updated' })
     expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ stockQuantity: 4 }), data: { stockQuantity: 7 } }))
-    expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 1_000, quantity: 3, note: 'Quantity increase deduction' }) })
+    expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 2_250, quantity: 3, note: 'Quantity increase deduction' }) })
+  })
+
+  it('does not create a deduction when replenishment is explicitly not deducted', async () => {
+    const { db, tx } = database()
+    tx.product.findFirst.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 10_000 })
+    tx.product.updateMany.mockResolvedValue({ count: 1 })
+    tx.product.findFirstOrThrow.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 10_000, stockQuantity: 4, updatedAt: new Date() })
+
+    await expect(adjustStock(db as never, 'user-a', 'product-a', 4, false)).resolves.toMatchObject({ kind: 'adjusted' })
+    expect(tx.expense.create).not.toHaveBeenCalled()
   })
 
   it('rejects missing and oversized stored prices before changing stock', async () => {

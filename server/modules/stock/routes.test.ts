@@ -89,6 +89,25 @@ describe('stock routes', () => {
     expect(mocks.replenishStock).not.toHaveBeenCalled()
   })
 
+  it('requires a valid original cost when a stock deduction is enabled', async () => {
+    const productId = '123e4567-e89b-12d3-a456-426614174000'
+    const missing = await invoke('/replenish', 'post', { userId: 'user-a', body: { productId, quantity: 1, deductEarnings: true }, get: () => appOrigin })
+    expect(missing.status).toHaveBeenCalledWith(400)
+    expect(mocks.replenishStock).not.toHaveBeenCalled()
+
+    const invalid = await invoke('/set-quantity', 'post', { userId: 'user-a', body: { productId, quantity: 2, deductEarnings: true, originalCost: '1.999' }, get: () => appOrigin })
+    expect(invalid.status).toHaveBeenCalledWith(400)
+    expect(mocks.setStockQuantity).not.toHaveBeenCalled()
+  })
+
+  it('does not validate or submit an unused original cost when deduction is disabled', async () => {
+    const productId = '123e4567-e89b-12d3-a456-426614174000'
+    mocks.replenishStock.mockResolvedValue({ kind: 'adjusted', product: { id: productId } })
+    const res = await invoke('/replenish', 'post', { userId: 'user-a', body: { productId, quantity: 1, deductEarnings: false, originalCost: 'not-a-price' }, get: () => appOrigin })
+    expect(res.json).toHaveBeenCalledWith({ product: { id: productId } })
+    expect(mocks.replenishStock).toHaveBeenCalledWith('user-a', productId, 1, false, undefined)
+  })
+
   it('returns an insufficient-stock conflict without a purchase response', async () => {
     mocks.createPurchase.mockResolvedValue({ kind: 'insufficient-stock' })
     const res = await invoke('/purchases', 'post', { userId: 'user-a', body: { productId: '123e4567-e89b-12d3-a456-426614174000', quantity: 3, totalCost: '12.50' }, get: () => appOrigin })
@@ -127,9 +146,9 @@ describe('stock routes', () => {
   it('passes the quantity deduction choice to exact quantity updates', async () => {
     const productId = '123e4567-e89b-12d3-a456-426614174000'
     mocks.setStockQuantity.mockResolvedValue({ kind: 'updated', product: { id: productId } })
-    const res = await invoke('/set-quantity', 'post', { userId: 'user-a', body: { productId, quantity: 7, deductEarnings: true }, get: () => appOrigin })
+    const res = await invoke('/set-quantity', 'post', { userId: 'user-a', body: { productId, quantity: 7, deductEarnings: true, originalCost: '7.50' }, get: () => appOrigin })
     expect(res.json).toHaveBeenCalledWith({ product: { id: productId } })
-    expect(mocks.setStockQuantity).toHaveBeenCalledWith('user-a', productId, 7, true)
+    expect(mocks.setStockQuantity).toHaveBeenCalledWith('user-a', productId, 7, true, '7.50')
   })
 
   it('protects stock and history deletion and scopes both operations to the session', async () => {

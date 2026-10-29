@@ -7,8 +7,15 @@ import { requireSession } from '../../middleware/session.js'
 import { createPurchase, createPurchases, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listPurchases, listStock, monthRange, replenishStock, setStockQuantity } from './service.js'
 
 const quantitySchema = z.number().int().positive().max(2147483647)
-const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema, deductEarnings: z.boolean().default(false), cost: z.string().optional() })
-const setQuantitySchema = z.object({ productId: z.uuid(), quantity: z.number().int().nonnegative().max(2147483647), deductEarnings: z.boolean().default(false) })
+const originalCostSchema = z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0 && Number(value) * 100 <= 2147483647, 'Enter a valid original price.')
+const replenishSchema = z.object({ productId: z.uuid(), quantity: quantitySchema, deductEarnings: z.boolean().default(false), originalCost: z.string().optional() }).superRefine((input, context) => {
+  if (input.deductEarnings && !input.originalCost) context.addIssue({ code: 'custom', path: ['originalCost'], message: 'Enter the original price.' })
+  if (input.deductEarnings && input.originalCost && !originalCostSchema.safeParse(input.originalCost).success) context.addIssue({ code: 'custom', path: ['originalCost'], message: 'Enter a valid original price.' })
+})
+const setQuantitySchema = z.object({ productId: z.uuid(), quantity: z.number().int().nonnegative().max(2147483647), deductEarnings: z.boolean().default(false), originalCost: z.string().optional() }).superRefine((input, context) => {
+  if (input.deductEarnings && !input.originalCost) context.addIssue({ code: 'custom', path: ['originalCost'], message: 'Enter the original price.' })
+  if (input.deductEarnings && input.originalCost && !originalCostSchema.safeParse(input.originalCost).success) context.addIssue({ code: 'custom', path: ['originalCost'], message: 'Enter a valid original price.' })
+})
 const purchaseSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
 const checkoutSchema = z.object({ items: z.array(purchaseSchema).min(1).max(100).superRefine((items, context) => { if (new Set(items.map((item) => item.productId)).size !== items.length) context.addIssue({ code: 'custom', message: 'Each product may only appear once in the cart.' }) }) })
 const monthSchema = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/)
@@ -41,9 +48,9 @@ stockRouter.delete('/', requireSession, requireSameOrigin, async (req, res, next
 stockRouter.post('/replenish', requireSession, requireSameOrigin, async (req, res, next) => {
   try {
     const input = replenishSchema.parse(req.body)
-    const outcome = await replenishStock(req.userId!, input.productId, input.quantity, input.deductEarnings)
+    const outcome = await replenishStock(req.userId!, input.productId, input.quantity, input.deductEarnings, input.deductEarnings ? input.originalCost : undefined)
     if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
-    if (outcome.kind === 'product-price-missing') return res.status(409).json({ error: { code: 'PRODUCT_PRICE_MISSING', message: 'Set a unit price before deducting from profit.' } })
+    if (outcome.kind === 'original-cost-missing') return invalidInput(res, 'Enter the original price before deducting from profit.')
     if (outcome.kind === 'deduction-too-large') return res.status(409).json({ error: { code: 'DEDUCTION_TOO_LARGE', message: 'The deduction is too large.' } })
     res.json({ product: outcome.product })
   } catch (error) {
@@ -117,10 +124,10 @@ stockRouter.post('/purchases/checkout', requireSession, requireSameOrigin, async
 stockRouter.post('/set-quantity', requireSession, requireSameOrigin, async (req, res, next) => {
   try {
     const input = setQuantitySchema.parse(req.body)
-    const outcome = await setStockQuantity(req.userId!, input.productId, input.quantity, input.deductEarnings)
+    const outcome = await setStockQuantity(req.userId!, input.productId, input.quantity, input.deductEarnings, input.deductEarnings ? input.originalCost : undefined)
     if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
     if (outcome.kind === 'conflict') return res.status(409).json({ error: { code: 'STALE_STOCK', message: 'Stock changed before the quantity update. Refresh and try again.' } })
-    if (outcome.kind === 'product-price-missing') return res.status(409).json({ error: { code: 'PRODUCT_PRICE_MISSING', message: 'Set a unit price before deducting from profit.' } })
+    if (outcome.kind === 'original-cost-missing') return invalidInput(res, 'Enter the original price before deducting from profit.')
     if (outcome.kind === 'deduction-too-large') return res.status(409).json({ error: { code: 'DEDUCTION_TOO_LARGE', message: 'The deduction is too large.' } })
     res.json({ product: outcome.product })
   } catch (error) {

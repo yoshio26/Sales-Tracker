@@ -12,6 +12,7 @@ const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ id: z.st
 const productIdSchema = z.string().uuid('Select a product.')
 const quantitySchema = z.coerce.number().int('Quantity must be a whole number.').positive('Quantity must be greater than zero.')
 const exactQuantitySchema = z.coerce.number().int('Quantity must be a whole number.').nonnegative('Quantity cannot be negative.')
+const originalPriceSchema = z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/, 'Enter a valid original price.').refine((value) => Number(value) > 0, 'Original price must be greater than zero.')
 
 function formatPrice(price: string): string {
   return Number(price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -27,6 +28,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
   const [productSearchQuery, setProductSearchQuery] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [deductRestock, setDeductRestock] = useState<boolean | null>(null)
+  const [restockOriginalPrice, setRestockOriginalPrice] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -42,6 +44,8 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [quantityEditMode, setQuantityEditMode] = useState(false)
   const [quantityDeductionOpen, setQuantityDeductionOpen] = useState(false)
+  const [quantityDeductionChoice, setQuantityDeductionChoice] = useState<boolean | null>(null)
+  const [quantityOriginalPrice, setQuantityOriginalPrice] = useState('')
   const [pendingQuantity, setPendingQuantity] = useState<number | null>(null)
 
   async function load() {
@@ -86,6 +90,10 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     setError('')
     setNotice('')
     if (mode === 'stock' && !quantityEditMode && deductRestock === null) { setFieldError('Choose Yes or No for deducting the restock cost.'); return }
+    if (mode === 'stock' && !quantityEditMode && deductRestock === true) {
+      const parsedOriginalPrice = originalPriceSchema.safeParse(restockOriginalPrice)
+      if (!parsedOriginalPrice.success) { setFieldError(parsedOriginalPrice.error.issues[0]?.message ?? 'Enter a valid original price.'); return }
+    }
     const product = productIdSchema.safeParse(productId)
     const parsedQuantity = (quantityEditMode ? exactQuantitySchema : quantitySchema).safeParse(quantity)
     if (!product.success || !parsedQuantity.success) {
@@ -114,6 +122,8 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     }
     if (quantityEditMode && parsedQuantity.data > (selectedProduct?.stockQuantity ?? 0)) {
       setPendingQuantity(parsedQuantity.data)
+      setQuantityDeductionChoice(null)
+      setQuantityOriginalPrice('')
       setQuantityDeductionOpen(true)
       return
     }
@@ -125,7 +135,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     setPendingQuantity(null)
     setLoading(true)
     try {
-      const response = await fetch(quantityEditMode ? '/api/stock/set-quantity' : '/api/stock/replenish', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quantityEditMode ? { productId, quantity: nextQuantity, deductEarnings } : { productId, quantity: nextQuantity, deductEarnings: deductRestock === true }) })
+      const response = await fetch(quantityEditMode ? '/api/stock/set-quantity' : '/api/stock/replenish', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quantityEditMode ? { productId, quantity: nextQuantity, deductEarnings, ...(deductEarnings ? { originalCost: quantityOriginalPrice } : {}) } : { productId, quantity: nextQuantity, deductEarnings: deductRestock === true, ...(deductRestock === true ? { originalCost: restockOriginalPrice } : {}) }) })
       const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
       if (!response.ok) {
         if (body?.error?.code === 'INSUFFICIENT_STOCK') {
@@ -137,7 +147,10 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       }
       setQuantity('1')
       setDeductRestock(null)
+      setRestockOriginalPrice('')
       setQuantityEditMode(false)
+      setQuantityDeductionChoice(null)
+      setQuantityOriginalPrice('')
       setNotice(quantityEditMode ? 'Stock quantity updated.' : 'Stock replenished.')
       await load()
       onChanged()
@@ -204,7 +217,10 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     setProductId('')
     setProductSearchQuery('')
     setDeductRestock(null)
+    setRestockOriginalPrice('')
     setPendingQuantity(null)
+    setQuantityDeductionChoice(null)
+    setQuantityOriginalPrice('')
     setQuantityDeductionOpen(false)
     setFieldError('')
     setNotice('Quantity edit canceled. No changes were made.')
@@ -214,8 +230,19 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     if (pendingQuantity !== null) setQuantity(String(pendingQuantity))
     setQuantityDeductionOpen(false)
     setPendingQuantity(null)
+    setQuantityDeductionChoice(null)
+    setQuantityOriginalPrice('')
     setQuantityEditMode(true)
     setNotice('Back to quantity edit. No changes were made.')
+  }
+
+  function confirmQuantityDeduction() {
+    const parsedOriginalPrice = originalPriceSchema.safeParse(quantityOriginalPrice)
+    if (!parsedOriginalPrice.success) {
+      setFieldError(parsedOriginalPrice.error.issues[0]?.message ?? 'Enter a valid original price.')
+      return
+    }
+    if (pendingQuantity !== null) void saveStockQuantity(pendingQuantity, true)
   }
 
   return <section className={styles.stockView} aria-labelledby="stock-heading">
@@ -264,7 +291,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       </div>
       <label htmlFor="stock-quantity">Quantity</label><input id="stock-quantity" type="number" min={quantityEditMode ? 0 : 1} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
       {mode === 'stock' && <>
-        {!quantityEditMode && <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="restock-deduction-yes"><input id="restock-deduction-yes" type="checkbox" checked={deductRestock === true} onChange={() => setDeductRestock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="restock-deduction-no"><input id="restock-deduction-no" type="checkbox" checked={deductRestock === false} onChange={() => setDeductRestock(false)} /> No</label></div>}
+        {!quantityEditMode && <><div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="restock-deduction-yes"><input id="restock-deduction-yes" name="restock-deduction" type="radio" checked={deductRestock === true} onChange={() => setDeductRestock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="restock-deduction-no"><input id="restock-deduction-no" name="restock-deduction" type="radio" checked={deductRestock === false} onChange={() => { setDeductRestock(false); setRestockOriginalPrice('') }} /> No</label></div>{deductRestock === true && <><label htmlFor="restock-original-price">Original price</label><input id="restock-original-price" inputMode="decimal" placeholder="0.00" value={restockOriginalPrice} onChange={(event) => setRestockOriginalPrice(event.target.value)} /></>}</>}
       </>}
       {mode === 'buy' && <p>Unit price: ₱{selectedProduct?.price ?? '0.00'} · Total: ₱{calculatedTotal ?? '0.00'}</p>}
       {fieldError && <p className={styles.error} role="alert">{fieldError}</p>}
@@ -292,9 +319,11 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
         <div className={styles.modalHeader}><span className={styles.stockErrorLabel}>Quantity increased</span></div>
         <h3 id="quantity-deduction-heading">Deduct from Total Profit?</h3>
         <p>The quantity increased by {(pendingQuantity ?? 0) - (selectedProduct?.stockQuantity ?? 0)}. Deduct the cost of the additional stock from total profit?</p>
+        <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="quantity-deduction-yes"><input id="quantity-deduction-yes" name="quantity-deduction" type="radio" checked={quantityDeductionChoice === true} onChange={() => { setQuantityDeductionChoice(true); setFieldError('') }} /> Yes</label><label className={styles.checkboxLabel} htmlFor="quantity-deduction-no"><input id="quantity-deduction-no" name="quantity-deduction" type="radio" checked={quantityDeductionChoice === false} onChange={() => { setQuantityDeductionChoice(false); setQuantityOriginalPrice(''); setFieldError('') }} /> No</label></div>
+        {quantityDeductionChoice === true && <><label htmlFor="quantity-original-price">Original price</label><input id="quantity-original-price" inputMode="decimal" placeholder="0.00" value={quantityOriginalPrice} onChange={(event) => { setQuantityOriginalPrice(event.target.value); setFieldError('') }} />{fieldError && <p className={styles.error} role="alert">{fieldError}</p>}</>}
         <div className={styles.formActions}>
-          <button autoFocus type="button" onClick={() => pendingQuantity !== null && void saveStockQuantity(pendingQuantity, true)}>Yes, deduct</button>
-          <button className={styles.secondary} type="button" onClick={() => pendingQuantity !== null && void saveStockQuantity(pendingQuantity, false)}>No, don’t deduct</button>
+          {quantityDeductionChoice === true && <button autoFocus type="button" onClick={confirmQuantityDeduction}>Yes, deduct</button>}
+          {quantityDeductionChoice === false && <button autoFocus type="button" onClick={() => pendingQuantity !== null && void saveStockQuantity(pendingQuantity, false)}>No, don’t deduct</button>}
           <button className={styles.secondary} type="button" onClick={cancelQuantityDeduction}>Cancel</button>
         </div>
       </section>

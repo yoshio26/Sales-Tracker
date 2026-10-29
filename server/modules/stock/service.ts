@@ -30,8 +30,8 @@ export async function listStock(userId: string) {
   return (await listStockRecords(database, userId)).map(toProductResponse)
 }
 
-export async function replenishStock(userId: string, productId: string, quantity: number, deductEarnings = false) {
-  const outcome = await adjustStockRecord(database, userId, productId, quantity, deductEarnings)
+export async function replenishStock(userId: string, productId: string, quantity: number, deductEarnings = false, originalCost?: string) {
+  const outcome = await adjustStockRecord(database, userId, productId, quantity, deductEarnings, deductEarnings && originalCost !== undefined ? parseCost(originalCost) : undefined)
   return outcome.kind === 'adjusted' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
 }
 
@@ -91,7 +91,7 @@ export async function createPurchases(userId: string, inputs: Array<{ productId:
   return outcome.kind === 'created' ? { kind: outcome.kind, purchases: outcome.purchases.map(toPurchaseResponse) } : outcome
 }
 
-export async function setStockQuantity(userId: string, productId: string, quantity: number, deductEarnings = false) {
-  const outcome = await setStockQuantityRecord(database, userId, productId, quantity, deductEarnings)
+export async function setStockQuantity(userId: string, productId: string, quantity: number, deductEarnings = false, originalCost?: string) {
+  const outcome = await setStockQuantityRecord(database, userId, productId, quantity, deductEarnings, deductEarnings && originalCost !== undefined ? parseCost(originalCost) : undefined)
   return outcome.kind === 'updated' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
 }

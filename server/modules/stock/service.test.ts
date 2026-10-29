@@ -42,8 +42,16 @@ describe('stock service', () => {
 
     await expect(replenishStock('user-a', 'product-id', 3)).resolves.toMatchObject({ kind: 'adjusted', product: { stockQuantity: 4 } })
     await expect(createPurchase('user-a', { productId: 'product-id', quantity: 2 })).resolves.toMatchObject({ kind: 'created', purchase: { totalCost: '12.50' } })
-    expect(mocks.adjustStock).toHaveBeenCalledWith({}, 'user-a', 'product-id', 3, false)
+    expect(mocks.adjustStock).toHaveBeenCalledWith({}, 'user-a', 'product-id', 3, false, undefined)
     expect(mocks.createPurchase).toHaveBeenCalledWith({}, 'user-a', { productId: 'product-id', quantity: 2 })
+  })
+
+  it('passes and parses original cost only when deduction is enabled', async () => {
+    mocks.adjustStock.mockResolvedValue({ kind: 'adjusted', product })
+
+    await expect(replenishStock('user-a', 'product-id', 3, true, '2.50')).resolves.toMatchObject({ kind: 'adjusted' })
+
+    expect(mocks.adjustStock).toHaveBeenCalledWith({}, 'user-a', 'product-id', 3, true, 250)
   })
 
   it('preserves safe insufficient-stock and missing-product outcomes', async () => {

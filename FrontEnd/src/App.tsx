@@ -27,6 +27,7 @@ const productInputSchema = z.object({
   price: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/, 'Enter a valid price.').refine((value) => Number(value) > 0, 'Price must be greater than zero.'),
   stockQuantity: z.coerce.number().int('Initial stock must be a whole number.').nonnegative('Initial stock cannot be negative.').max(1_000_000_000, 'Initial stock is too large.'),
 })
+const originalPriceSchema = z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/, 'Enter a valid original price.').refine((value) => Number(value) > 0, 'Original price must be greater than zero.')
 
 async function authApi(path: string, options?: RequestInit): Promise<Response> {
   return fetch(`/api/auth/${path}`, {
@@ -93,6 +94,7 @@ function App() {
   const [price, setPrice] = useState('')
   const [stockQuantity, setStockQuantity] = useState('0')
   const [deductInitialStock, setDeductInitialStock] = useState<boolean | null>(null)
+  const [initialOriginalPrice, setInitialOriginalPrice] = useState('')
   const [editing, setEditing] = useState<Product | null>(null)
   const [fieldError, setFieldError] = useState('')
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
@@ -233,6 +235,7 @@ function App() {
     setPrice('')
     setStockQuantity('0')
     setDeductInitialStock(null)
+    setInitialOriginalPrice('')
     setFieldError('')
   }
 
@@ -266,6 +269,11 @@ function App() {
       setFieldError('Enter an initial quantity before deducting its cost from total earnings.')
       return
     }
+    const parsedOriginalPrice = !editing && deductInitialStock === true ? originalPriceSchema.safeParse(initialOriginalPrice) : undefined
+    if (parsedOriginalPrice && !parsedOriginalPrice.success) {
+      setFieldError(parsedOriginalPrice.error.issues[0]?.message ?? 'Enter a valid original price.')
+      return
+    }
     setLoading(true)
     try {
       let createdCount = 0
@@ -273,7 +281,7 @@ function App() {
         if (!parsedProduct.success) continue
         const response = await productsApi(editing ? `/${editing.id}` : '', {
           method: editing ? 'PUT' : 'POST',
-          body: JSON.stringify(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt } : parsedProduct.data),
+            body: JSON.stringify(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt } : parsedProduct.data),
         })
         if (!response.ok) {
           const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
@@ -295,7 +303,7 @@ function App() {
           }
           const expenseResponse = await expensesApi('', {
             method: 'POST',
-            body: JSON.stringify({ productId: created.product.id, amount: parsedProduct.data.price, quantity: parsedProduct.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
+            body: JSON.stringify({ productId: created.product.id, amount: parsedOriginalPrice?.data, quantity: parsedProduct.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
           })
           if (!expenseResponse.ok) {
             setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
@@ -426,12 +434,12 @@ function App() {
                     {bulkAddMode ? <textarea id="bulk-stock-names" autoFocus value={bulkProductNames} onChange={(event) => setBulkProductNames(event.target.value)} placeholder={'One stock name per line\nExample: Red shirt\nBlue shirt'} rows={5} aria-describedby={fieldError ? 'stock-product-error' : undefined} /> : <input id="stock-product-name" autoFocus value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'stock-product-error' : undefined} />}
                     <label htmlFor="stock-category">Category</label>
                     <input id="stock-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
-                    <label htmlFor="stock-price">Unit price</label>
-                    <input id="stock-price" inputMode="decimal" placeholder="0.00" value={price} onChange={(event) => setPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     {!editing && <><label htmlFor="initial-stock">Initial quantity</label>
                     <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
-                    <label htmlFor="initial-stock-cost">Initial stock cost (optional)</label>
-                    <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" type="checkbox" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" type="checkbox" checked={deductInitialStock === false} onChange={() => setDeductInitialStock(false)} /> No</label></div></>}
+                    <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" name="initial-stock-deduction" type="radio" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" name="initial-stock-deduction" type="radio" checked={deductInitialStock === false} onChange={() => { setDeductInitialStock(false); setInitialOriginalPrice('') }} /> No</label></div></>}
+                    {!editing && deductInitialStock === true && <><label htmlFor="initial-original-price">Original price</label><input id="initial-original-price" inputMode="decimal" placeholder="0.00" value={initialOriginalPrice} onChange={(event) => setInitialOriginalPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} /></>}
+                    <label htmlFor="stock-price">Unit price</label>
+                    <input id="stock-price" inputMode="decimal" placeholder="0.00" value={price} onChange={(event) => setPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
                     <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : bulkAddMode ? 'Add stocks' : 'Add stock'}</button>{editing && <button className={styles.secondary} type="button" onClick={editStockQuantity}>Edit quantity?</button>}<button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>
