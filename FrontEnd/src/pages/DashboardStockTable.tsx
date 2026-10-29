@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import styles from '../App.module.css'
 
-export type DashboardStockProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
+export type DashboardStockProduct = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
+const stockResponseSchema = z.object({ products: z.array(z.object({ id: z.uuid(), name: z.string(), category: z.string(), price: z.string(), originalPrice: z.string().nullable(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
 
 type Props = {
   refreshKey?: number
@@ -10,7 +11,6 @@ type Props = {
   onDelete: (product: DashboardStockProduct) => void
 }
 
-const stockResponseSchema = z.object({ products: z.array(z.object({ id: z.uuid(), name: z.string(), category: z.string(), price: z.string(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
 const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ productId: z.uuid(), quantity: z.number().int().positive() })) })
 
 function formatPrice(price: string): string {
@@ -79,12 +79,13 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
       <div className={styles.stockTableScroll}>
         <table className={styles.stockTable}>
           <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
-          <thead><tr><th scope="col">Stock Name</th><th scope="col">Category</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
+          <thead><tr><th scope="col">Stock Name</th><th scope="col">Category</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Original Price</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
           <tbody>{visibleProducts.map((product) => <tr key={product.id}>
             <th scope="row"><span className={styles.stockTableName}>{product.name}</span></th>
             <td data-label="Category">{product.category}</td>
             <td data-label="Stocks">{product.stockQuantity}</td>
             <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>
+            <td data-label="Original Price">{product.originalPrice === null ? '—' : `₱${formatPrice(product.originalPrice)}`}</td>
             <td data-label="Updated Price">₱{formatPrice(product.price)}</td>
             <td data-label="Edit"><div className={styles.stockTableActions}>
               <button className={styles.iconButton} type="button" title={`Edit ${product.name}`} aria-label={`Edit ${product.name}`} onClick={() => onEdit(product)}><EditIcon /></button>

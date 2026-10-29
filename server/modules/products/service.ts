@@ -15,6 +15,7 @@ export type ProductResponse = {
   name: string
   category: string
   price: string
+  originalPrice: string | null
   stockQuantity: number
   active: boolean
   archivedAt: string | null
@@ -32,6 +33,7 @@ function toResponse(product: Product): ProductResponse {
     name: product.name,
     category: product.category,
     price: ((product.priceCents ?? 0) / 100).toFixed(2),
+    originalPrice: product.originalPriceCents == null ? null : (product.originalPriceCents / 100).toFixed(2),
     stockQuantity: product.stockQuantity,
     active: product.active,
     archivedAt: product.archivedAt?.toISOString() ?? null,
@@ -53,12 +55,13 @@ export function parsePrice(value: string): number {
   return cents
 }
 
-export async function createProduct(userId: string, input: { name: string; category: string; price?: string; stockQuantity?: number }) {
+export async function createProduct(userId: string, input: { name: string; category: string; price?: string; originalPrice?: string; stockQuantity?: number }) {
   try {
     const createInput = {
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
       priceCents: input.price === undefined ? 0 : parsePrice(input.price),
+        ...(input.originalPrice === undefined ? {} : { originalPriceCents: parsePrice(input.originalPrice) }),
       ...(input.stockQuantity === undefined ? {} : { stockQuantity: input.stockQuantity }),
     }
     return { kind: 'created' as const, product: toResponse(await createProductRecord(database, userId, createInput)) }

@@ -66,7 +66,7 @@ describe('product catalog service', () => {
     const updatedAt = new Date('2026-09-30T12:00:00.000Z')
     mocks.restoreArchivedProduct.mockResolvedValue({ kind: 'restored', product: { id: 'product-id', name: 'widget', category: 'hardware', priceCents: 1250, stockQuantity: 3, active: true, archivedAt: null, deletedAt: null, updatedAt } })
 
-    await expect(restoreArchivedProduct('user-a', 'product-id')).resolves.toEqual({ kind: 'restored', product: { id: 'product-id', name: 'widget', category: 'hardware', price: '12.50', stockQuantity: 3, active: true, archivedAt: null, deletedAt: null, updatedAt: updatedAt.toISOString() } })
+    await expect(restoreArchivedProduct('user-a', 'product-id')).resolves.toEqual({ kind: 'restored', product: { id: 'product-id', name: 'widget', category: 'hardware', price: '12.50', originalPrice: null, stockQuantity: 3, active: true, archivedAt: null, deletedAt: null, updatedAt: updatedAt.toISOString() } })
     expect(mocks.restoreArchivedProduct).toHaveBeenCalledWith({}, 'user-a', 'product-id')
   })
 })

@@ -1,7 +1,7 @@
 import type { Product, StockPurchase } from '@prisma/client'
 import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, createPurchases as createPurchasesRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords, setStockQuantity as setStockQuantityRecord } from './data-access.js'
 
-export type StockProductResponse = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
+export type StockProductResponse = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
 export type PurchaseResponse = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
 export type ReportRange = { from: Date; to: Date }
 
@@ -9,8 +9,8 @@ function centsToMoney(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
-function toProductResponse(product: Pick<Product, 'id' | 'name' | 'category' | 'priceCents' | 'stockQuantity' | 'updatedAt'>): StockProductResponse {
-  return { id: product.id, name: product.name, category: product.category, price: ((product.priceCents ?? 0) / 100).toFixed(2), stockQuantity: product.stockQuantity, updatedAt: product.updatedAt.toISOString() }
+function toProductResponse(product: Pick<Product, 'id' | 'name' | 'category' | 'priceCents' | 'originalPriceCents' | 'stockQuantity' | 'updatedAt'>): StockProductResponse {
+  return { id: product.id, name: product.name, category: product.category, price: ((product.priceCents ?? 0) / 100).toFixed(2), originalPrice: product.originalPriceCents == null ? null : (product.originalPriceCents / 100).toFixed(2), stockQuantity: product.stockQuantity, updatedAt: product.updatedAt.toISOString() }
 }
 
 function toPurchaseResponse(purchase: Pick<StockPurchase, 'id' | 'productId' | 'productNameSnapshot' | 'categorySnapshot' | 'quantity' | 'totalCostCents' | 'purchasedAt'>): PurchaseResponse {

@@ -10,7 +10,8 @@ const productSchema = z.object({
   category: z.string().trim().min(1).max(100),
   price: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0 && Number(value) * 100 <= 2147483647),
 })
-const createProductSchema = productSchema.extend({ stockQuantity: z.number().int().nonnegative().max(1_000_000_000).default(0) })
+const originalPriceSchema = z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0 && Number(value) * 100 <= 2147483647)
+const createProductSchema = productSchema.extend({ stockQuantity: z.number().int().nonnegative().max(1_000_000_000).default(0), originalPrice: originalPriceSchema.optional() })
 const updateSchema = productSchema.extend({ updatedAt: z.string().datetime({ offset: true }) })
 const listSchema = z.object({ status: z.enum(['active', 'archived']).default('active') })
 

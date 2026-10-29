@@ -16,7 +16,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) =
 
 type View = 'email' | 'code' | 'signed-in'
 type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'notes' | 'settings' | 'guide' | 'motivation' | 'camellia'
-type Product = { id: string; name: string; category: string; price: string; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
+type Product = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
 const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
@@ -281,7 +281,7 @@ function App() {
         if (!parsedProduct.success) continue
         const response = await productsApi(editing ? `/${editing.id}` : '', {
           method: editing ? 'PUT' : 'POST',
-            body: JSON.stringify(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt } : parsedProduct.data),
+            body: JSON.stringify(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt } : { ...parsedProduct.data, ...(deductInitialStock === true ? { originalPrice: initialOriginalPrice } : {}) }),
         })
         if (!response.ok) {
           const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
@@ -301,9 +301,10 @@ function App() {
             setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
             return
           }
+          const deductionTotal = (Number(parsedOriginalPrice?.data) * parsedProduct.data.stockQuantity).toFixed(2)
           const expenseResponse = await expensesApi('', {
             method: 'POST',
-            body: JSON.stringify({ productId: created.product.id, amount: parsedOriginalPrice?.data, quantity: parsedProduct.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
+            body: JSON.stringify({ productId: created.product.id, amount: deductionTotal, quantity: parsedProduct.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
           })
           if (!expenseResponse.ok) {
             setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
@@ -342,7 +343,7 @@ function App() {
 
   function editStock(product: { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
     setWorkspaceView('stock')
-    setEditing({ ...product, active: true, archivedAt: null, deletedAt: null })
+    setEditing({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })
     setProductName(product.name)
     setCategory(product.category)
     setPrice(product.price)
@@ -434,18 +435,18 @@ function App() {
                     {bulkAddMode ? <textarea id="bulk-stock-names" autoFocus value={bulkProductNames} onChange={(event) => setBulkProductNames(event.target.value)} placeholder={'One stock name per line\nExample: Red shirt\nBlue shirt'} rows={5} aria-describedby={fieldError ? 'stock-product-error' : undefined} /> : <input id="stock-product-name" autoFocus value={productName} onChange={(event) => setProductName(event.target.value)} maxLength={200} aria-describedby={fieldError ? 'stock-product-error' : undefined} />}
                     <label htmlFor="stock-category">Category</label>
                     <input id="stock-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
-                    {!editing && <><label htmlFor="initial-stock">Initial quantity</label>
-                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
-                    <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" name="initial-stock-deduction" type="radio" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" name="initial-stock-deduction" type="radio" checked={deductInitialStock === false} onChange={() => { setDeductInitialStock(false); setInitialOriginalPrice('') }} /> No</label></div></>}
                     {!editing && deductInitialStock === true && <><label htmlFor="initial-original-price">Original price</label><input id="initial-original-price" inputMode="decimal" placeholder="0.00" value={initialOriginalPrice} onChange={(event) => setInitialOriginalPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} /></>}
                     <label htmlFor="stock-price">Unit price</label>
                     <input id="stock-price" inputMode="decimal" placeholder="0.00" value={price} onChange={(event) => setPrice(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} />
+                    {!editing && <><label htmlFor="initial-stock">Initial quantity</label>
+                    <input id="initial-stock" type="number" min="0" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(event.target.value)} aria-describedby={fieldError ? 'stock-product-error' : undefined} /></>}
+                    {!editing && <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-yes"><input id="initial-stock-deduction-yes" name="initial-stock-deduction" type="radio" checked={deductInitialStock === true} onChange={() => setDeductInitialStock(true)} /> Yes</label><label className={styles.checkboxLabel} htmlFor="initial-stock-deduction-no"><input id="initial-stock-deduction-no" name="initial-stock-deduction" type="radio" checked={deductInitialStock === false} onChange={() => { setDeductInitialStock(false); setInitialOriginalPrice('') }} /> No</label></div>}
                     {fieldError && <p id="stock-product-error" className={styles.error} role="alert">{fieldError}</p>}
                     <div className={styles.formActions}><button disabled={loading || (!editing && deductInitialStock === null)} type="submit">{loading ? 'Saving…' : editing ? 'Save changes' : bulkAddMode ? 'Add stocks' : 'Add stock'}</button>{editing && <button className={styles.secondary} type="button" onClick={editStockQuantity}>Edit quantity?</button>}<button className={styles.secondary} type="button" onClick={() => { resetProductForm(); setProductModalOpen(false) }}>Cancel</button></div>
                   </form>
                 </section>
               </div>}
-              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillProduct={quantityEditProduct} prefillRequest={quantityEditRequest} onQuantityEditCancel={() => setQuantityEditProduct(null)} onEdit={editStock} onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })} />
+              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillProduct={quantityEditProduct} prefillRequest={quantityEditRequest} onQuantityEditCancel={() => setQuantityEditProduct(null)} onEdit={editStock} onDelete={(product) => void archive({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'notes' && <NotesPage api={notesApi} />}

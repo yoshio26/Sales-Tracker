@@ -1,0 +1,2 @@
+ALTER TABLE "products" ADD COLUMN "original_price_cents" INTEGER;
+ALTER TABLE "products" ADD CONSTRAINT "products_original_price_cents_check" CHECK ("original_price_cents" IS NULL OR "original_price_cents" > 0);

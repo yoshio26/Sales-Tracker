@@ -30,7 +30,7 @@ describe('stock service', () => {
     mocks.listStock.mockResolvedValue([product])
     mocks.listPurchases.mockResolvedValue([purchase])
 
-    await expect(listStock('user-a')).resolves.toEqual([{ id: 'product-id', name: 'widget', category: 'hardware', price: '6.25', stockQuantity: 4, updatedAt: '2026-10-02T00:00:00.000Z' }])
+    await expect(listStock('user-a')).resolves.toEqual([{ id: 'product-id', name: 'widget', category: 'hardware', price: '6.25', originalPrice: null, stockQuantity: 4, updatedAt: '2026-10-02T00:00:00.000Z' }])
     await expect(listPurchases('user-a')).resolves.toEqual([{ id: 'purchase-id', productId: 'product-id', productName: 'widget', category: 'hardware', quantity: 2, totalCost: '12.50', purchasedAt: '2026-10-02T00:00:00.000Z' }])
     expect(mocks.listStock).toHaveBeenCalledWith({}, 'user-a')
     expect(mocks.listPurchases).toHaveBeenCalledWith({}, 'user-a')

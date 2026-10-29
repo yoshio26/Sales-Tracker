@@ -80,7 +80,7 @@ describe('stock data access', () => {
     tx.product.findFirstOrThrow.mockResolvedValue({ id: 'product-a', name: 'Widget', category: 'Hardware', priceCents: 1_000, stockQuantity: 7, updatedAt: new Date() })
 
     await expect(setStockQuantity(db as never, 'user-a', 'product-a', 7, true, 750)).resolves.toMatchObject({ kind: 'updated' })
-    expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ stockQuantity: 4 }), data: { stockQuantity: 7 } }))
+    expect(tx.product.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ stockQuantity: 4 }), data: { stockQuantity: 7, originalPriceCents: 750 } }))
     expect(tx.expense.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountCents: 2_250, quantity: 3, note: 'Quantity increase deduction' }) })
   })
 
