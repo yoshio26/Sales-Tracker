@@ -599,17 +599,17 @@
 
 @media (max-width: 52rem) {
   .workspaceLayout { display: block; }
-  .sidebar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 5; display: block; height: auto; min-height: 4.5rem; overflow: visible; padding: 0; border-radius: 0; background: var(--on-accent); box-shadow: 0 -0.5rem 1.5rem rgba(44, 17, 34, 0.12); }
+  .sidebar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 5; display: block; height: auto; min-height: 4.5rem; overflow: visible; padding: 0; border-radius: 0; background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%); box-shadow: 0 -0.5rem 1.5rem rgba(44, 17, 34, 0.12); }
   .brand, .sidebarNav, .sidebarUserCard { display: none; }
   .mobileBottomNav { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; min-height: 4.5rem; padding: 0.35rem 0.35rem calc(0.35rem + env(safe-area-inset-bottom)); }
-  .mobileNavButton { display: flex !important; position: static !important; z-index: auto !important; align-items: center; justify-content: center; gap: 0.2rem; min-width: 0; min-height: 3.8rem; margin: 0 !important; padding: 0.35rem 0.15rem !important; border: 0 !important; border-radius: 0.55rem !important; background: transparent !important; color: #7a6170 !important; box-shadow: none !important; font-size: 0.68rem !important; font-weight: 800; text-align: center; transition: background 180ms ease, color 180ms ease; }
+  .mobileNavButton { display: flex !important; position: static !important; z-index: auto !important; align-items: center; justify-content: center; gap: 0.2rem; min-width: 0; min-height: 3.8rem; margin: 0 !important; padding: 0.35rem 0.15rem !important; border: 0 !important; border-radius: 0.55rem !important; background: transparent !important; color: rgba(255,255,255,0.88) !important; box-shadow: none !important; font-size: 0.68rem !important; font-weight: 800; text-align: center; transition: background 180ms ease, color 180ms ease; }
   .mobileNavButton::before { display: none !important; }
   .mobileNavButton .navIcon { width: 1.25rem; height: 1.25rem; }
-  .mobileNavButtonActive, .mobileNavButtonActive:hover:not(:disabled) { background: var(--accent-soft) !important; color: var(--accent) !important; transform: none !important; box-shadow: none !important; }
-  .mobileMoreMenu { position: absolute; right: 0.35rem; bottom: calc(100% + 0.5rem); display: grid; width: min(13rem, calc(100vw - 1rem)); padding: 0.4rem; border: 1px solid var(--accent-soft); border-radius: 0.75rem; background: var(--on-accent); box-shadow: 0 0.8rem 2rem rgba(44, 17, 34, 0.18); }
-  .mobileMoreMenu button { display: flex !important; align-items: center; gap: 0.65rem; width: 100%; min-height: 2.7rem; margin: 0 !important; padding: 0.6rem 0.75rem !important; border: 0 !important; border-radius: 0.45rem !important; background: transparent !important; color: #5c5360 !important; box-shadow: none !important; font-size: 0.82rem !important; text-align: left; }
+  .mobileNavButtonActive, .mobileNavButtonActive:hover:not(:disabled) { background: var(--on-accent) !important; color: var(--accent) !important; transform: none !important; box-shadow: none !important; }
+  .mobileMoreMenu { position: absolute; right: 0.35rem; bottom: calc(100% + 0.5rem); display: grid; width: min(13rem, calc(100vw - 1rem)); padding: 0.4rem; border: 1px solid rgba(255,255,255,0.22); border-radius: 0.75rem; background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%); box-shadow: 0 0.8rem 2rem rgba(44, 17, 34, 0.18); }
+  .mobileMoreMenu button { display: flex !important; align-items: center; gap: 0.65rem; width: 100%; min-height: 2.7rem; margin: 0 !important; padding: 0.6rem 0.75rem !important; border: 0 !important; border-radius: 0.45rem !important; background: transparent !important; color: rgba(255,255,255,0.88) !important; box-shadow: none !important; font-size: 0.82rem !important; text-align: left; }
   .mobileMoreMenu button::before { display: none !important; }
-  .mobileMoreMenu button:hover, .mobileMoreMenu button:focus-visible, .mobileMoreItemActive { background: var(--accent-soft) !important; color: var(--accent) !important; box-shadow: none !important; transform: none !important; }
+  .mobileMoreMenu button:hover, .mobileMoreMenu button:focus-visible, .mobileMoreItemActive { background: var(--on-accent) !important; color: var(--accent) !important; box-shadow: none !important; transform: none !important; }
   .workspaceMain { height: calc(100vh - 4.5rem - env(safe-area-inset-bottom)); max-height: calc(100vh - 4.5rem - env(safe-area-inset-bottom)); padding: 1rem 1rem calc(1rem + 4.5rem + env(safe-area-inset-bottom)); }
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
   .headerActions { width: 100%; justify-content: space-between; }
@@ -627,4 +627,489 @@
   .selectionToolbar button { width: 100%; }
   .productItem { align-items: flex-start; }
   .productItem .itemActions { align-items: flex-end; flex-direction: column; }
+}
+
+@media (max-width: 32rem) {
+  .shell,
+  .appFrame,
+  .workspaceMain,
+  .workspace,
+  .dashboard,
+  .stockView,
+  .settingsView,
+  .guidePage,
+  .notesPage,
+  .motivationPage {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shell,
+  .appFrame,
+  .workspaceMain {
+    overflow-x: hidden;
+  }
+
+  .appFrame {
+    height: calc(100vh - env(safe-area-inset-bottom));
+    height: calc(100dvh - env(safe-area-inset-bottom));
+    max-height: none;
+  }
+
+  .workspaceMain {
+    height: calc(100vh - 4.5rem - env(safe-area-inset-bottom));
+    height: calc(100dvh - 4.5rem - env(safe-area-inset-bottom));
+    max-height: none;
+    padding: 1rem 1rem calc(1rem + 4.5rem + env(safe-area-inset-bottom));
+  }
+
+  .card {
+    width: 100%;
+    padding: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .card h1,
+  .workspaceHeader h1 {
+    font-size: clamp(1.75rem, 9vw, 2.35rem);
+    overflow-wrap: anywhere;
+  }
+
+  .card form,
+  .productForm,
+  .settingsCard,
+  .guideWelcome,
+  .guideCard,
+  .guideMessage,
+  .guideWarning,
+  .reportExport,
+  .stockConfirmation {
+    gap: 0.75rem;
+  }
+
+  .card button,
+  .card input,
+  .card select,
+  .card textarea,
+  .mobileMoreMenu button {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  .headerActions,
+  .workspaceHeader,
+  .notesIntro,
+  .cartHeader,
+  .profitHistoryControls,
+  .stockNameHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerActions,
+  .notesIntro button,
+  .cartHeader > strong {
+    width: 100%;
+  }
+
+  .headerActions {
+    gap: 0.75rem;
+  }
+
+  .headerActions button,
+  .notesIntro button,
+  .formActions button,
+  .tabs button,
+  .settingsTabs button,
+  .workspaceNav button {
+    min-height: 2.75rem;
+  }
+
+  .workspaceNav,
+  .tabs,
+  .settingsTabs,
+  .dashboardTabs {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    scrollbar-width: thin;
+  }
+
+  .workspaceNav button,
+  .tabs button,
+  .settingsTabs button,
+  .dashboardTabs button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .dashboard,
+  .stockView {
+    gap: 0.75rem;
+    padding-top: 1rem;
+  }
+
+  .summaryCards,
+  .chartGrid,
+  .dangerPanel,
+  .stockFilters,
+  .filters,
+  .notesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryCards,
+  .chartGrid,
+  .notesGrid {
+    gap: 0.75rem;
+  }
+
+  .summaryCard,
+  .chartCard,
+  .settingsCard,
+  .guideWelcome,
+  .guideCard,
+  .guideMessage,
+  .guideWarning,
+  .reportExport,
+  .productForm,
+  .cart,
+  .profitHistory {
+    padding: 0.85rem;
+  }
+
+  .summaryCard strong {
+    font-size: 1.5rem;
+  }
+
+  .chart,
+  .skeletonChart {
+    height: 12rem;
+  }
+
+  .reportExportControls,
+  .reportExportControls label,
+  .reportExportControls input,
+  .reportExportControls button {
+    width: 100%;
+  }
+
+  .reportExportControls {
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .reportExportControls input,
+  .reportDownload {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .stockSearch,
+  .stockFilters .stockSearch {
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .stockFilters {
+    gap: 0.5rem;
+  }
+
+  .stockTableScroll {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .stockTable {
+    display: block;
+    min-width: 0;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  .stockTable thead {
+    display: none;
+  }
+
+  .stockTable tbody,
+  .stockTable tr,
+  .stockTable th,
+  .stockTable td {
+    display: block;
+    width: auto !important;
+  }
+
+  .stockTable tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .stockTable tbody tr {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.85rem;
+    border: 1px solid var(--accent-soft);
+    border-radius: 0.65rem;
+    background: #fff;
+    box-shadow: 0 0.45rem 1rem rgba(44, 17, 34, 0.04);
+  }
+
+  .stockTable tbody th,
+  .stockTable tbody td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+    white-space: normal !important;
+  }
+
+  .stockTable tbody th {
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--accent-soft);
+    color: #20202a;
+    font-size: 1rem;
+  }
+
+  .stockTable tbody td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.15rem;
+    color: #92909a;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .stockQuantityCell {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .stockStatusChip {
+    margin-top: 0.1rem;
+  }
+
+  .stockTableActions {
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  .iconButton {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .dashboardTablePagination,
+  .stockTableToolbar,
+  .historyToolbar,
+  .selectionToolbar,
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .stockTableToolbar select,
+  .historyToolbar select,
+  .dashboardTablePagination .pagination,
+  .dashboardTablePagination .pagination button,
+  .pagination button {
+    min-height: 2.75rem;
+  }
+
+  .dashboardTablePagination .pagination,
+  .stockPagination {
+    width: 100%;
+  }
+
+  .dashboardStockPagination {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .dashboardStockPagination button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .productPickerButton,
+  .productPickerOption {
+    min-height: 2.75rem;
+  }
+
+  .productPickerButton,
+  .productPickerOption,
+  .pickerMeta {
+    overflow-wrap: anywhere;
+  }
+
+  .productPickerButton {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .pickerMeta {
+    flex-basis: 100%;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .productPickerMenu {
+    max-height: min(22rem, 60vh);
+  }
+
+  .productPickerOptions {
+    max-height: min(16rem, 42vh);
+  }
+
+  .deductionChoice,
+  .formActions,
+  .itemActions,
+  .stockActions,
+  .colorThemeOptions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .checkboxLabel,
+  .selectAllLabel {
+    min-height: 2.75rem;
+  }
+
+  .cartItem,
+  .productItem,
+  .profitHistoryItem {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .cartItemControls,
+  .productItem .itemActions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cartItemControls input,
+  .cartItemControls button,
+  .productItem .itemActions button,
+  .stockProductDetails,
+  .stockMeta {
+    width: 100%;
+  }
+
+  .stockProductDetails,
+  .stockMeta {
+    justify-items: stretch;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .modalBackdrop {
+    align-items: start;
+    overflow-y: auto;
+    padding: max(1rem, env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .modal,
+  .stockErrorModal {
+    width: 100%;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: 1rem;
+  }
+
+  .modal .formActions,
+  .stockErrorModal .formActions {
+    justify-content: stretch;
+  }
+
+  .modal .formActions button,
+  .stockErrorModal .formActions button {
+    width: 100%;
+  }
+
+  .notesGrid {
+    grid-auto-rows: auto;
+  }
+
+  .stickyNote {
+    min-height: 11rem;
+    padding: 0.85rem;
+  }
+
+  .stickyNote textarea {
+    min-height: 7rem;
+  }
+
+  .motivationPage {
+    padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .motivationCard {
+    padding: 1.25rem;
+  }
+
+  .motivationLetter {
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  .guideDetails summary,
+  .guideFaq summary {
+    padding: 0.85rem;
+  }
+
+  .guideDetailsBody,
+  .guideFaq p {
+    padding-right: 0.85rem;
+    padding-left: 0.85rem;
+  }
+
+  .appFrame button,
+  .appFrame input,
+  .appFrame select,
+  .appFrame textarea {
+    font-size: 1rem;
+  }
+
+  .appFrame button:not(.mobileNavButton):not(.mobileMoreMenu button) {
+    min-height: 2.75rem;
+  }
+
+  .mobileMoreMenu button {
+    min-height: 2.75rem;
+  }
+
+  .appFrame input,
+  .appFrame select,
+  .appFrame textarea {
+    min-height: 2.75rem;
+  }
+
+  .appFrame input[type='checkbox'],
+  .appFrame input[type='radio'] {
+    min-height: 1.25rem;
+  }
+
+  .darkMode .stockTable tbody tr {
+    border-color: #493542;
+    background: #211a23;
+    box-shadow: 0 0.45rem 1rem rgba(0, 0, 0, 0.18);
+  }
+
+  .darkMode .stockTable tbody th {
+    color: #fff7fb;
+    border-color: #493542;
+  }
 }

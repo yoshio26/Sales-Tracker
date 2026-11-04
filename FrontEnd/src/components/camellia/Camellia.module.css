@@ -14,3 +14,54 @@
 @media (max-width: 48rem) { .card { grid-template-columns: 1fr; gap: 2rem; } .imagePanel { min-height: 18rem; } .copy { text-align: center; } .backLink { justify-self: center; } }
 .darkMode .card { border-color: #493542; background: #211a23; box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.22); }
 .darkMode .paragraph { color: #c5afbd; }
+
+@media (max-width: 32rem) {
+	.page {
+		min-height: calc(100vh - 5.5rem);
+		min-height: calc(100dvh - 5.5rem);
+		padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom));
+	}
+
+	.card {
+		grid-template-columns: 1fr;
+		gap: 1.25rem;
+		width: 100%;
+		padding: 1.25rem;
+		border-radius: 0.75rem;
+	}
+
+	.imagePanel {
+		min-height: 12rem;
+	}
+
+	.imagePanel::before {
+		width: 78%;
+		height: 76%;
+		transform: translate(-0.75rem, 1rem) rotate(-8deg);
+	}
+
+	.image {
+		width: min(72vw, 15rem);
+	}
+
+	.copy {
+		gap: 0.85rem;
+		text-align: center;
+	}
+
+	.title {
+		font-size: clamp(2.35rem, 16vw, 3.5rem);
+	}
+
+	.paragraph {
+		font-size: 1rem;
+		line-height: 1.65;
+		overflow-wrap: anywhere;
+	}
+
+	.backLink {
+		justify-self: center;
+		min-height: 2.75rem;
+		padding: 0.75rem 0;
+	}
+}
