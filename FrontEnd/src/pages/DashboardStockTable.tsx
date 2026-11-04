@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import styles from '../App.module.css'
+import { useToast } from '../components/Toast/ToastProvider'
+import { StockStatusChip } from '../components/StockStatus/StockStatusChip'
 
 export type DashboardStockProduct = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
 const stockResponseSchema = z.object({ products: z.array(z.object({ id: z.uuid(), name: z.string(), category: z.string(), price: z.string(), originalPrice: z.string().nullable(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
@@ -9,6 +11,7 @@ type Props = {
   refreshKey?: number
   onEdit: (product: DashboardStockProduct) => void
   onDelete: (product: DashboardStockProduct) => void
+  onAddStock: () => void
 }
 
 const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ productId: z.uuid(), quantity: z.number().int().positive() })) })
@@ -25,7 +28,9 @@ function DeleteIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg>
 }
 
-export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props) {
+export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddStock }: Props) {
+  const toast = useToast()
+  const loadGeneration = useRef(0)
   const [products, setProducts] = useState<DashboardStockProduct[]>([])
   const [soldByProduct, setSoldByProduct] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
@@ -36,6 +41,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
   const [categoryFilter, setCategoryFilter] = useState('')
 
   async function load() {
+    const generation = loadGeneration.current
     setLoading(true)
     setError('')
     try {
@@ -55,6 +61,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
       setSoldByProduct(sold)
     } catch {
       setError('Unable to load available stock. Try again.')
+      if (generation === loadGeneration.current) toast.error('Unable to load available stock. Try again.')
     } finally {
       setLoading(false)
     }
@@ -62,6 +69,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
 
   useEffect(() => {
     void load()
+    return () => { loadGeneration.current += 1 }
   }, [refreshKey])
 
   const categories = [...new Set(products.map((product) => product.category))].sort((first, second) => first.localeCompare(second))
@@ -75,7 +83,12 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
   return <section className={styles.stockTableSection} aria-labelledby="available-stock-heading">
     <div><h2 id="available-stock-heading">Available stock</h2><p>Review inventory and manage each stock item from the dashboard.</p><div className={styles.stockFilters}><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-stock-search">Search Product</label><input id="dashboard-stock-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPage(1) }} /></div><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-category-filter">Filter Category</label><select id="dashboard-category-filter" value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1) }}><option value="">All categories</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></div></div></div>
     {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={() => void load()}>Retry</button></p>}
-    {loading ? <p role="status" aria-live="polite">Loading available stock…</p> : products.length === 0 ? <p className={styles.empty}>No active stock is available.</p> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match the selected filters.</p> : <>
+    {loading ? <p role="status" aria-live="polite">Loading available stock…</p> : products.length === 0 ? <div className={styles.stockEmptyState} role="status">
+      <span className={styles.stockEmptyIcon} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8.5 12 4l8 4.5v9L12 21l-8-3.5v-9Z" /><path d="m4 8.5 8 4.5 8-4.5M12 13v8" /></svg></span>
+      <h3>No stock yet</h3>
+      <p>Add your first product to start tracking inventory.</p>
+      <button type="button" onClick={onAddStock}>Add your first stock</button>
+    </div> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match the selected filters.</p> : <>
       <div className={styles.stockTableScroll}>
         <table className={styles.stockTable}>
           <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
@@ -83,7 +96,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete }: Props)
           <tbody>{visibleProducts.map((product) => <tr key={product.id}>
             <th scope="row"><span className={styles.stockTableName}>{product.name}</span></th>
             <td data-label="Category">{product.category}</td>
-            <td data-label="Stocks">{product.stockQuantity}</td>
+            <td data-label="Stocks"><div className={styles.stockQuantityCell}><span>{product.stockQuantity}</span><StockStatusChip quantity={product.stockQuantity} /></div></td>
             <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>
             <td data-label="Original Price">{product.originalPrice === null ? '—' : `₱${formatPrice(product.originalPrice)}`}</td>
             <td data-label="Updated Price">₱{formatPrice(product.price)}</td>

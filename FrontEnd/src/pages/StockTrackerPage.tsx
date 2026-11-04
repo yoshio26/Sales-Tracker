@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { z } from 'zod'
 import styles from '../App.module.css'
+import { useToast } from '../components/Toast/ToastProvider'
+import { StockStatusChip } from '../components/StockStatus/StockStatusChip'
 
 export type StockProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
 type PurchaseRecord = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
@@ -21,6 +23,8 @@ function formatPrice(price: string): string {
 type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number; prefillProduct?: StockProduct | null; prefillRequest?: number; onQuantityEditCancel?: () => void; onEdit?: (product: StockProduct) => void; onDelete?: (product: StockProduct) => void; onReviewStock?: () => void }
 
 export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProduct = null, prefillRequest = 0, onQuantityEditCancel, onEdit, onDelete, onReviewStock }: Props) {
+  const toast = useToast()
+  const loadGeneration = useRef(0)
   const [products, setProducts] = useState<StockProduct[]>([])
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([])
   const [productId, setProductId] = useState('')
@@ -49,6 +53,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
   const [pendingQuantity, setPendingQuantity] = useState<number | null>(null)
 
   async function load() {
+    const generation = loadGeneration.current
     setLoading(true)
     setError('')
     try {
@@ -56,22 +61,24 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       if (!response.ok) throw new Error('Unable to load stock.')
       setProducts(stockResponseSchema.parse(await response.json()).products)
       setStockPage(1)
-    } catch { setError('Unable to load stock. Try again.') } finally { setLoading(false) }
+    } catch { setError('Unable to load stock. Try again.'); if (generation === loadGeneration.current) toast.error('Unable to load stock. Try again.') } finally { setLoading(false) }
   }
 
   async function loadPurchases() {
+    const generation = loadGeneration.current
     setPurchaseLoading(true)
     try {
       const response = await fetch('/api/stock/purchases', { credentials: 'include' })
       if (!response.ok) throw new Error('Unable to load bought history.')
       setPurchases(purchaseResponseSchema.parse(await response.json()).purchases)
       setPurchasePage(1)
-    } catch { setError('Unable to load bought history. Try again.') } finally { setPurchaseLoading(false) }
+    } catch { setError('Unable to load bought history. Try again.'); if (generation === loadGeneration.current) toast.error('Unable to load bought history. Try again.') } finally { setPurchaseLoading(false) }
   }
 
   useEffect(() => {
     void load()
     if (mode === 'buy') void loadPurchases()
+    return () => { loadGeneration.current += 1 }
   }, [refreshKey, mode])
 
   useEffect(() => {
@@ -140,9 +147,11 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       if (!response.ok) {
         if (body?.error?.code === 'INSUFFICIENT_STOCK') {
           setInsufficientStockOpen(true)
+          toast.error(body?.error?.message ?? 'Not enough stock. Review your available stock before trying again.')
           return
         }
         setError(body?.error?.message ?? 'Unable to save stock changes.')
+        toast.error(body?.error?.message ?? 'Unable to save stock changes.')
         return
       }
       setQuantity('1')
@@ -152,9 +161,10 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       setQuantityDeductionChoice(null)
       setQuantityOriginalPrice('')
       setNotice(quantityEditMode ? 'Stock quantity updated.' : 'Stock replenished.')
+      toast.success(quantityEditMode ? 'Stock quantity updated.' : 'Stock replenished.')
       await load()
       onChanged()
-    } catch { setError('Unable to contact the stock service. Try again.') } finally { setLoading(false) }
+    } catch { setError('Unable to contact the stock service. Try again.'); toast.error('Unable to contact the stock service. Try again.') } finally { setLoading(false) }
   }
 
   async function checkout() {
@@ -168,14 +178,16 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       if (!response.ok) {
         if (body?.error?.code === 'INSUFFICIENT_STOCK') setInsufficientStockOpen(true)
         else setError(body?.error?.message ?? 'Unable to complete checkout.')
+        toast.error(body?.error?.message ?? (body?.error?.code === 'INSUFFICIENT_STOCK' ? 'Not enough stock. Review your available stock before trying again.' : 'Unable to complete checkout.'))
         return
       }
       setCart([])
       setNotice('Checkout complete. Stock updated.')
+      toast.success('Checkout complete. Stock updated.')
       await load()
       await loadPurchases()
       onChanged()
-    } catch { setError('Unable to contact the checkout service. Try again.') } finally { setCheckoutLoading(false) }
+    } catch { setError('Unable to contact the checkout service. Try again.'); toast.error('Unable to contact the checkout service. Try again.') } finally { setCheckoutLoading(false) }
   }
 
   const selectedProduct = products.find((product) => product.id === productId)
@@ -358,7 +370,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     </> : loading && products.length === 0 ? <p role="status">Loading stock…</p> : products.length === 0 ? <p className={styles.empty}>No active products are available. Add a product first.</p> : <>
       <div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="stock-product-search">Search Product</label><input id="stock-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setStockPage(1) }} /></div>
       {filteredProducts.length === 0 ? <p className={styles.empty}>No products match “{searchQuery}”.</p> : <><div className={styles.stockListScroll}>
-        <ul className={styles.productList} aria-label="Available stock">{visibleProducts.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category}</span></div><div className={styles.stockProductDetails}><div className={styles.stockMeta}><span>Stock: {product.stockQuantity}</span><span>Price: ₱{formatPrice(product.price)}</span></div>{onEdit && onDelete && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></div>}</div></li>)}</ul>
+        <ul className={styles.productList} aria-label="Available stock">{visibleProducts.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category}</span></div><div className={styles.stockProductDetails}><div className={styles.stockMeta}><span>Stock: {product.stockQuantity}</span><StockStatusChip quantity={product.stockQuantity} /><span>Price: ₱{formatPrice(product.price)}</span></div>{onEdit && onDelete && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></div>}</div></li>)}</ul>
       </div>
       <div className={styles.dashboardTablePagination}>
         <div className={styles.historyToolbar}>

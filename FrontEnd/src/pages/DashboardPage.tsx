@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useState, type ReactNode } from 'react'
 import styles from '../App.module.css'
+import { useToast } from '../components/Toast/ToastProvider'
 import { currentReportMonth, downloadReportFiles } from '../utils/reportExport.js'
 
 export type DashboardPoint = { label: string; amount: string }
@@ -17,7 +18,18 @@ type DashboardPageProps = {
   children?: ReactNode
 }
 
+function DashboardSkeleton({ mode }: { mode: 'overview' | 'reports' }) {
+  return <div className={styles.dashboardSkeleton} role="status" aria-label="Loading dashboard">
+    {mode === 'overview' ? <div className={styles.summaryCards} aria-hidden="true">
+      {[1, 2, 3, 4].map((card) => <article className={styles.summaryCard} key={card}><span className={styles.skeletonLine} /><strong className={`${styles.skeletonLine} ${styles.skeletonValue}`} /><small className={styles.skeletonLine} /></article>)}
+    </div> : <div className={styles.chartGrid} aria-hidden="true">
+      {[1, 2, 3, 4].map((card) => <article className={styles.chartCard} key={card}><span className={`${styles.skeletonLine} ${styles.skeletonHeading}`} /><span className={`${styles.skeletonLine} ${styles.skeletonSummary}`} /><div className={styles.skeletonChart} /></article>)}
+    </div>}
+  </div>
+}
+
 export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'overview', children }: DashboardPageProps) {
+  const toast = useToast()
   const [reportMonth, setReportMonth] = useState(currentReportMonth)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportDownloadComplete, setReportDownloadComplete] = useState(false)
@@ -32,6 +44,7 @@ export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'over
       window.setTimeout(() => setReportDownloadComplete(false), 3500)
     } catch {
       setReportError('Unable to export the report. Try again.')
+      toast.error('Unable to export the report. Try again.')
     } finally {
       setReportLoading(false)
     }
@@ -41,7 +54,7 @@ export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'over
     <section className={styles.dashboard} aria-labelledby="dashboard-heading">
       <div><h2 id="dashboard-heading">{mode === 'reports' ? 'Earnings reports' : 'Earnings dashboard'}</h2><p>{mode === 'reports' ? 'Review spending trends and category reports.' : 'Track total earnings, costs, profit, and available stock.'}</p></div>
       {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={onRetry}>Retry</button></p>}
-      {loading ? <p role="status" aria-live="polite">Loading dashboard…</p> : dashboard && <>
+      {loading ? <DashboardSkeleton mode={mode} /> : dashboard && <>
         {mode === 'overview' && <div className={styles.summaryCards} aria-label="Spending totals">
           <article className={styles.summaryCard}><span>Total Earnings</span><strong>₱{dashboard.totalEarnings}</strong></article>
           <article className={styles.summaryCard}><span>Profit</span><strong>₱{dashboard.profit}</strong></article>

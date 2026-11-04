@@ -1,5 +1,7 @@
 :root {
   font-family: 'DM Sans', system-ui, sans-serif;
+  --surface: #ffffff;
+  --border: #dce4ef;
   --accent: #f51f80;
   --accent-hover: #d8176c;
   --accent-soft: rgba(245, 31, 128, 0.12);

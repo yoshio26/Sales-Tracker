@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import styles from '../App.module.css'
+import { useToast } from '../components/Toast/ToastProvider'
 
 type Note = { id: string; content: string; createdAt: string; updatedAt: string }
 
 type NotesPageProps = { api: (path: string, options?: RequestInit) => Promise<Response> }
 
 export function NotesPage({ api }: NotesPageProps) {
+  const toast = useToast()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
@@ -13,12 +15,14 @@ export function NotesPage({ api }: NotesPageProps) {
   const newNoteRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
+    let active = true
     void api('').then(async (response) => {
       if (!response.ok) throw new Error('Unable to load notes.')
       const data = await response.json() as { notes: Note[] }
       setNotes(data.notes)
-    }).catch(() => setError('Unable to load your notes. Try again.')).finally(() => setLoading(false))
-  }, [api])
+    }).catch(() => { setError('Unable to load your notes. Try again.'); if (active) toast.error('Unable to load your notes. Try again.') }).finally(() => setLoading(false))
+    return () => { active = false }
+  }, [api, toast])
 
   async function addNote() {
     setError('')
@@ -31,6 +35,7 @@ export function NotesPage({ api }: NotesPageProps) {
       window.setTimeout(() => newNoteRef.current?.focus(), 0)
     } catch {
       setError('Unable to add a note. Try again.')
+      toast.error('Unable to add a note. Try again.')
     } finally {
       setSaving(null)
     }
@@ -46,6 +51,7 @@ export function NotesPage({ api }: NotesPageProps) {
       setNotes((current) => current.map((item) => item.id === note.id ? data.note : item))
     } catch {
       setError('Unable to save that note. Try again.')
+      toast.error('Unable to save that note. Try again.')
     } finally {
       setSaving(null)
     }
@@ -53,9 +59,14 @@ export function NotesPage({ api }: NotesPageProps) {
 
   async function removeNote(id: string) {
     setError('')
-    const response = await api(`/${id}`, { method: 'DELETE' })
+    const response = await api(`/${id}`, { method: 'DELETE' }).catch((caught) => {
+      setError('Unable to delete that note. Try again.')
+      toast.error('Unable to delete that note. Try again.')
+      throw caught
+    })
     if (!response.ok) {
       setError('Unable to delete that note. Try again.')
+      toast.error('Unable to delete that note. Try again.')
       return
     }
     setNotes((current) => current.filter((note) => note.id !== id))

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import styles from '../App.module.css'
+import { useToast } from '../components/Toast/ToastProvider'
 import { PurchaseHistoryPage } from './PurchaseHistoryPage'
 
 type ArchivedProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; archivedAt: string | null; deletedAt: string | null }
@@ -19,6 +20,7 @@ const colorThemes: Array<{ name: ColorTheme; label: string; color: string }> = [
 type Props = { onStockDeleted: () => Promise<void>; onHistoryChanged: () => Promise<void>; onProfitChanged: () => Promise<void>; archivedProducts: ArchivedProduct[] }
 
 export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged, archivedProducts }: Props) {
+  const toast = useToast()
   const [section, setSection] = useState<SettingsSection>('archive')
   const [stockLoading, setStockLoading] = useState(false)
   const [stockError, setStockError] = useState('')
@@ -51,14 +53,16 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
 
   useEffect(() => {
     if (section !== 'settings') return
+    let active = true
     setProfitError('')
     void fetch('/api/profit-adjustment', { credentials: 'include' }).then(async (response) => {
       if (!response.ok) throw new Error()
       const body = await response.json() as { adjustments: ProfitAdjustment[] }
       setProfitAdjustments(body.adjustments)
       setSelectedProfitAdjustmentIds(new Set())
-    }).catch(() => setProfitError('Unable to load the profit adjustment. Try again.'))
-  }, [section])
+    }).catch(() => { setProfitError('Unable to load the profit adjustment. Try again.'); if (active) toast.error('Unable to load the profit adjustment. Try again.') })
+    return () => { active = false }
+  }, [section, toast])
 
   useEffect(() => {
     setSelectedArchivedProductIds((current) => new Set([...current].filter((id) => archivedProducts.some((product) => product.id === id))))
@@ -115,12 +119,15 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
       if (!response.ok) {
         setStockError(body?.error?.message ?? 'Unable to permanently delete the archived product.')
+        toast.error(body?.error?.message ?? 'Unable to permanently delete the archived product.')
         return
       }
       await onStockDeleted()
       setStockNotice(`${product.name} and its history were permanently deleted.`)
+      toast.success(`${product.name} and its history were permanently deleted.`)
     } catch {
       setStockError('Unable to contact the product service. Try again.')
+      toast.error('Unable to contact the product service. Try again.')
     }
   }
 
@@ -162,8 +169,13 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
         await onStockDeleted()
         setSelectedArchivedProductIds((current) => new Set([...current].filter((id) => !removedIds.includes(id))))
       }
-      if (failures.length > 0) setStockError(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
-      else if (removedIds.length > 0) setStockNotice(`${removedIds.length} archived product${removedIds.length === 1 ? '' : 's'} permanently deleted.`)
+      if (failures.length > 0) {
+        setStockError(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
+        toast.error(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
+      } else if (removedIds.length > 0) {
+        setStockNotice(`${removedIds.length} archived product${removedIds.length === 1 ? '' : 's'} permanently deleted.`)
+        toast.success(`${removedIds.length} archived product${removedIds.length === 1 ? '' : 's'} permanently deleted.`)
+      }
     } finally {
       setArchiveLoading(false)
     }
@@ -177,12 +189,15 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
       if (!response.ok) {
         setStockError(body?.error?.message ?? 'Unable to restore the archived product.')
+        toast.error(body?.error?.message ?? 'Unable to restore the archived product.')
         return
       }
       await onStockDeleted()
       setStockNotice(`${product.name} was restored to active stocks.`)
+      toast.success(`${product.name} was restored to active stocks.`)
     } catch {
       setStockError('Unable to contact the product service. Try again.')
+      toast.error('Unable to contact the product service. Try again.')
     }
   }
 
@@ -217,12 +232,15 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       const body = await response.json().catch(() => undefined) as { deleted?: number; error?: { message?: string } } | undefined
       if (!response.ok) {
         setStockError(body?.error?.message ?? 'Unable to delete stocks. Try again.')
+        toast.error(body?.error?.message ?? 'Unable to delete stocks. Try again.')
         return
       }
       await onStockDeleted()
       setStockNotice(`${body?.deleted ?? 0} stock record${body?.deleted === 1 ? '' : 's'} deleted.`)
+      toast.success(`${body?.deleted ?? 0} stock record${body?.deleted === 1 ? '' : 's'} deleted.`)
     } catch {
       setStockError('Unable to contact the stock service. Try again.')
+      toast.error('Unable to contact the stock service. Try again.')
     } finally {
       setStockLoading(false)
     }
@@ -238,6 +256,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       const body = await response.json().catch(() => undefined) as { adjustment?: ProfitAdjustment; error?: { message?: string } } | undefined
       if (!response.ok) {
         setProfitError(body?.error?.message ?? 'Unable to save the profit adjustment.')
+        toast.error(body?.error?.message ?? 'Unable to save the profit adjustment.')
         return
       }
       if (body?.adjustment) setProfitAdjustments((current) => [body.adjustment!, ...current])
@@ -247,6 +266,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       await onProfitChanged()
     } catch {
       setProfitError('Unable to contact the profit service. Try again.')
+      toast.error('Unable to contact the profit service. Try again.')
     } finally {
       setProfitLoading(false)
     }
@@ -261,6 +281,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
         setProfitError(body?.error?.message ?? 'Unable to remove the profit adjustment.')
+        toast.error(body?.error?.message ?? 'Unable to remove the profit adjustment.')
         return
       }
       setProfitAdjustments((current) => current.filter((adjustment) => adjustment.id !== id))
@@ -273,6 +294,7 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
       await onProfitChanged()
     } catch {
       setProfitError('Unable to contact the profit service. Try again.')
+      toast.error('Unable to contact the profit service. Try again.')
     } finally {
       setProfitLoading(false)
     }
@@ -327,10 +349,12 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
           await onProfitChanged()
         } catch {
           setProfitError('Adjustments were removed, but the dashboard could not be refreshed.')
+          toast.error('Adjustments were removed, but the dashboard could not be refreshed.')
         }
       }
       if (failures.length > 0) {
         setProfitError(`${removedIds.length} removed; ${failures.length} could not be removed. ${failures[0]?.message ?? ''}`.trim())
+        toast.error(`${removedIds.length} removed; ${failures.length} could not be removed. ${failures[0]?.message ?? ''}`.trim())
       } else if (removedIds.length > 0) {
         setProfitNotice(`${removedIds.length} profit adjustment${removedIds.length === 1 ? '' : 's'} removed.`)
       }

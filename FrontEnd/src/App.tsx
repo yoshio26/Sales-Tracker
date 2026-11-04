@@ -11,6 +11,7 @@ import { NotesPage } from './pages/NotesPage'
 import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StockTrackerPage } from './pages/StockTrackerPage'
+import { ToastViewport, useToast } from './components/Toast/ToastProvider'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
@@ -80,6 +81,7 @@ function NavIcon({ name }: { name: WorkspaceView | 'settings' }) {
 }
 
 function App() {
+  const toast = useToast()
   const [view, setView] = useState<View>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -103,9 +105,11 @@ function App() {
   const [stockRefreshKey, setStockRefreshKey] = useState(0)
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [productModalOpen, setProductModalOpen] = useState(false)
+  const [archiveConfirmationProduct, setArchiveConfirmationProduct] = useState<Product | null>(null)
   const [quantityEditProduct, setQuantityEditProduct] = useState<Product | null>(null)
   const [quantityEditRequest, setQuantityEditRequest] = useState(0)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const [dashboardSection, setDashboardSection] = useState<'overview' | 'reports'>('overview')
   const [darkMode, setDarkMode] = useState(() => {
     try {
@@ -115,6 +119,7 @@ function App() {
     }
   })
   const dashboardRequestId = useRef(0)
+  const archiveCancelRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     try {
@@ -125,12 +130,42 @@ function App() {
   }, [darkMode])
 
   useEffect(() => {
+    if (!archiveConfirmationProduct) return
+    archiveCancelRef.current?.focus()
+
+    function handleArchiveDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setArchiveConfirmationProduct(null)
+        return
+      }
+      if (event.key !== 'Tab') return
+      const dialog = document.querySelector<HTMLElement>('[data-archive-confirmation]')
+      const focusable = dialog ? [...dialog.querySelectorAll<HTMLElement>('button:not([disabled])')] : []
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleArchiveDialogKeyDown)
+    return () => document.removeEventListener('keydown', handleArchiveDialogKeyDown)
+  }, [archiveConfirmationProduct])
+
+  useEffect(() => {
     void authApi('session')
       .then(async (response) => {
         if (response.ok && (await response.json()).authenticated) setView('signed-in')
+        else if (response.status >= 500) toast.error('Unable to contact the sign-in service. Try again.')
       })
-      .catch(() => undefined)
-  }, [])
+      .catch(() => toast.error('Unable to contact the sign-in service. Try again.'))
+  }, [toast])
 
   useEffect(() => {
     if (view === 'signed-in') {
@@ -153,6 +188,7 @@ function App() {
       if (requestId === dashboardRequestId.current) {
         setDashboard(null)
         setDashboardError('Unable to load the dashboard. Try again.')
+        toast.error('Unable to load the dashboard. Try again.')
       }
     } finally {
       if (requestId === dashboardRequestId.current) setDashboardLoading(false)
@@ -168,6 +204,7 @@ function App() {
       if (status === 'archived') setArchivedProducts(data.products)
       return data.products
     } catch {
+      toast.error('Unable to load products. Try again.')
       return []
     }
   }
@@ -180,12 +217,14 @@ function App() {
       const response = await authApi('request-code', { method: 'POST', body: JSON.stringify({ email }) })
       if (!response.ok) {
         setError('Enter a valid email address.')
+        toast.error('Enter a valid email address.')
         return
       }
       setMessage('If the email is eligible, a sign-in code has been sent.')
       setView('code')
     } catch {
       setError('Unable to contact the sign-in service. Try again.')
+      toast.error('Unable to contact the sign-in service. Try again.')
     } finally {
       setLoading(false)
     }
@@ -199,12 +238,14 @@ function App() {
       const response = await authApi('verify-code', { method: 'POST', body: JSON.stringify({ email, code }) })
       if (!response.ok) {
         setError('The code could not be verified. Request a new code and try again.')
+        toast.error('The code could not be verified. Request a new code and try again.')
         return
       }
       setView('signed-in')
       setWorkspaceView('dashboard')
     } catch {
       setError('Unable to contact the sign-in service. Try again.')
+      toast.error('Unable to contact the sign-in service. Try again.')
     } finally {
       setLoading(false)
     }
@@ -216,6 +257,7 @@ function App() {
       const response = await authApi('logout', { method: 'POST' })
       if (!response.ok) {
         setError('Unable to sign out. Try again.')
+        toast.error('Unable to sign out. Try again.')
         return
       }
       setView('email')
@@ -223,6 +265,7 @@ function App() {
       setMessage('')
     } catch {
       setError('Unable to contact the sign-in service. Try again.')
+      toast.error('Unable to contact the sign-in service. Try again.')
     }
   }
 
@@ -237,6 +280,17 @@ function App() {
     setDeductInitialStock(null)
     setInitialOriginalPrice('')
     setFieldError('')
+  }
+
+  function openAddStockForm() {
+    setWorkspaceView('stock')
+    resetProductForm()
+    setProductModalOpen(true)
+  }
+
+  function navigateWorkspace(nextView: WorkspaceView) {
+    setWorkspaceView(nextView)
+    setMobileMoreOpen(false)
   }
 
   async function saveProduct(event: FormEvent) {
@@ -275,8 +329,9 @@ function App() {
       return
     }
     setLoading(true)
+    let createdCount = 0
+    let deductionPending = false
     try {
-      let createdCount = 0
       for (const parsedProduct of parsedProducts) {
         if (!parsedProduct.success) continue
         const response = await productsApi(editing ? `/${editing.id}` : '', {
@@ -285,6 +340,7 @@ function App() {
         })
         if (!response.ok) {
           const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
+          toast.error(createdCount > 0 ? `${createdCount} stocks added; the remaining stocks could not be saved. ${body?.error?.message ?? ''}`.trim() : body?.error?.message ?? 'Unable to save the stock.')
           if (body?.error?.code === 'STALE_PRODUCT') {
             setFieldError('This stock changed elsewhere. The latest catalog has been loaded; review your changes and try again.')
             const latest = await loadProducts()
@@ -296,9 +352,11 @@ function App() {
         }
         createdCount += 1
         if (!editing && deductInitialStock === true) {
+          deductionPending = true
           const created = await response.clone().json() as { product?: Product }
           if (!created.product) {
             setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
+            toast.error(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
             return
           }
           const deductionTotal = (Number(parsedOriginalPrice?.data) * parsedProduct.data.stockQuantity).toFixed(2)
@@ -308,37 +366,49 @@ function App() {
           })
           if (!expenseResponse.ok) {
             setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
+            toast.error(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
             return
           }
+          deductionPending = false
         }
       }
       if (!editing && deductInitialStock === true) await loadDashboard()
+      toast.success(editing ? 'Stock updated.' : `${createdCount} stock${createdCount === 1 ? '' : 's'} added.`)
       resetProductForm()
       setProductModalOpen(false)
       await loadProducts()
       setStockRefreshKey((value) => value + 1)
     } catch {
       setFieldError('Unable to contact the catalog service. Try again.')
+      toast.error(createdCount > 0 && !editing
+        ? `${createdCount} stock${createdCount === 1 ? '' : 's'} added, but ${deductionPending ? 'the deduction could not be confirmed' : 'the operation could not complete'}. Review your stock before retrying.`
+        : 'Unable to contact the catalog service. Try again.')
     } finally {
       setLoading(false)
     }
   }
 
   async function archive(product: Product) {
-    if (!window.confirm(`Delete ${product.name}? It will be removed from active stock and kept in your archived catalog.`)) return
     try {
       const response = await productsApi(`/${product.id}`, { method: 'DELETE', body: JSON.stringify({ updatedAt: product.updatedAt }) })
       if (!response.ok) {
         const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
         setFieldError(body?.error?.message ?? 'Unable to delete the stock.')
+        toast.error(body?.error?.message ?? 'Unable to delete the stock.')
         if (response.status === 409) await loadProducts()
         return
       }
       await loadProducts()
       setStockRefreshKey((value) => value + 1)
+      toast.success(`${product.name} removed from active stock.`)
     } catch {
       setFieldError('Unable to contact the stock service. Try again.')
+      toast.error('Unable to contact the stock service. Try again.')
     }
+  }
+
+  function requestArchive(product: Product) {
+    setArchiveConfirmationProduct(product)
   }
 
   function editStock(product: { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
@@ -376,7 +446,8 @@ function App() {
   }
 
   return (
-    <main className={styles.shell}>
+    <main className={`${styles.shell} ${darkMode ? styles.darkMode : ''}`}>
+      <ToastViewport />
       <section className={view === 'signed-in' ? styles.appFrame : styles.card} aria-live="polite">
         {view === 'signed-in' ? (
           <div className={`${styles.workspaceLayout} ${darkMode ? styles.darkMode : ''}`}>
@@ -397,6 +468,20 @@ function App() {
                 <span className={styles.sidebarUserDetails}><strong>Account owner</strong><small>Sales manager</small></span>
                 <svg className={styles.sidebarSignOutIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9" /></svg>
               </button>
+              <nav className={styles.mobileBottomNav} aria-label="Mobile workspace views">
+                <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'dashboard' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('dashboard')}><NavIcon name="dashboard" /><span>Dashboard</span></button>
+                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'buy' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('buy')}><NavIcon name="buy" /><span>Bought</span></button>
+                <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'stock' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('stock')}><NavIcon name="stock" /><span>Stocks</span></button>
+                <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'history' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('history')}><NavIcon name="history" /><span>History</span></button>
+                <button type="button" aria-expanded={mobileMoreOpen} className={`${styles.mobileNavButton} ${mobileMoreOpen || ['notes', 'guide', 'motivation', 'settings'].includes(workspaceView) ? styles.mobileNavButtonActive : ''}`} onClick={() => setMobileMoreOpen((open) => !open)}><NavIcon name="settings" /><span>More</span></button>
+                {mobileMoreOpen && <div className={styles.mobileMoreMenu} role="menu">
+                  <button role="menuitem" type="button" aria-current={workspaceView === 'notes' ? 'page' : undefined} className={workspaceView === 'notes' ? styles.mobileMoreItemActive : ''} onClick={() => navigateWorkspace('notes')}><NavIcon name="notes" /><span>Notes</span></button>
+                  <button role="menuitem" type="button" aria-current={workspaceView === 'guide' ? 'page' : undefined} className={workspaceView === 'guide' ? styles.mobileMoreItemActive : ''} onClick={() => navigateWorkspace('guide')}><NavIcon name="guide" /><span>Guide</span></button>
+                  <button role="menuitem" type="button" aria-current={workspaceView === 'motivation' ? 'page' : undefined} className={workspaceView === 'motivation' ? styles.mobileMoreItemActive : ''} onClick={() => navigateWorkspace('motivation')}><NavIcon name="motivation" /><span>Motivation</span></button>
+                  <button role="menuitem" type="button" aria-current={workspaceView === 'settings' ? 'page' : undefined} className={workspaceView === 'settings' ? styles.mobileMoreItemActive : ''} onClick={() => navigateWorkspace('settings')}><NavIcon name="settings" /><span>Settings</span></button>
+                  <button role="menuitem" type="button" onClick={() => { setMobileMoreOpen(false); void logout() }}><svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9" /></svg><span>Sign out</span></button>
+                </div>}
+              </nav>
             </aside>
             <div className={styles.workspaceMain}>
             <div className={styles.workspaceHeader}>
@@ -411,7 +496,7 @@ function App() {
                   aria-label="Add new stock"
                   className={styles.addNewButton}
                   type="button"
-                  onClick={() => { resetProductForm(); setProductModalOpen(true) }}
+                  onClick={openAddStockForm}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" strokeWidth="1.5" />
@@ -446,7 +531,7 @@ function App() {
                   </form>
                 </section>
               </div>}
-              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillProduct={quantityEditProduct} prefillRequest={quantityEditRequest} onQuantityEditCancel={() => setQuantityEditProduct(null)} onEdit={editStock} onDelete={(product) => void archive({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })} />
+              <StockTrackerPage mode="stock" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillProduct={quantityEditProduct} prefillRequest={quantityEditRequest} onQuantityEditCancel={() => setQuantityEditProduct(null)} onEdit={editStock} onDelete={(product) => requestArchive({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })} />
             </>}
             {workspaceView === 'history' && <PurchaseHistoryPage refreshKey={historyRefreshKey} onChanged={refreshAfterHistoryDeletion} />}
             {workspaceView === 'notes' && <NotesPage api={notesApi} />}
@@ -460,7 +545,8 @@ function App() {
                 {dashboardSection === 'overview' && <DashboardStockTable
                   refreshKey={stockRefreshKey}
                   onEdit={editStock}
-                  onDelete={(product) => void archive({ ...product, active: true, archivedAt: null, deletedAt: null })}
+                  onDelete={(product) => requestArchive({ ...product, active: true, archivedAt: null, deletedAt: null })}
+                  onAddStock={openAddStockForm}
                 />}
               </DashboardPage>
             </Suspense>
@@ -491,6 +577,17 @@ function App() {
         )}
         {error && <p className={styles.error} role="alert">{error}</p>}
       </section>
+      {archiveConfirmationProduct && <div className={styles.modalBackdrop} role="presentation">
+        <section className={styles.stockErrorModal} data-archive-confirmation role="dialog" aria-modal="true" aria-labelledby="archive-confirmation-heading" aria-describedby="archive-confirmation-message">
+          <div className={styles.modalHeader}><span className={styles.stockErrorLabel}>Delete stock</span></div>
+          <h3 id="archive-confirmation-heading">Delete {archiveConfirmationProduct.name}?</h3>
+          <p id="archive-confirmation-message">It will be removed from active stock and kept in your archived catalog.</p>
+          <div className={styles.formActions}>
+            <button ref={archiveCancelRef} aria-label="Cancel archive" className={styles.secondary} type="button" onClick={() => setArchiveConfirmationProduct(null)}>Cancel</button>
+            <button className={styles.danger} type="button" onClick={() => { const product = archiveConfirmationProduct; setArchiveConfirmationProduct(null); void archive(product) }}>Delete</button>
+          </div>
+        </section>
+      </div>}
     </main>
   )
 }

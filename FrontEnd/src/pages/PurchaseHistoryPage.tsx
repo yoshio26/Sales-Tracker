@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import styles from '../App.module.css'
+import { useToast } from '../components/Toast/ToastProvider'
 
 const historySchema = z.object({ purchases: z.array(z.object({ id: z.string().uuid(), productId: z.string().uuid(), productName: z.string(), category: z.string(), quantity: z.number().int().positive(), totalCost: z.string(), purchasedAt: z.string() })) })
 
 type Props = { deletable?: boolean; onChanged?: () => Promise<void>; refreshKey?: number }
 
 export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 0 }: Props) {
+  const toast = useToast()
+  const loadGeneration = useRef(0)
   const [purchases, setPurchases] = useState<z.infer<typeof historySchema>['purchases']>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -17,6 +20,7 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
   const [searchQuery, setSearchQuery] = useState('')
 
   async function load() {
+    const generation = loadGeneration.current
     setLoading(true)
     setError('')
     try {
@@ -25,10 +29,10 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
       setPurchases(historySchema.parse(await response.json()).purchases)
       setSelectedIds(new Set())
       setPage(1)
-    } catch { setError('Unable to load purchase history. Try again.') } finally { setLoading(false) }
+    } catch { setError('Unable to load purchase history. Try again.'); if (generation === loadGeneration.current) toast.error('Unable to load purchase history. Try again.') } finally { setLoading(false) }
   }
 
-  useEffect(() => { void load() }, [refreshKey])
+  useEffect(() => { void load(); return () => { loadGeneration.current += 1 } }, [refreshKey])
 
   async function remove(purchase: (typeof purchases)[number]) {
     if (!window.confirm(`Delete the purchase history entry for ${purchase.productName}?`)) return
@@ -42,6 +46,7 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
       await onChanged?.()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to delete purchase history. Try again.')
+      toast.error(caught instanceof Error ? caught.message : 'Unable to delete purchase history. Try again.')
     } finally {
       setDeletingId(null)
     }
@@ -84,7 +89,10 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
         await load()
         await onChanged?.()
       }
-      if (failures.length > 0) setError(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
+      if (failures.length > 0) {
+        setError(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
+        toast.error(`${removedIds.length} deleted; ${failures.length} could not be deleted. ${failures[0]?.message ?? ''}`.trim())
+      }
     } finally {
       setDeletingId(null)
     }

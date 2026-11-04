@@ -129,6 +129,14 @@
 .summaryCard span { color: #5c6b82; font-size: 0.85rem; font-weight: 700; }
 .summaryCard strong { color: #17243b; font-size: 1.8rem; }
 .summaryCard small { color: #5c6b82; }
+.dashboardSkeleton { display: grid; gap: 1rem; }
+.skeletonLine { display: block; width: 58%; height: 0.8rem; border-radius: 999px; background: linear-gradient(90deg, var(--accent-soft) 25%, #f9dce9 50%, var(--accent-soft) 75%); background-size: 200% 100%; animation: dashboardSkeletonShimmer 1.6s ease-in-out infinite; }
+.skeletonValue { width: 72%; height: 2rem; margin-top: 0.25rem; }
+.skeletonHeading { width: 42%; height: 1.1rem; }
+.skeletonSummary { width: 68%; margin-top: 0.65rem; }
+.skeletonChart { height: 15rem; margin-top: 0.75rem; border-radius: 0.4rem; background: linear-gradient(90deg, var(--accent-soft) 25%, #f9dce9 50%, var(--accent-soft) 75%); background-size: 200% 100%; animation: dashboardSkeletonShimmer 1.6s ease-in-out infinite; }
+@keyframes dashboardSkeletonShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeletonLine, .skeletonChart { animation: none; } }
 .chartGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .chartCard { min-width: 0; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
 .chartCard:first-child { grid-column: 1 / -1; }
@@ -190,6 +198,11 @@
 .stockTable tbody tr:last-child th, .stockTable tbody tr:last-child td { border-bottom: 0; }
 .stockTable tbody th { font-weight: 700; }
 .stockTableName, .stockTableCategory { display: block; }
+.stockQuantityCell { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.stockStatusChip { display: inline-flex; align-items: center; width: max-content; min-height: 1.4rem; padding: 0.15rem 0.55rem; border: 1px solid; border-radius: 999px; font-size: 0.7rem; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+.stockStatusChipInStock { border-color: #86efac; background: #dcfce7; color: #166534; }
+.stockStatusChipLowStock { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
+.stockStatusChipOutOfStock { border-color: #fca5a5; background: #fee2e2; color: #991b1b; }
 .stockTableCategory { margin-top: 0.2rem; color: #92909a; font-size: 0.85rem; font-weight: 400; }
 .stockTableActions { display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; min-width: max-content; }
 .selectionColumn { width: 3.5rem !important; text-align: center !important; }
@@ -314,7 +327,8 @@
 .productItem span { color: #5c6b82; margin-top: 0.2rem; }
 .stockSelectionSummary { display: flex; justify-content: flex-end; gap: 1.25rem; padding: 0.75rem 1rem; border: 1px solid #dce4ef; border-radius: 0.65rem; background: #fff; color: #17243b; font-weight: 700; }
 .stockProductDetails { display: grid; justify-items: end; gap: 0.65rem; }
-.stockMeta { display: flex; justify-content: flex-end; gap: 1.25rem; color: #17243b; font-size: 0.95rem; font-weight: 700; white-space: nowrap; }
+.stockMeta { display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem 1.25rem; color: #17243b; font-size: 0.95rem; font-weight: 700; white-space: nowrap; }
+.productItem .stockStatusChip { margin-top: 0; }
 .archived { color: #7a4e12 !important; font-size: 0.85rem; font-weight: 700; }
 .danger { border-color: #a84f4f !important; color: #a84f4f !important; }
 .danger::before { background: #a84f4f; }
@@ -323,6 +337,12 @@
 .linkButton::before, .linkButton:hover:not(:disabled)::before { display: none; }
 .linkButton:hover:not(:disabled) { color: #356b68 !important; transform: none; box-shadow: none; }
 .empty { padding: 1rem 0; }
+.stockEmptyState { display: grid; justify-items: center; gap: 0.45rem; padding: 3rem 1rem; border: 1px dashed var(--accent-soft); background: #fff; text-align: center; }
+.stockEmptyState h3 { margin: 0.35rem 0 0; color: #20202a; }
+.stockEmptyState p { margin: 0; color: #92909a; }
+.stockEmptyState button { margin-top: 0.7rem !important; }
+.stockEmptyIcon { display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
+.stockEmptyIcon svg { width: 1.7rem; height: 1.7rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
 
 .error {
   margin-top: 1rem;
@@ -453,6 +473,7 @@
 .sidebarUserDetails strong { font-size: 0.78rem; }
 .sidebarUserDetails small { opacity: 0.72; font-size: 0.68rem; }
 .sidebarSignOutIcon { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.mobileBottomNav { display: none; }
 .workspaceMain { box-sizing: border-box; min-width: 0; height: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 3rem; background: #fff; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { position: relative; z-index: 0; isolation: isolate; overflow: hidden; margin-top: 1rem; padding: 0.65rem 1.5rem; border: 2px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer; font: inherit; font-weight: 700; transition: color 300ms ease, transform 300ms ease, box-shadow 300ms ease; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { content: ''; position: absolute; z-index: -1; inset: 50% auto auto 50%; width: 3.125rem; height: 3.125rem; border-radius: inherit; background: var(--accent); transform: translate(-50%, -50%) scale(0); transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1); }
@@ -498,6 +519,7 @@
 .addNewButton svg { stroke: var(--accent); }
 .modal { border-color: var(--accent-soft); }
 
+.darkMode { --surface: #211a23; --border: #493542; --toast-text: #f8edf4; }
 .darkMode .workspaceMain { background: #17131a; color: #f8edf4; }
 .darkMode .guideWelcome, .darkMode .guideCard, .darkMode .guideMessage, .darkMode .guideDetails, .darkMode .guideFaq details { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .guideWelcome h2, .darkMode .guideCard h2, .darkMode .guideMessage h2, .darkMode .guideAccordion > h2, .darkMode .guideWarning h2, .darkMode .guideDetails summary, .darkMode .guideDetailsBody h3, .darkMode .guideFaq summary { color: #fff7fb; }
@@ -515,6 +537,10 @@
 .darkMode .cartItem { border-color: #493542; background: #2a202d; }
 .darkMode .notesIntro p, .darkMode .notesEmpty p { color: #c5afbd; }
 .darkMode .notesEmpty { border-color: #493542; background: #211a23; }
+.darkMode .stockEmptyState { border-color: #493542; background: #211a23; }
+.darkMode .stockEmptyState h3 { color: #fff7fb; }
+.darkMode .stockEmptyState p { color: #c5afbd; }
+.darkMode .skeletonLine, .darkMode .skeletonChart { background: linear-gradient(90deg, #493542 25%, #624456 50%, #493542 75%); background-size: 200% 100%; }
 .darkMode .workspaceHeader { border-color: #3b2b38; }
 .darkMode .workspaceHeader h1, .darkMode .dashboard h2, .darkMode .dashboard h3, .darkMode .ledger h2, .darkMode .ledger h3, .darkMode .stockView h2, .darkMode .workspace h2, .darkMode .settingsCard h2, .darkMode .settingsCard h3 { color: #fff7fb; }
 .darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }
@@ -533,6 +559,9 @@
 .darkMode .selectAllLabel { color: #fff7fb; }
 .darkMode .stockTableCategory { color: #c5afbd; }
 .darkMode .stockTable thead th { background: #211a23; color: #c5afbd; }
+.darkMode .stockStatusChipInStock { border-color: #277a45; background: #173d28; color: #a7f3b9; }
+.darkMode .stockStatusChipLowStock { border-color: #9a6b0a; background: #4a3510; color: #fde68a; }
+.darkMode .stockStatusChipOutOfStock { border-color: #9b4545; background: #4a2024; color: #fecaca; }
 .darkMode .multipleStockButtonActive { background: var(--accent) !important; color: var(--on-accent) !important; }
 .darkMode .iconButton:hover:not(:disabled) { background: #3a2938 !important; }
 .darkMode .summaryCard strong, .darkMode .productItem strong, .darkMode .stockMeta, .darkMode .historyToolbar label, .darkMode .checkboxLabel { color: #fff7fb; }
@@ -568,14 +597,20 @@
   .summaryCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 32rem) {
+@media (max-width: 52rem) {
   .workspaceLayout { display: block; }
-  .sidebar { position: sticky; top: 0; z-index: 5; flex-direction: row; align-items: center; gap: 0.5rem; height: 4.25rem; overflow: hidden; padding: 0.65rem; }
-  .brand { padding: 0; }
-  .sidebarNav { display: flex; flex: 1; min-width: 0; justify-content: flex-start; overflow: hidden; }
-  .sidebarItem, .selectedSidebarItem, .sidebarSettings { flex: 0 0 2.4rem; width: 2.4rem; }
-  .sidebarSettings { margin-top: 0 !important; }
-  .workspaceMain { height: calc(100vh - 4.25rem); max-height: calc(100vh - 4.25rem); padding: 1rem; }
+  .sidebar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 5; display: block; height: auto; min-height: 4.5rem; overflow: visible; padding: 0; border-radius: 0; background: var(--on-accent); box-shadow: 0 -0.5rem 1.5rem rgba(44, 17, 34, 0.12); }
+  .brand, .sidebarNav, .sidebarUserCard { display: none; }
+  .mobileBottomNav { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; min-height: 4.5rem; padding: 0.35rem 0.35rem calc(0.35rem + env(safe-area-inset-bottom)); }
+  .mobileNavButton { display: flex !important; position: static !important; z-index: auto !important; align-items: center; justify-content: center; gap: 0.2rem; min-width: 0; min-height: 3.8rem; margin: 0 !important; padding: 0.35rem 0.15rem !important; border: 0 !important; border-radius: 0.55rem !important; background: transparent !important; color: #7a6170 !important; box-shadow: none !important; font-size: 0.68rem !important; font-weight: 800; text-align: center; transition: background 180ms ease, color 180ms ease; }
+  .mobileNavButton::before { display: none !important; }
+  .mobileNavButton .navIcon { width: 1.25rem; height: 1.25rem; }
+  .mobileNavButtonActive, .mobileNavButtonActive:hover:not(:disabled) { background: var(--accent-soft) !important; color: var(--accent) !important; transform: none !important; box-shadow: none !important; }
+  .mobileMoreMenu { position: absolute; right: 0.35rem; bottom: calc(100% + 0.5rem); display: grid; width: min(13rem, calc(100vw - 1rem)); padding: 0.4rem; border: 1px solid var(--accent-soft); border-radius: 0.75rem; background: var(--on-accent); box-shadow: 0 0.8rem 2rem rgba(44, 17, 34, 0.18); }
+  .mobileMoreMenu button { display: flex !important; align-items: center; gap: 0.65rem; width: 100%; min-height: 2.7rem; margin: 0 !important; padding: 0.6rem 0.75rem !important; border: 0 !important; border-radius: 0.45rem !important; background: transparent !important; color: #5c5360 !important; box-shadow: none !important; font-size: 0.82rem !important; text-align: left; }
+  .mobileMoreMenu button::before { display: none !important; }
+  .mobileMoreMenu button:hover, .mobileMoreMenu button:focus-visible, .mobileMoreItemActive { background: var(--accent-soft) !important; color: var(--accent) !important; box-shadow: none !important; transform: none !important; }
+  .workspaceMain { height: calc(100vh - 4.5rem - env(safe-area-inset-bottom)); max-height: calc(100vh - 4.5rem - env(safe-area-inset-bottom)); padding: 1rem 1rem calc(1rem + 4.5rem + env(safe-area-inset-bottom)); }
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
   .headerActions { width: 100%; justify-content: space-between; }
   .profile { display: none; }
