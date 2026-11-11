@@ -21,7 +21,7 @@ describe('dashboard service', () => {
     mocks.getByProduct.mockResolvedValue([])
     mocks.getByCategory.mockResolvedValue([])
     mocks.getPurchaseSummary.mockResolvedValue([{ purchaseCount: 0n, totalQuantity: 0n, totalCostCents: 0n }])
-    mocks.getStockSummary.mockResolvedValue([{ totalUnits: 0n, productsInStock: 0n, productsOutOfStock: 0n }])
+    mocks.getStockSummary.mockResolvedValue([{ totalUnits: 0n, productsCount: 0n, productsInStock: 0n, productsOutOfStock: 0n }])
     mocks.getTimeSeries.mockResolvedValue([])
     mocks.getProfitAdjustmentTotal.mockResolvedValue([{ totalCents: 0n }])
   })
@@ -38,7 +38,7 @@ describe('dashboard service', () => {
     expect(dashboard).toMatchObject({
       currentMonth: { total: '0.00', trend: [], byProduct: [], byCategory: [] },
       allTime: { total: '0.00', trend: [], byProduct: [], byCategory: [] },
-      stock: { totalUnits: 0, productsInStock: 0, productsOutOfStock: 0 },
+      stock: { totalUnits: 0, productsCount: 0, productsInStock: 0, productsOutOfStock: 0 },
       purchases: { count: 0, quantity: 0, totalCost: '0.00' },
     })
     expect(dashboard).not.toHaveProperty('currentMonth.totalCents')
@@ -52,14 +52,14 @@ describe('dashboard service', () => {
     mocks.getTotal.mockResolvedValueOnce([{ totalCents: 1250n }]).mockResolvedValueOnce([{ totalCents: 987n }])
     mocks.getByProduct.mockResolvedValueOnce([{ label: 'Archived Widget', totalCents: 1250n }])
     mocks.getByCategory.mockResolvedValueOnce([]).mockResolvedValueOnce([{ label: 'Old category', totalCents: 987n }])
-    mocks.getStockSummary.mockResolvedValue([{ totalUnits: 5n, productsInStock: 1n, productsOutOfStock: 2n }])
+    mocks.getStockSummary.mockResolvedValue([{ totalUnits: 5n, productsCount: 3n, productsInStock: 1n, productsOutOfStock: 2n }])
     mocks.getPurchaseSummary.mockResolvedValue([{ purchaseCount: 2n, totalQuantity: 3n, totalCostCents: 4567n }])
     mocks.getTimeSeries.mockResolvedValueOnce([{ bucketUtc: new Date('2026-10-02T00:00:00.000Z'), totalCents: 1250n }])
 
     await expect(getDashboard('user-a', new Date('2026-10-03T12:00:00.000Z'))).resolves.toMatchObject({
       currentMonth: { total: '12.50', byProduct: [{ label: 'Archived Widget', amount: '12.50' }], trend: [{ bucket: '2026-10-02T00:00:00.000Z', amount: '12.50' }] },
       allTime: { total: '9.87', byCategory: [{ label: 'Old category', amount: '9.87' }] },
-      stock: { totalUnits: 5, productsInStock: 1, productsOutOfStock: 2 },
+      stock: { totalUnits: 5, productsCount: 3, productsInStock: 1, productsOutOfStock: 2 },
       purchases: { count: 2, quantity: 3, totalCost: '45.67' },
     })
   })

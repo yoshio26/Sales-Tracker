@@ -18,8 +18,23 @@ model User {
   stockPurchases StockPurchase[]
   profitAdjustments ProfitAdjustment[]
   notes         Note[]
+  notificationSettings NotificationSettings?
 
   @@map("users")
+}
+
+model NotificationSettings {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  recipientEmail  String?  @map("recipient_email") @db.VarChar(320)
+  addedEnabled    Boolean  @default(true) @map("added_enabled")
+  deletedEnabled  Boolean  @default(true) @map("deleted_enabled")
+  changedEnabled  Boolean  @default(true) @map("changed_enabled")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
 }
 
 model Product {

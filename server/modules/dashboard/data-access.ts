@@ -9,13 +9,14 @@ export type MoneyTotalRow = { totalCents: bigint | number }
 export type ProductTotalRow = { label: string; totalCents: bigint | number }
 export type CategoryTotalRow = { label: string; totalCents: bigint | number }
 export type TimeSeriesRow = { bucketUtc: Date; totalCents: bigint | number }
-export type StockSummaryRow = { totalUnits: bigint | number; productsInStock: bigint | number; productsOutOfStock: bigint | number }
+export type StockSummaryRow = { totalUnits: bigint | number; productsCount: bigint | number; productsInStock: bigint | number; productsOutOfStock: bigint | number }
 export type PurchaseSummaryRow = { purchaseCount: bigint | number; totalQuantity: bigint | number; totalCostCents: bigint | number }
 export type AdjustmentTotalRow = { totalCents: bigint | number }
 
 export function getStockSummary(db: DashboardDatabase, userId: string) {
   return db.$queryRaw<StockSummaryRow[]>(Prisma.sql`
-    SELECT COALESCE(SUM(stock_quantity), 0)::bigint AS "totalUnits",
+        SELECT COALESCE(SUM(stock_quantity), 0)::bigint AS "totalUnits",
+          COUNT(*)::bigint AS "productsCount",
            COUNT(*) FILTER (WHERE stock_quantity > 0)::bigint AS "productsInStock",
            COUNT(*) FILTER (WHERE stock_quantity = 0)::bigint AS "productsOutOfStock"
     FROM products

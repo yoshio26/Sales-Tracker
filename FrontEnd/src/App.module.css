@@ -124,7 +124,7 @@
 .dashboard { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #fbfcff; }
 .dashboard h2, .dashboard h3 { margin: 0; color: #17243b; }
 .dashboard p { margin: 0; }
-.summaryCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+.summaryCards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
 .summaryCard { display: grid; gap: 0.3rem; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
 .summaryCard span { color: #5c6b82; font-size: 0.85rem; font-weight: 700; }
 .summaryCard strong { color: #17243b; font-size: 1.8rem; }
@@ -277,6 +277,10 @@
 .productForm { padding: 1.25rem; border: 1px solid #dce4ef; border-radius: 0.8rem; background: #f7f9fc; }
 .checkboxLabel { display: flex; align-items: center; gap: 0.5rem; margin-top: 0 !important; color: #17243b; font-weight: 700; }
 .checkboxLabel input { width: auto; accent-color: #000; }
+.notificationOptions { display: grid; grid-column: 1 / -1; gap: 0.75rem; justify-items: start; }
+.notificationCheckbox { display: inline-flex; align-items: center; gap: 0.5rem; width: fit-content; max-width: 100%; margin-top: 0 !important; color: #17243b; font-weight: 700; }
+.notificationCheckbox input { flex: 0 0 auto; width: 1rem !important; height: 1rem; margin: 0; padding: 0 !important; accent-color: var(--accent); }
+.notificationCheckbox span { min-width: 0; }
 .stockNameHeader { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 1rem; }
 .stockNameHeader label { margin-top: 0 !important; }
 .multipleStockButton { margin: 0 !important; padding: 0.35rem 0.75rem !important; border-width: 1px !important; border-radius: 0.4rem !important; font-size: 0.78rem !important; }

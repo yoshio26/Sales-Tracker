@@ -8,6 +8,7 @@ type ArchivedProduct = { id: string; name: string; category: string; price: stri
 type ColorTheme = 'default' | 'blue' | 'green' | 'purple' | 'orange'
 type SettingsSection = 'archive' | 'history' | 'settings' | 'color-theme'
 type ProfitAdjustment = { id: string; amount: string; note: string | null; createdAt: string; updatedAt: string }
+type NotificationSettings = { recipientEmail: string; addedEnabled: boolean; deletedEnabled: boolean; changedEnabled: boolean }
 
 const colorThemes: Array<{ name: ColorTheme; label: string; color: string }> = [
   { name: 'default', label: 'Pink', color: '#f51f80' },
@@ -37,6 +38,8 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
   const [profitLoading, setProfitLoading] = useState(false)
   const [profitError, setProfitError] = useState('')
   const [profitNotice, setProfitNotice] = useState('')
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ recipientEmail: '', addedEnabled: true, deletedEnabled: true, changedEnabled: true })
+  const [notificationLoading, setNotificationLoading] = useState(false)
   const [selectedColorTheme, setSelectedColorTheme] = useState<ColorTheme>(() => {
     const color = document.documentElement.getAttribute('data-color')
     return colorThemes.some((theme) => theme.name === color) ? color as ColorTheme : 'default'
@@ -63,6 +66,24 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
     }).catch(() => { setProfitError('Unable to load the profit adjustment. Try again.'); if (active) toast.error('Unable to load the profit adjustment. Try again.') })
     return () => { active = false }
   }, [section, toast])
+
+  useEffect(() => {
+    if (section !== 'settings') return
+    void fetch('/api/notifications/settings', { credentials: 'include' }).then(async (response) => {
+      if (!response.ok) throw new Error()
+      const body = await response.json() as { settings: NotificationSettings }
+      setNotificationSettings(body.settings)
+    }).catch(() => toast.error('Unable to load notification settings. Try again.'))
+  }, [section, toast])
+
+  async function saveNotificationSettings() {
+    setNotificationLoading(true)
+    try {
+      const response = await fetch('/api/notifications/settings', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(notificationSettings) })
+      if (!response.ok) throw new Error()
+      toast.success('Notification settings saved.')
+    } catch { toast.error('Unable to save notification settings. Try again.') } finally { setNotificationLoading(false) }
+  }
 
   useEffect(() => {
     setSelectedArchivedProductIds((current) => new Set([...current].filter((id) => archivedProducts.some((product) => product.id === id))))
@@ -375,6 +396,16 @@ export function SettingsPage({ onStockDeleted, onHistoryChanged, onProfitChanged
     </section>}
     {section === 'settings' && <section id="settings-panel" className={styles.settingsCard} aria-labelledby="settings-heading" role="tabpanel">
       <div><h2 id="settings-heading">Settings</h2><p>Manage your stock, profit adjustment, and purchase-history data.</p></div>
+      <section className={styles.profitHistory} aria-labelledby="notification-settings-heading">
+        <div><h3 id="notification-settings-heading">Stock notifications</h3><p>Choose which successful stock changes send email. Leave the recipient blank to use the configured environment recipient.</p></div>
+        <label htmlFor="notification-recipient">Recipient email</label><input id="notification-recipient" type="email" value={notificationSettings.recipientEmail} onChange={(event) => setNotificationSettings({ ...notificationSettings, recipientEmail: event.target.value })} placeholder="Use NOTIFY_EMAIL_TO" />
+        <div className={styles.notificationOptions}>
+          <label className={styles.notificationCheckbox}><input type="checkbox" checked={notificationSettings.addedEnabled} onChange={(event) => setNotificationSettings({ ...notificationSettings, addedEnabled: event.target.checked })} /><span>Notify when stocks are added</span></label>
+          <label className={styles.notificationCheckbox}><input type="checkbox" checked={notificationSettings.deletedEnabled} onChange={(event) => setNotificationSettings({ ...notificationSettings, deletedEnabled: event.target.checked })} /><span>Notify when stocks are deleted</span></label>
+          <label className={styles.notificationCheckbox}><input type="checkbox" checked={notificationSettings.changedEnabled} onChange={(event) => setNotificationSettings({ ...notificationSettings, changedEnabled: event.target.checked })} /><span>Notify when stock details or quantities change</span></label>
+        </div>
+        <div className={styles.formActions}><button type="button" disabled={notificationLoading} onClick={() => void saveNotificationSettings()}>{notificationLoading ? 'Saving…' : 'Save notification settings'}</button></div>
+      </section>
       <form className={styles.productForm} onSubmit={(event) => void saveProfitAdjustment(event)} noValidate>
         <div><h3>Manual profit adjustment</h3><p>Add or deduct an all-time amount from the calculated dashboard profit.</p></div>
         <label htmlFor="profit-operation">Adjustment</label>

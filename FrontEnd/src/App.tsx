@@ -20,7 +20,7 @@ type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'notes' | 'sett
 type Product = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
-const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
+const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsCount: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
 
 const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Product name is required.').max(200),
@@ -40,14 +40,6 @@ async function authApi(path: string, options?: RequestInit): Promise<Response> {
 
 async function productsApi(path = '', options?: RequestInit): Promise<Response> {
   return fetch(`/api/products${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    credentials: 'include',
-  })
-}
-
-async function expensesApi(path = '', options?: RequestInit): Promise<Response> {
-  return fetch(`/api/expenses${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     credentials: 'include',
@@ -332,7 +324,16 @@ function App() {
     let createdCount = 0
     let deductionPending = false
     try {
-      for (const parsedProduct of parsedProducts) {
+      if (!editing && bulkAddMode) {
+        const response = await productsApi('/bulk', { method: 'POST', body: JSON.stringify({ products: parsedProducts.filter((product): product is { success: true; data: z.infer<typeof productInputSchema> } => product.success).map((product) => ({ ...product.data, ...(deductInitialStock === true ? { originalPrice: initialOriginalPrice } : {}) })) }) })
+        if (!response.ok) {
+          const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+          setFieldError(body?.error?.message ?? 'Unable to save the stocks.')
+          toast.error(body?.error?.message ?? 'Unable to save the stocks.')
+          return
+        }
+        createdCount = names.length
+      } else for (const parsedProduct of parsedProducts) {
         if (!parsedProduct.success) continue
         const response = await productsApi(editing ? `/${editing.id}` : '', {
           method: editing ? 'PUT' : 'POST',
@@ -351,26 +352,6 @@ function App() {
           return
         }
         createdCount += 1
-        if (!editing && deductInitialStock === true) {
-          deductionPending = true
-          const created = await response.clone().json() as { product?: Product }
-          if (!created.product) {
-            setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
-            toast.error(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
-            return
-          }
-          const deductionTotal = (Number(parsedOriginalPrice?.data) * parsedProduct.data.stockQuantity).toFixed(2)
-          const expenseResponse = await expensesApi('', {
-            method: 'POST',
-            body: JSON.stringify({ productId: created.product.id, amount: deductionTotal, quantity: parsedProduct.data.stockQuantity, note: 'Initial stock deduction', spentAt: new Date().toISOString() }),
-          })
-          if (!expenseResponse.ok) {
-            setFieldError(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
-            toast.error(`${createdCount} stock${createdCount === 1 ? '' : 's'} added, but its deduction could not be recorded.`)
-            return
-          }
-          deductionPending = false
-        }
       }
       if (!editing && deductInitialStock === true) await loadDashboard()
       toast.success(editing ? 'Stock updated.' : `${createdCount} stock${createdCount === 1 ? '' : 's'} added.`)

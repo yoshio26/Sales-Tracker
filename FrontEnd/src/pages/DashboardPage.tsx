@@ -7,7 +7,7 @@ import { currentReportMonth, downloadReportFiles } from '../utils/reportExport.j
 export type DashboardPoint = { label: string; amount: string }
 export type DashboardTrendPoint = { bucket: string; amount: string }
 export type DashboardReport = { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
-export type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport; stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }; purchases: { count: number; quantity: number; totalCost: string }; totalEarnings: string; profit: string }
+export type Dashboard = { currentMonth: DashboardReport & { from: string; to: string }; allTime: DashboardReport; stock: { totalUnits: number; productsCount: number; productsInStock: number; productsOutOfStock: number }; purchases: { count: number; quantity: number; totalCost: string }; totalEarnings: string; profit: string }
 
 type DashboardPageProps = {
   dashboard: Dashboard | null
@@ -21,7 +21,7 @@ type DashboardPageProps = {
 function DashboardSkeleton({ mode }: { mode: 'overview' | 'reports' }) {
   return <div className={styles.dashboardSkeleton} role="status" aria-label="Loading dashboard">
     {mode === 'overview' ? <div className={styles.summaryCards} aria-hidden="true">
-      {[1, 2, 3, 4].map((card) => <article className={styles.summaryCard} key={card}><span className={styles.skeletonLine} /><strong className={`${styles.skeletonLine} ${styles.skeletonValue}`} /><small className={styles.skeletonLine} /></article>)}
+      {[1, 2, 3, 4, 5].map((card) => <article className={styles.summaryCard} key={card}><span className={styles.skeletonLine} /><strong className={`${styles.skeletonLine} ${styles.skeletonValue}`} /><small className={styles.skeletonLine} /></article>)}
     </div> : <div className={styles.chartGrid} aria-hidden="true">
       {[1, 2, 3, 4].map((card) => <article className={styles.chartCard} key={card}><span className={`${styles.skeletonLine} ${styles.skeletonHeading}`} /><span className={`${styles.skeletonLine} ${styles.skeletonSummary}`} /><div className={styles.skeletonChart} /></article>)}
     </div>}
@@ -59,6 +59,7 @@ export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'over
           <article className={styles.summaryCard}><span>Total Earnings</span><strong>₱{dashboard.totalEarnings}</strong></article>
           <article className={styles.summaryCard}><span>Profit</span><strong>₱{dashboard.profit}</strong></article>
           <article className={styles.summaryCard}><span>Available stock</span><strong>{dashboard.stock.totalUnits}</strong><small>{dashboard.stock.productsInStock} stocked · {dashboard.stock.productsOutOfStock} empty</small></article>
+          <article className={styles.summaryCard}><span>Total stocks</span><strong>{dashboard.stock.productsCount} products</strong><small>{dashboard.stock.totalUnits} units</small></article>
           <article className={styles.summaryCard}><span>Total sold</span><strong>{dashboard.purchases.quantity} items</strong><small>{dashboard.purchases.count} records · ₱{dashboard.purchases.totalCost}</small></article>
         </div>}
         {mode === 'overview' && children}

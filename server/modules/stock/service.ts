@@ -1,4 +1,5 @@
 import type { Product, StockPurchase } from '@prisma/client'
+import { notifyStock } from '../notifications/service.js'
 import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, createPurchases as createPurchasesRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords, setStockQuantity as setStockQuantityRecord } from './data-access.js'
 
 export type StockProductResponse = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
@@ -32,7 +33,10 @@ export async function listStock(userId: string) {
 
 export async function replenishStock(userId: string, productId: string, quantity: number, deductEarnings = false, originalCost?: string) {
   const outcome = await adjustStockRecord(database, userId, productId, quantity, deductEarnings, deductEarnings && originalCost !== undefined ? parseCost(originalCost) : undefined)
-  return outcome.kind === 'adjusted' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
+  if (outcome.kind !== 'adjusted') return outcome
+  const product = toProductResponse(outcome.product)
+  void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, changes: [{ label: 'Quantity', before: String(outcome.previousQuantity), after: String(product.stockQuantity) }] }])
+  return { kind: outcome.kind, product }
 }
 
 export async function createPurchase(userId: string, input: { productId: string; quantity: number }) {
@@ -93,5 +97,8 @@ export async function createPurchases(userId: string, inputs: Array<{ productId:
 
 export async function setStockQuantity(userId: string, productId: string, quantity: number, deductEarnings = false, originalCost?: string) {
   const outcome = await setStockQuantityRecord(database, userId, productId, quantity, deductEarnings, deductEarnings && originalCost !== undefined ? parseCost(originalCost) : undefined)
-  return outcome.kind === 'updated' ? { kind: outcome.kind, product: toProductResponse(outcome.product) } : outcome
+  if (outcome.kind !== 'updated') return outcome
+  const product = toProductResponse(outcome.product)
+  void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, changes: [{ label: 'Quantity', before: String(outcome.previousQuantity), after: String(product.stockQuantity) }] }])
+  return { kind: outcome.kind, product }
 }

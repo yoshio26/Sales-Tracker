@@ -10,6 +10,8 @@ The default suite uses Vitest and mocked persistence, so it does not require Pos
 
 The route tests cover validation envelopes, anti-enumeration responses, same-origin rejection, session-cookie behavior, protected dashboard access, and tenant-scoped mutation outcomes. Data-access tests verify tenant predicates, archived/deleted exclusion, immutable expense snapshots, and stale-write handling.
 
+Stock notification email is optional. Set `NOTIFY_EMAIL_TO` as the fallback recipient and `NOTIFY_TIMEZONE` (default `Asia/Manila`) for timestamps. A signed-in user can override the recipient and enable or disable added, deleted, and changed notifications from Settings. Notifications are sent asynchronously after successful persistence; email failures are logged without changing the successful API response.
+
 The repository does not define a separate live database integration command: persistence-boundary tests use deterministic database mocks so the default suite remains repeatable without PostgreSQL. The live PostgreSQL boundary is exercised by the opt-in Mailpit authentication flow after migrations are applied.
 
 ## Optional Mailpit authentication smoke test

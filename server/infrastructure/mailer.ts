@@ -12,7 +12,9 @@ export function createMailerOptions() {
 
 export const mailer = nodemailer.createTransport(createMailerOptions())
 
-async function sendWithResend(apiKey: string, email: string, subject: string, text: string): Promise<void> {
+export type MailMessage = { to: string; subject: string; text: string; html: string }
+
+async function sendWithResend(apiKey: string, message: MailMessage): Promise<void> {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -21,9 +23,10 @@ async function sendWithResend(apiKey: string, email: string, subject: string, te
     },
     body: JSON.stringify({
       from: config.MAIL_FROM,
-      to: [email],
-      subject,
-      text,
+      to: [message.to],
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
     }),
     signal: AbortSignal.timeout(10_000),
   })
@@ -34,19 +37,17 @@ async function sendWithResend(apiKey: string, email: string, subject: string, te
   }
 }
 
+export async function sendMessage(message: MailMessage): Promise<void> {
+  if (config.RESEND_API_KEY) {
+    await sendWithResend(config.RESEND_API_KEY, message)
+    return
+  }
+  await mailer.sendMail({ from: config.MAIL_FROM, ...message })
+}
+
 export async function sendLoginCode(email: string, code: string): Promise<void> {
   const subject = 'Your Sales Tracker sign-in code'
   const text = `Your Sales Tracker sign-in code is ${code}. It expires in 10 minutes.`
 
-  if (config.RESEND_API_KEY) {
-    await sendWithResend(config.RESEND_API_KEY, email, subject, text)
-    return
-  }
-
-  await mailer.sendMail({
-    from: config.MAIL_FROM,
-    to: email,
-    subject,
-    text,
-  })
+  await sendMessage({ to: email, subject, text, html: `<p>${text}</p>` })
 }

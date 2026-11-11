@@ -45,7 +45,7 @@ export function listStock(db: Database, userId: string) {
 
 export async function adjustStock(db: PrismaClient, userId: string, productId: string, quantity: number, deductEarnings = false, originalCostCents?: number) {
   return db.$transaction(async (tx) => {
-    const product = await tx.product.findFirst({ where: { id: productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true } })
+    const product = await tx.product.findFirst({ where: { id: productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, stockQuantity: true } })
     if (!product) return { kind: 'not-found' as const }
     if (deductEarnings && originalCostCents === undefined) return { kind: 'original-cost-missing' as const }
     if (deductEarnings && (!Number.isSafeInteger(originalCostCents! * quantity) || originalCostCents! * quantity > 2_147_483_647)) return { kind: 'deduction-too-large' as const }
@@ -54,7 +54,7 @@ export async function adjustStock(db: PrismaClient, userId: string, productId: s
       if (deductEarnings) {
         await tx.expense.create({ data: { userId, productId, productNameSnapshot: product.name, categorySnapshot: product.category, amountCents: originalCostCents! * quantity, quantity, note: 'Restock deduction', spentAt: new Date() } })
       }
-      return { kind: 'adjusted' as const, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
+      return { kind: 'adjusted' as const, previousQuantity: product.stockQuantity, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
     }
     return { kind: 'not-found' as const }
   })
@@ -143,6 +143,7 @@ export async function setStockQuantity(db: PrismaClient, userId: string, product
     const product = await tx.product.findFirst({ where: { id: productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, stockQuantity: true } })
     if (!product) return { kind: 'not-found' as const }
     const increase = quantity - product.stockQuantity
+    if (increase === 0 && !deductEarnings) return { kind: 'unchanged' as const, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
     if (deductEarnings && increase > 0 && originalCostCents === undefined) return { kind: 'original-cost-missing' as const }
     if (deductEarnings && increase > 0 && (!Number.isSafeInteger(originalCostCents! * increase) || originalCostCents! * increase > 2_147_483_647)) return { kind: 'deduction-too-large' as const }
     const changed = await tx.product.updateMany({ where: { id: productId, userId, active: true, deletedAt: null, stockQuantity: product.stockQuantity }, data: { stockQuantity: quantity, ...(deductEarnings && increase > 0 ? { originalPriceCents: originalCostCents } : {}) } })
@@ -150,6 +151,6 @@ export async function setStockQuantity(db: PrismaClient, userId: string, product
     if (deductEarnings && increase > 0) {
       await tx.expense.create({ data: { userId, productId, productNameSnapshot: product.name, categorySnapshot: product.category, amountCents: originalCostCents! * increase, quantity: increase, note: 'Quantity increase deduction', spentAt: new Date() } })
     }
-    return { kind: 'updated' as const, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
+    return { kind: 'updated' as const, previousQuantity: product.stockQuantity, product: await tx.product.findFirstOrThrow({ where: { id: productId, userId, active: true, deletedAt: null }, select: productSelection }) }
   })
 }

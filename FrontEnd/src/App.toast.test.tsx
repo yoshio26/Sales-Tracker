@@ -123,7 +123,7 @@ describe('App stock toast integration', () => {
     expect(fetchMock.mock.calls.some(([url, options]) => url === '/api/products/stock-id' && options?.method === 'DELETE')).toBe(false)
   })
 
-  it('reports confirmed partial progress when a later bulk creation request rejects', async () => {
+  it('uses one bulk creation request for multiple stocks', async () => {
     await click('Add new stock')
     await click('Multiple')
     const textarea = container.querySelector<HTMLTextAreaElement>('#bulk-stock-names')!
@@ -134,10 +134,10 @@ describe('App stock toast integration', () => {
     await fill('stock-category', 'Clothing')
     await fill('stock-price', '12.50')
     await act(async () => container.querySelector<HTMLInputElement>('#initial-stock-deduction-no')!.click())
-    fetchMock.mockResolvedValueOnce(Response.json({ product })).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    fetchMock.mockResolvedValueOnce(Response.json({ products: [product, product] }))
     await click('Add stocks')
-    expect(notificationText()).toContain('1 stock added, but the operation could not complete.')
-    expect(notificationText()).not.toContain('Success')
+    expect(fetchMock.mock.calls.some(([url, options]) => url === '/api/products/bulk' && options?.method === 'POST')).toBe(true)
+    expect(notificationText()).toContain('2 stocks added.')
   })
 
   it('reports session-service HTTP failures without treating ordinary unauthenticated sessions as errors', async () => {

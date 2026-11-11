@@ -8,7 +8,7 @@ export type DashboardTrendPoint = { bucket: string; amount: string }
 export type DashboardResponse = {
   currentMonth: { from: string; to: string; total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
   allTime: { total: string; trend: DashboardTrendPoint[]; byProduct: DashboardPoint[]; byCategory: DashboardPoint[] }
-  stock: { totalUnits: number; productsInStock: number; productsOutOfStock: number }
+  stock: { totalUnits: number; productsCount: number; productsInStock: number; productsOutOfStock: number }
   purchases: { count: number; quantity: number; totalCost: string }
   totalEarnings: string
   profit: string
@@ -59,7 +59,7 @@ export async function getDashboard(userId: string, now = new Date(), filters: Da
     getPurchaseSummary(dashboardDatabase, userId),
     getProfitAdjustmentTotal(dashboardDatabase, userId),
   ])
-  const stock = stockRows[0] ?? { totalUnits: 0, productsInStock: 0, productsOutOfStock: 0 }
+  const stock = stockRows[0] ?? { totalUnits: 0, productsCount: 0, productsInStock: 0, productsOutOfStock: 0 }
   const purchases = purchaseRows[0] ?? { purchaseCount: 0, totalQuantity: 0, totalCostCents: 0 }
   const totalEarningsCents = typeof purchases.totalCostCents === 'bigint' ? purchases.totalCostCents : BigInt(purchases.totalCostCents)
   const expenseTotalCents = typeof allTimeReport.totalCents === 'bigint' ? allTimeReport.totalCents : BigInt(allTimeReport.totalCents)
@@ -68,7 +68,7 @@ export async function getDashboard(userId: string, now = new Date(), filters: Da
   return {
     currentMonth: { from: month.from.toISOString(), to: month.to.toISOString(), total: currentMonth.total, trend: currentMonth.trend, byProduct: currentMonth.byProduct, byCategory: currentMonth.byCategory },
     allTime: { total: allTimeReport.total, trend: allTimeReport.trend, byProduct: allTimeReport.byProduct, byCategory: allTimeReport.byCategory },
-    stock: { totalUnits: integerValue(stock.totalUnits), productsInStock: integerValue(stock.productsInStock), productsOutOfStock: integerValue(stock.productsOutOfStock) },
+    stock: { totalUnits: integerValue(stock.totalUnits), productsCount: integerValue(stock.productsCount), productsInStock: integerValue(stock.productsInStock), productsOutOfStock: integerValue(stock.productsOutOfStock) },
     purchases: { count: integerValue(purchases.purchaseCount), quantity: integerValue(purchases.totalQuantity), totalCost: centsToMoney(purchases.totalCostCents) },
     totalEarnings: centsToMoney(totalEarningsCents),
     profit: centsToMoney(totalEarningsCents - expenseTotalCents + profitAdjustmentCents),

@@ -82,7 +82,7 @@ describe('product data access', () => {
     tx.product.findFirst.mockResolvedValueOnce({ id: 'product-id' })
     tx.product.delete.mockResolvedValue({ id: 'product-id' })
 
-    await expect(permanentlyDeleteArchivedProduct(db as never, 'user-a', 'product-id')).resolves.toEqual({ kind: 'deleted' })
+    await expect(permanentlyDeleteArchivedProduct(db as never, 'user-a', 'product-id')).resolves.toEqual({ kind: 'deleted', product: { id: 'product-id' } })
     expect(tx.expense.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
     expect(tx.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
     expect(tx.product.delete).toHaveBeenCalledWith({ where: { id: 'product-id' } })

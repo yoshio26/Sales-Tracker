@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { archiveProduct, createProduct, listProducts, permanentlyDeleteArchivedProduct, restoreArchivedProduct, updateProduct } from './service.js'
+import { archiveProduct, createProduct, createProducts, listProducts, permanentlyDeleteArchivedProduct, restoreArchivedProduct, updateProduct } from './service.js'
 
 const idSchema = z.object({ id: z.uuid() })
 const productSchema = z.object({
@@ -12,6 +12,7 @@ const productSchema = z.object({
 })
 const originalPriceSchema = z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0 && Number(value) * 100 <= 2147483647)
 const createProductSchema = productSchema.extend({ stockQuantity: z.number().int().nonnegative().max(1_000_000_000).default(0), originalPrice: originalPriceSchema.optional() })
+const bulkCreateSchema = z.object({ products: z.array(createProductSchema).min(1).max(50) })
 const updateSchema = productSchema.extend({ updatedAt: z.string().datetime({ offset: true }) })
 const listSchema = z.object({ status: z.enum(['active', 'archived']).default('active') })
 
@@ -20,6 +21,7 @@ function invalidInput(res: { status: (code: number) => { json: (body: unknown) =
 }
 
 function sendOutcome(res: { status: (code: number) => { json: (body: unknown) => unknown }; json: (body: unknown) => unknown }, outcome: Awaited<ReturnType<typeof updateProduct | typeof archiveProduct>>) {
+  if (outcome.kind === 'unchanged') return res.json({ product: outcome.product })
   if (outcome.kind === 'updated') return res.json({ product: outcome.product })
   if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Product not found.' } })
   if (outcome.kind === 'duplicate') return res.status(409).json({ error: { code: 'DUPLICATE_PRODUCT', message: 'A product with that name already exists.' } })
@@ -90,6 +92,17 @@ productsRouter.post('/:id/restore', requireSession, requireSameOrigin, async (re
     if (outcome.kind === 'restored') return res.json({ product: outcome.product })
     if (outcome.kind === 'duplicate') return res.status(409).json({ error: { code: 'DUPLICATE_PRODUCT', message: 'An active product with that name already exists.' } })
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Archived product not found.' } })
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res)
+    next(error)
+  }
+})
+
+productsRouter.post('/bulk', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const outcome = await createProducts(req.userId!, bulkCreateSchema.parse(req.body).products)
+    if (outcome.kind === 'duplicate') return res.status(409).json({ error: { code: 'DUPLICATE_PRODUCT', message: 'A product with that name already exists.' } })
+    res.status(201).json({ products: outcome.products })
   } catch (error) {
     if (error instanceof z.ZodError) return invalidInput(res)
     next(error)
