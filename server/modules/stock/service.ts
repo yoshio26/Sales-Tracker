@@ -1,9 +1,10 @@
 import type { Product, StockPurchase } from '@prisma/client'
 import { notifyStock } from '../notifications/service.js'
-import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, createPurchases as createPurchasesRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords, setStockQuantity as setStockQuantityRecord } from './data-access.js'
+import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, createPurchases as createPurchasesRecord, database, deleteCartItem as deleteCartItemRecord, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listCart as listCartRecords, listPurchases as listPurchaseRecords, listStock as listStockRecords, saveCartItem as saveCartItemRecord, setStockQuantity as setStockQuantityRecord } from './data-access.js'
 
 export type StockProductResponse = { imageUrl: string | null; id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
 export type PurchaseResponse = { imageUrl: string | null; id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
+export type CartResponse = { id: string; product: StockProductResponse; quantity: number }
 export type ReportRange = { from: Date; to: Date }
 
 function centsToMoney(cents: number): string {
@@ -29,6 +30,20 @@ export function parseCost(value: string): number {
 
 export async function listStock(userId: string) {
   return (await listStockRecords(database, userId)).map(toProductResponse)
+}
+
+export async function listCart(userId: string): Promise<CartResponse[]> {
+  return (await listCartRecords(database, userId)).map((item) => ({ id: item.id, product: toProductResponse(item.product), quantity: item.quantity }))
+}
+
+export async function saveCartItem(userId: string, productId: string, quantity: number) {
+  const outcome = await saveCartItemRecord(database, userId, productId, quantity)
+  return outcome.kind === 'saved' ? { kind: outcome.kind, item: { id: outcome.item.id, product: toProductResponse(outcome.item.product), quantity: outcome.item.quantity } } : outcome
+}
+
+export async function deleteCartItem(userId: string, productId: string) {
+  const deleted = await deleteCartItemRecord(database, userId, productId)
+  return deleted.count === 1 ? { kind: 'deleted' as const } : { kind: 'not-found' as const }
 }
 
 export async function replenishStock(userId: string, productId: string, quantity: number, deductEarnings = false, originalCost?: string) {

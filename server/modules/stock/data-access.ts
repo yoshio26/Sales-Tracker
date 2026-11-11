@@ -42,8 +42,32 @@ const reportPurchaseSelection = {
   purchasedAt: true,
 } satisfies Prisma.StockPurchaseSelect
 
+export const cartSelection = {
+  id: true,
+  quantity: true,
+  product: { select: productSelection },
+} satisfies Prisma.CartItemSelect
+
 export function listStock(db: Database, userId: string) {
   return db.product.findMany({ where: { userId, active: true, deletedAt: null }, select: productSelection, orderBy: [{ category: 'asc' }, { name: 'asc' }] })
+}
+
+export function listCart(db: Database, userId: string) {
+  return db.cartItem.findMany({ where: { userId, product: { active: true, deletedAt: null } }, select: cartSelection, orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }] })
+}
+
+export async function saveCartItem(db: PrismaClient, userId: string, productId: string, quantity: number) {
+  return db.$transaction(async (tx) => {
+    const product = await tx.product.findFirst({ where: { id: productId, userId, active: true, deletedAt: null }, select: { id: true, stockQuantity: true } })
+    if (!product) return { kind: 'product-not-found' as const }
+    if (quantity > product.stockQuantity) return { kind: 'insufficient-stock' as const }
+    const item = await tx.cartItem.upsert({ where: { userId_productId: { userId, productId } }, create: { userId, productId, quantity }, update: { quantity }, select: cartSelection })
+    return { kind: 'saved' as const, item }
+  })
+}
+
+export function deleteCartItem(db: Database, userId: string, productId: string) {
+  return db.cartItem.deleteMany({ where: { userId, productId } })
 }
 
 export async function adjustStock(db: PrismaClient, userId: string, productId: string, quantity: number, deductEarnings = false, originalCostCents?: number) {
@@ -76,6 +100,7 @@ export async function createPurchase(db: PrismaClient, userId: string, input: { 
     if (changed.count !== 1) return { kind: 'insufficient-stock' as const }
 
     const purchase = await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, imageUrl: product.imageUrl, imagePublicId: product.imagePublicId, quantity: input.quantity, totalCostCents }, select: purchaseSelection })
+      await tx.cartItem.deleteMany({ where: { userId, productId: product.id } })
     return { kind: 'created' as const, purchase }
   })
 }
@@ -116,6 +141,7 @@ export async function deleteStockData(db: PrismaClient, userId: string) {
     const products = await tx.product.updateMany({ where: { userId, deletedAt: null }, data: { active: false, deletedAt, updatedAt: deletedAt } })
     await tx.expense.updateMany({ where: { userId, deletedAt: null }, data: { deletedAt, updatedAt: deletedAt } })
     await tx.stockPurchase.updateMany({ where: { userId, deletedAt: null }, data: { deletedAt } })
+    await tx.cartItem.deleteMany({ where: { userId } })
     return { kind: 'deleted' as const, count: products.count }
   })
 }
@@ -148,6 +174,7 @@ export async function createPurchases(db: PrismaClient, userId: string, inputs: 
         if (changed.count !== 1) throw new Error('insufficient-stock')
         purchases.push(await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, imageUrl: product.imageUrl, imagePublicId: product.imagePublicId, quantity: input.quantity, totalCostCents: product.priceCents! * input.quantity }, select: purchaseSelection }))
       }
+        await tx.cartItem.deleteMany({ where: { userId, productId: { in: inputs.map((input) => input.productId) } } })
       return { kind: 'created' as const, purchases }
     })
   } catch (error) {

@@ -12,6 +12,7 @@ type CartItem = { product: StockProduct; quantity: number }
 
 const stockResponseSchema = z.object({ products: z.array(z.object({ imageUrl: z.string().nullable().optional(), id: z.string().uuid(), name: z.string(), category: z.string(), price: z.string(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
 const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ imageUrl: z.string().nullable().optional(), id: z.string().uuid(), productId: z.string().uuid(), productName: z.string(), category: z.string(), quantity: z.number().int().positive(), totalCost: z.string(), purchasedAt: z.string() })) })
+const cartResponseSchema = z.object({ items: z.array(z.object({ id: z.string().uuid(), quantity: z.number().int().positive(), product: z.object({ imageUrl: z.string().nullable().optional(), id: z.string().uuid(), name: z.string(), category: z.string(), price: z.string(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() }) })) })
 const productIdSchema = z.string().uuid('Select a product.')
 const quantitySchema = z.coerce.number().int('Quantity must be a whole number.').positive('Quantity must be greater than zero.')
 const exactQuantitySchema = z.coerce.number().int('Quantity must be a whole number.').nonnegative('Quantity cannot be negative.')
@@ -21,9 +22,9 @@ function formatPrice(price: string): string {
   return Number(price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number; prefillProduct?: StockProduct | null; prefillRequest?: number; onQuantityEditCancel?: () => void; onEdit?: (product: StockProduct) => void; onDelete?: (product: StockProduct) => void; onReviewStock?: () => void }
+type Props = { mode: 'buy' | 'stock'; onChanged: () => void; refreshKey?: number; prefillProduct?: StockProduct | null; prefillRequest?: number; prefillCartProduct?: StockProduct | null; prefillCartRequest?: number; onCartCountChange?: (count: number) => void; onQuantityEditCancel?: () => void; onEdit?: (product: StockProduct) => void; onDelete?: (product: StockProduct) => void; onReviewStock?: () => void }
 
-export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProduct = null, prefillRequest = 0, onQuantityEditCancel, onEdit, onDelete, onReviewStock }: Props) {
+export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProduct = null, prefillRequest = 0, prefillCartProduct = null, prefillCartRequest = 0, onCartCountChange, onQuantityEditCancel, onEdit, onDelete, onReviewStock }: Props) {
   const toast = useToast()
   const loadGeneration = useRef(0)
   const [products, setProducts] = useState<StockProduct[]>([])
@@ -52,6 +53,12 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
   const [quantityDeductionChoice, setQuantityDeductionChoice] = useState<boolean | null>(null)
   const [quantityOriginalPrice, setQuantityOriginalPrice] = useState('')
   const [pendingQuantity, setPendingQuantity] = useState<number | null>(null)
+  const cartRef = useRef<CartItem[]>([])
+
+  useEffect(() => {
+    cartRef.current = cart
+    if (mode === 'buy') onCartCountChange?.(cart.reduce((total, item) => total + item.quantity, 0))
+  }, [cart, mode, onCartCountChange])
 
   async function load() {
     const generation = loadGeneration.current
@@ -76,9 +83,19 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     } catch { setError('Unable to load bought history. Try again.'); if (generation === loadGeneration.current) toast.error('Unable to load bought history. Try again.') } finally { setPurchaseLoading(false) }
   }
 
+  async function loadCart() {
+    try {
+      const response = await fetch('/api/stock/cart', { credentials: 'include' })
+      if (!response.ok) throw new Error('Unable to load cart.')
+      const nextCart = cartResponseSchema.parse(await response.json()).items.map((item) => ({ product: item.product, quantity: item.quantity }))
+      cartRef.current = nextCart
+      setCart(nextCart)
+    } catch { setError('Unable to load saved cart. Try again.'); toast.error('Unable to load saved cart. Try again.') }
+  }
+
   useEffect(() => {
     void load()
-    if (mode === 'buy') void loadPurchases()
+    if (mode === 'buy') { void loadPurchases(); void loadCart() }
     return () => { loadGeneration.current += 1 }
   }, [refreshKey, mode])
 
@@ -91,6 +108,38 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     setProductMenuOpen(false)
     setNotice('Edit quantity mode: enter the complete stock amount, then save it.')
   }, [mode, prefillProduct, prefillRequest])
+
+  useEffect(() => {
+    if (mode !== 'buy' || !prefillCartProduct || prefillCartRequest === 0) return
+    const existing = cartRef.current.find((item) => item.product.id === prefillCartProduct.id)
+    const nextQuantity = Math.min((existing?.quantity ?? 0) + 1, prefillCartProduct.stockQuantity)
+    if (nextQuantity === existing?.quantity) return
+    void saveCartProduct(prefillCartProduct, nextQuantity).then((saved) => { if (saved) setNotice(`${prefillCartProduct.name} added to cart.`) })
+  }, [mode, prefillCartProduct, prefillCartRequest])
+
+  async function saveCartProduct(product: StockProduct, nextQuantity: number): Promise<boolean> {
+    try {
+      const response = await fetch('/api/stock/cart', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: product.id, quantity: nextQuantity }) })
+      const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
+      if (!response.ok) { toast.error(body?.error?.message ?? 'Unable to save cart item.'); return false }
+      const nextCart = cartRef.current.some((item) => item.product.id === product.id)
+        ? cartRef.current.map((item) => item.product.id === product.id ? { ...item, product, quantity: nextQuantity } : item)
+        : [...cartRef.current, { product, quantity: nextQuantity }]
+      cartRef.current = nextCart
+      setCart(nextCart)
+      return true
+    } catch { toast.error('Unable to save cart item.'); return false }
+  }
+
+  async function removeCartProduct(productId: string) {
+    try {
+      const response = await fetch(`/api/stock/cart/${productId}`, { method: 'DELETE', credentials: 'include' })
+      if (!response.ok && response.status !== 404) throw new Error('Unable to remove cart item.')
+      const nextCart = cartRef.current.filter((item) => item.product.id !== productId)
+      cartRef.current = nextCart
+      setCart(nextCart)
+    } catch { toast.error('Unable to remove cart item.') }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -119,9 +168,8 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
         setInsufficientStockOpen(true)
         return
       }
-      setCart((current) => existing
-        ? current.map((item) => item.product.id === product.data ? { ...item, quantity: item.quantity + parsedQuantity.data } : item)
-        : [...current, { product: selectedProduct!, quantity: parsedQuantity.data }])
+      const nextQuantity = (existing?.quantity ?? 0) + parsedQuantity.data
+      if (!await saveCartProduct(selectedProduct!, nextQuantity)) return
       setProductId('')
       setQuantity('1')
       setProductSearchQuery('')
@@ -182,6 +230,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
         toast.error(body?.error?.message ?? (body?.error?.code === 'INSUFFICIENT_STOCK' ? 'Not enough stock. Review your available stock before trying again.' : 'Unable to complete checkout.'))
         return
       }
+      cartRef.current = []
       setCart([])
       setNotice('Checkout complete. Stock updated.')
       toast.success('Checkout complete. Stock updated.')
@@ -348,7 +397,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     {mode === 'buy' ? <>
       {cart.length > 0 && <section className={styles.cart} aria-labelledby="cart-heading">
         <div className={styles.cartHeader}><div><h3 id="cart-heading">Cart</h3><p>{cart.length} product{cart.length === 1 ? '' : 's'} ready for checkout.</p></div><strong>₱{cart.reduce((total, item) => total + Number(item.product.price) * item.quantity, 0).toFixed(2)}</strong></div>
-        <ul className={styles.cartList}>{cart.map((item) => <li className={styles.cartItem} key={item.product.id}><div><ProductImage src={item.product.imageUrl} name={item.product.name} /><strong>{item.product.name}</strong><span>{item.product.category} · ₱{formatPrice(item.product.price)} each</span></div><div className={styles.cartItemControls}><label htmlFor={`cart-quantity-${item.product.id}`}>Qty</label><input id={`cart-quantity-${item.product.id}`} type="number" min="1" max={item.product.stockQuantity} value={item.quantity} onChange={(event) => { const nextQuantity = Number(event.target.value); if (Number.isInteger(nextQuantity) && nextQuantity > 0) setCart((current) => current.map((cartItem) => cartItem.product.id === item.product.id ? { ...cartItem, quantity: nextQuantity } : cartItem)) }} /><button className={styles.secondary} type="button" onClick={() => setCart((current) => current.filter((cartItem) => cartItem.product.id !== item.product.id))}>Remove</button></div></li>)}</ul>
+        <ul className={styles.cartList}>{cart.map((item) => <li className={styles.cartItem} key={item.product.id}><div><ProductImage src={item.product.imageUrl} name={item.product.name} /><strong>{item.product.name}</strong><span>{item.product.category} · ₱{formatPrice(item.product.price)} each</span></div><div className={styles.cartItemControls}><label htmlFor={`cart-quantity-${item.product.id}`}>Qty</label><input id={`cart-quantity-${item.product.id}`} type="number" min="1" max={item.product.stockQuantity} value={item.quantity} onChange={(event) => { const nextQuantity = Number(event.target.value); if (Number.isInteger(nextQuantity) && nextQuantity > 0) { const nextCart = cartRef.current.map((cartItem) => cartItem.product.id === item.product.id ? { ...cartItem, quantity: Math.min(nextQuantity, item.product.stockQuantity) } : cartItem); cartRef.current = nextCart; setCart(nextCart) } }} onBlur={() => { const saved = cartRef.current.find((cartItem) => cartItem.product.id === item.product.id); if (saved) void saveCartProduct(saved.product, saved.quantity) }} /><button className={styles.secondary} type="button" onClick={() => void removeCartProduct(item.product.id)}>Remove</button></div></li>)}</ul>
         <button type="button" disabled={checkoutLoading} onClick={() => void checkout()}>{checkoutLoading ? 'Checking out…' : 'Checkout'}</button>
       </section>}
       <div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="bought-product-search">Search Product</label><input id="bought-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPurchasePage(1) }} /></div>

@@ -13,6 +13,7 @@ type Props = {
   onEdit: (product: DashboardStockProduct) => void
   onDelete: (product: DashboardStockProduct) => void
   onAddStock: () => void
+  onAddToCart?: (product: DashboardStockProduct) => void
 }
 
 const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ productId: z.uuid(), quantity: z.number().int().positive() })) })
@@ -29,7 +30,7 @@ function DeleteIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg>
 }
 
-export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddStock }: Props) {
+export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddStock, onAddToCart }: Props) {
   const toast = useToast()
   const loadGeneration = useRef(0)
   const [products, setProducts] = useState<DashboardStockProduct[]>([])
@@ -40,6 +41,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddSto
   const [pageSize, setPageSize] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [addedProductId, setAddedProductId] = useState<string | null>(null)
 
   async function load() {
     const generation = loadGeneration.current
@@ -81,6 +83,12 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddSto
   const firstRow = filteredProducts.length === 0 ? 0 : (page - 1) * pageSize + 1
   const lastRow = Math.min(page * pageSize, filteredProducts.length)
 
+  function addToCart(product: DashboardStockProduct) {
+    onAddToCart?.(product)
+    setAddedProductId(product.id)
+    window.setTimeout(() => setAddedProductId((current) => current === product.id ? null : current), 700)
+  }
+
   return <section className={styles.stockTableSection} aria-labelledby="available-stock-heading">
     <div><h2 id="available-stock-heading">Available stock</h2><p>Review inventory and manage each stock item from the dashboard.</p><div className={styles.stockFilters}><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-stock-search">Search Product</label><input id="dashboard-stock-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPage(1) }} /></div><div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="dashboard-category-filter">Filter Category</label><select id="dashboard-category-filter" value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(1) }}><option value="">All categories</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></div></div></div>
     {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={() => void load()}>Retry</button></p>}
@@ -90,23 +98,22 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddSto
       <p>Add your first product to start tracking inventory.</p>
       <button type="button" onClick={onAddStock}>Add your first stock</button>
     </div> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match the selected filters.</p> : <>
-      <div className={styles.stockTableScroll}>
-        <table className={styles.stockTable}>
-          <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
-          <thead><tr><th scope="col">Stock Name</th><th scope="col">Category</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Original Price</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
-          <tbody>{visibleProducts.map((product) => <tr key={product.id}>
-            <th scope="row"><ProductImage src={product.imageUrl} name={product.name} /><span className={styles.stockTableName}>{product.name}</span></th>
-            <td data-label="Category">{product.category}</td>
-            <td data-label="Stocks"><div className={styles.stockQuantityCell}><span>{product.stockQuantity}</span><StockStatusChip quantity={product.stockQuantity} /></div></td>
-            <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>
-            <td data-label="Original Price">{product.originalPrice === null ? '—' : `₱${formatPrice(product.originalPrice)}`}</td>
-            <td data-label="Updated Price">₱{formatPrice(product.price)}</td>
-            <td data-label="Edit"><div className={styles.stockTableActions}>
+      <div className={styles.stockCards} aria-label="Available stock products">
+        {visibleProducts.map((product) => <article className={styles.stockCard} key={product.id}>
+          <ProductImage src={product.imageUrl} name={product.name} size={150} />
+          <div className={styles.stockCardBody}>
+            <div className={styles.stockCardHeading}>
+              <div><h3>{product.name}</h3><span>{product.category}</span></div>
+              <strong>₱{formatPrice(product.price)}</strong>
+            </div>
+            <div className={styles.stockCardMeta}><span>{product.stockQuantity} in stock</span><StockStatusChip quantity={product.stockQuantity} /><span>{soldByProduct[product.id] ?? 0} sold</span></div>
+            <button className={`${styles.stockCardCartButton} ${addedProductId === product.id ? styles.stockCardCartButtonAdded : ''}`} type="button" disabled={product.stockQuantity === 0} onClick={() => addToCart(product)}>{addedProductId === product.id ? 'Added ✓' : 'Add to cart'}</button>
+            <div className={styles.stockCardActions}>
               <button className={styles.iconButton} type="button" title={`Edit ${product.name}`} aria-label={`Edit ${product.name}`} onClick={() => onEdit(product)}><EditIcon /></button>
               <button className={`${styles.iconButton} ${styles.iconDanger}`} type="button" title={`Delete ${product.name}`} aria-label={`Delete ${product.name}`} onClick={() => onDelete(product)}><DeleteIcon /></button>
-            </div></td>
-          </tr>)}</tbody>
-        </table>
+            </div>
+          </div>
+        </article>)}
       </div>
       <div className={styles.dashboardTablePagination}>
         <div className={styles.stockTableToolbar}>

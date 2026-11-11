@@ -136,6 +136,8 @@
 .skeletonSummary { width: 68%; margin-top: 0.65rem; }
 .skeletonChart { height: 15rem; margin-top: 0.75rem; border-radius: 0.4rem; background: linear-gradient(90deg, var(--accent-soft) 25%, #f9dce9 50%, var(--accent-soft) 75%); background-size: 200% 100%; animation: dashboardSkeletonShimmer 1.6s ease-in-out infinite; }
 @keyframes dashboardSkeletonShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes cartBadgePop { 0% { transform: scale(0.65); opacity: 0.4; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes cartButtonPop { 0% { transform: scale(1); } 45% { transform: scale(0.96); } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .skeletonLine, .skeletonChart { animation: none; } }
 .chartGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .chartCard { min-width: 0; padding: 1rem; border: 1px solid #dce4ef; border-radius: 0.7rem; background: white; }
@@ -185,6 +187,21 @@
 .stockTableToolbar label { color: #17243b; font-weight: 700; }
 .stockTableToolbar select { width: auto; padding: 0.45rem 0.65rem; border: 1px solid #b9c7dc; border-radius: 0.45rem; background: white; color: #17243b; font: inherit; }
 .dashboardTablePagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.stockCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem; }
+.stockCard { display: flex; min-width: 0; flex-direction: column; gap: 0.65rem; padding: 0.65rem; border: 1px solid var(--accent-soft); border-radius: 0.9rem; background: #f9fafb; box-shadow: 0 0.45rem 1.2rem rgba(44, 17, 34, 0.04); }
+.stockCard > .product-photo { width: 100% !important; height: 8rem !important; margin: 0; border-radius: 0.7rem; }
+.stockCardBody { display: grid; gap: 0.55rem; min-width: 0; }
+.stockCardHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+.stockCardHeading h3 { margin: 0; overflow-wrap: anywhere; color: #17243b; font-size: 0.92rem; }
+.stockCardHeading span { display: block; margin-top: 0.15rem; overflow: hidden; color: #92909a; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
+.stockCardHeading strong { flex-shrink: 0; color: var(--accent); font-size: 0.86rem; }
+.stockCardMeta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; color: #5c6b82; font-size: 0.7rem; }
+.stockCardCartButton { width: 100%; margin-top: 0; padding: 0.55rem 0.5rem !important; border-radius: 0.45rem !important; background: var(--accent) !important; color: var(--on-accent) !important; font-size: 0.78rem !important; }
+.stockCardCartButton:hover:not(:disabled) { background: var(--accent-hover) !important; }
+.stockCardCartButtonAdded { animation: cartButtonPop 700ms ease both; background: var(--accent-hover) !important; }
+.stockCardCartButton:disabled { cursor: not-allowed; opacity: 0.5; }
+.stockCardActions { display: flex; justify-content: flex-end; gap: 0.4rem; }
+.hiddenWorkspacePage { display: none; }
 .stockTableScroll { max-height: 28rem; overflow: auto; border: 1px solid var(--accent-soft); box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); overscroll-behavior: contain; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
 .stockTable { width: 100%; min-width: 42rem; table-layout: fixed; border-collapse: collapse; background: #fff; color: #20202a; }
 .stockTable th, .stockTable td { padding: 1rem 1.1rem; border-bottom: 1px solid var(--accent-soft); overflow-wrap: anywhere; text-align: left; vertical-align: middle; }
@@ -476,6 +493,8 @@
 .brandMark { display: grid; place-items: center; width: 2rem; height: 2rem; border: 2px solid rgba(255,255,255,0.9); border-radius: 0.65rem; font-size: 1rem; }
 .sidebarNav { display: grid; gap: 0; }
 .sidebarItem, .selectedSidebarItem, .sidebarSettings { display: flex; align-items: center; gap: 0.75rem; width: calc(100% - 0.4rem); min-height: 3rem; margin: 0 0 0 0.4rem !important; padding: 0.75rem 1.35rem !important; border: 0 !important; border-radius: 999px 0 0 999px !important; background: transparent !important; color: rgba(255,255,255,0.88) !important; box-shadow: none !important; font-size: 0.9rem; font-weight: 700; text-align: left; transition: background 180ms ease, color 180ms ease; }
+.cartBadge { display: inline-grid !important; min-width: 1.35rem; height: 1.35rem; margin-left: auto; padding: 0 0.3rem; place-items: center; border-radius: 999px; background: var(--on-accent); color: var(--accent); font-size: 0.68rem; font-weight: 900; line-height: 1; animation: cartBadgePop 320ms ease-out; }
+.selectedSidebarItem .cartBadge { background: var(--accent); color: var(--on-accent); }
 .sidebarItem::before, .selectedSidebarItem::before, .sidebarSettings::before { display: none !important; }
 .sidebarItem:hover:not(:disabled), .selectedSidebarItem:hover:not(:disabled), .sidebarSettings:hover:not(:disabled) { color: white !important; background: rgba(255,255,255,0.14) !important; }
 .selectedSidebarItem { border-radius: 999px 0 0 999px !important; background: var(--on-accent) !important; color: var(--accent) !important; box-shadow: 0 0.65rem 1.5rem rgba(153, 15, 77, 0.12) !important; }
@@ -567,6 +586,9 @@
 .darkMode .reportExport h3, .darkMode .reportExportControls label { color: #fff7fb; }
 .darkMode .reportDownload { border-color: var(--accent); }
 .darkMode .stockTableSection h2 { color: #fff7fb; }
+.darkMode .stockCard { border-color: #493542; background: #211a23; }
+.darkMode .stockCardHeading h3 { color: #fff7fb; }
+.darkMode .stockCardHeading span, .darkMode .stockCardMeta { color: #c5afbd; }
 .darkMode .stockTableToolbar { color: #c5afbd; }
 .darkMode .stockTableToolbar label { color: #fff7fb; }
 .darkMode .stockTableToolbar select { border-color: #624456; background: #2a202d; color: #fff7fb; }
@@ -601,15 +623,17 @@
 .darkMode .dashboardStockPagination button:disabled { border-color: #352832 !important; color: #6b5965 !important; }
 
 @media (max-width: 32rem) {
+  .stockCards { grid-template-columns: 1fr; }
   .dashboardTablePagination { align-items: stretch; flex-direction: column; }
   .dashboardStockPagination { justify-content: flex-end; }
 }
 
 @media (max-width: 52rem) {
+  .stockCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspaceLayout { grid-template-columns: 5rem minmax(0, 1fr); }
   .sidebar { padding-inline: 0.5rem; }
   .brand { justify-content: center; padding-inline: 0; }
-  .brand span:last-child, .sidebarItem span:last-child, .selectedSidebarItem span:last-child, .sidebarSettings span:last-child { display: none; }
+  .brand span:last-child, .sidebarItem > span:not(.cartBadge), .selectedSidebarItem > span:not(.cartBadge), .sidebarSettings span:last-child { display: none; }
   .sidebarItem, .selectedSidebarItem, .sidebarSettings { justify-content: center; padding-inline: 0 !important; }
   .workspaceMain { padding-inline: 1.25rem; }
   .summaryCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -623,6 +647,7 @@
   .mobileNavButton { display: flex !important; position: static !important; z-index: auto !important; align-items: center; justify-content: center; gap: 0.2rem; min-width: 0; min-height: 3.8rem; margin: 0 !important; padding: 0.35rem 0.15rem !important; border: 0 !important; border-radius: 0.55rem !important; background: transparent !important; color: rgba(255,255,255,0.88) !important; box-shadow: none !important; font-size: 0.68rem !important; font-weight: 800; text-align: center; transition: background 180ms ease, color 180ms ease; }
   .mobileNavButton::before { display: none !important; }
   .mobileNavButton .navIcon { width: 1.25rem; height: 1.25rem; }
+  .mobileNavButton .cartBadge { position: absolute; top: 0.3rem; right: 0.65rem; min-width: 1.15rem; height: 1.15rem; font-size: 0.6rem; }
   .mobileNavButtonActive, .mobileNavButtonActive:hover:not(:disabled) { background: var(--on-accent) !important; color: var(--accent) !important; transform: none !important; box-shadow: none !important; }
   .mobileMoreMenu { position: absolute; right: 0.35rem; bottom: calc(100% + 0.5rem); display: grid; width: min(13rem, calc(100vw - 1rem)); padding: 0.4rem; border: 1px solid rgba(255,255,255,0.22); border-radius: 0.75rem; background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%); box-shadow: 0 0.8rem 2rem rgba(44, 17, 34, 0.18); }
   .mobileMoreMenu button { display: flex !important; align-items: center; gap: 0.65rem; width: 100%; min-height: 2.7rem; margin: 0 !important; padding: 0.6rem 0.75rem !important; border: 0 !important; border-radius: 0.45rem !important; background: transparent !important; color: rgba(255,255,255,0.88) !important; box-shadow: none !important; font-size: 0.82rem !important; text-align: left; }

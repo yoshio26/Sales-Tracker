@@ -104,6 +104,9 @@ function App() {
   const [archiveConfirmationProduct, setArchiveConfirmationProduct] = useState<Product | null>(null)
   const [quantityEditProduct, setQuantityEditProduct] = useState<Product | null>(null)
   const [quantityEditRequest, setQuantityEditRequest] = useState(0)
+  const [cartProduct, setCartProduct] = useState<Product | null>(null)
+  const [cartProductRequest, setCartProductRequest] = useState(0)
+  const [cartCount, setCartCount] = useState(0)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const [dashboardSection, setDashboardSection] = useState<'overview' | 'reports'>('overview')
@@ -447,6 +450,11 @@ function App() {
     setStockRefreshKey((value) => value + 1)
   }
 
+  function addDashboardProductToCart(product: { imageUrl?: string | null; id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
+    setCartProduct({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })
+    setCartProductRequest((value) => value + 1)
+  }
+
   return (
     <main className={`${styles.shell} ${darkMode ? styles.darkMode : ''}`}>
       <ToastViewport />
@@ -457,7 +465,7 @@ function App() {
               <div className={styles.brand}><span className={styles.brandMark}>S</span><span>Sales V1</span></div>
               <nav className={styles.sidebarNav} aria-label="Workspace views">
                 <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={workspaceView === 'dashboard' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('dashboard')}><NavIcon name="dashboard" /><span>Dashboard</span></button>
-                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('buy')}><NavIcon name="buy" /><span>Bought</span></button>
+                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={workspaceView === 'buy' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('buy')}><NavIcon name="buy" /><span>Bought</span>{cartCount > 0 && <span className={styles.cartBadge} aria-label={`${cartCount} item${cartCount === 1 ? '' : 's'} in cart`}>{cartCount > 99 ? '99+' : cartCount}</span>}</button>
                 <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={workspaceView === 'stock' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('stock')}><NavIcon name="stock" /><span>Stocks</span></button>
                 <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={workspaceView === 'history' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('history')}><NavIcon name="history" /><span>Purchase History</span></button>
                 <button type="button" aria-current={workspaceView === 'notes' ? 'page' : undefined} className={workspaceView === 'notes' ? styles.selectedSidebarItem : styles.sidebarItem} onClick={() => setWorkspaceView('notes')}><NavIcon name="notes" /><span>Notes</span></button>
@@ -472,7 +480,7 @@ function App() {
               </button>
               <nav className={styles.mobileBottomNav} aria-label="Mobile workspace views">
                 <button type="button" aria-current={workspaceView === 'dashboard' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'dashboard' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('dashboard')}><NavIcon name="dashboard" /><span>Dashboard</span></button>
-                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'buy' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('buy')}><NavIcon name="buy" /><span>Bought</span></button>
+                <button type="button" aria-current={workspaceView === 'buy' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'buy' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('buy')}><NavIcon name="buy" /><span>Bought</span>{cartCount > 0 && <span className={styles.cartBadge} aria-hidden="true">{cartCount > 99 ? '99+' : cartCount}</span>}</button>
                 <button type="button" aria-current={workspaceView === 'stock' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'stock' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('stock')}><NavIcon name="stock" /><span>Stocks</span></button>
                 <button type="button" aria-current={workspaceView === 'history' ? 'page' : undefined} className={`${styles.mobileNavButton} ${workspaceView === 'history' ? styles.mobileNavButtonActive : ''}`} onClick={() => navigateWorkspace('history')}><NavIcon name="history" /><span>History</span></button>
                 <button type="button" aria-expanded={mobileMoreOpen} className={`${styles.mobileNavButton} ${mobileMoreOpen || ['notes', 'guide', 'motivation', 'settings'].includes(workspaceView) ? styles.mobileNavButtonActive : ''}`} onClick={() => setMobileMoreOpen((open) => !open)}><NavIcon name="settings" /><span>More</span></button>
@@ -490,7 +498,7 @@ function App() {
               <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'notes' ? 'Notes' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : workspaceView === 'camellia' ? 'Camellia' : 'Purchase history'}</h1>{workspaceView === 'dashboard' && <nav className={styles.dashboardTabs} aria-label="Dashboard views"><button type="button" aria-current={dashboardSection === 'overview' ? 'page' : undefined} className={dashboardSection === 'overview' ? styles.selectedTab : styles.tab} onClick={() => setDashboardSection('overview')}>Overview</button><button type="button" aria-current={dashboardSection === 'reports' ? 'page' : undefined} className={dashboardSection === 'reports' ? styles.selectedTab : styles.tab} onClick={() => setDashboardSection('reports')}>Reports</button></nav>}</div>
               <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
-            {workspaceView === 'buy' && <StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} onReviewStock={() => setWorkspaceView('stock')} />}
+            <div className={workspaceView === 'buy' ? undefined : styles.hiddenWorkspacePage} aria-hidden={workspaceView !== 'buy'}><StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillCartProduct={cartProduct} prefillCartRequest={cartProductRequest} onCartCountChange={setCartCount} onReviewStock={() => setWorkspaceView('stock')} /></div>
             {workspaceView === 'stock' && <>
               <div className={styles.stockActions}>
                 <button
@@ -550,6 +558,7 @@ function App() {
                   onEdit={editStock}
                   onDelete={(product) => requestArchive({ ...product, active: true, archivedAt: null, deletedAt: null })}
                   onAddStock={openAddStockForm}
+                  onAddToCart={addDashboardProductToCart}
                 />}
               </DashboardPage>
             </Suspense>

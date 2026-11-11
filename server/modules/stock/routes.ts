@@ -4,7 +4,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { requireSameOrigin } from '../../middleware/origin.js'
 import { requireSession } from '../../middleware/session.js'
-import { createPurchase, createPurchases, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listPurchases, listStock, monthRange, replenishStock, setStockQuantity } from './service.js'
+import { createPurchase, createPurchases, deleteCartItem, deletePurchase, deleteStockData, exportPurchasesCsv, exportStockCsv, listCart, listPurchases, listStock, monthRange, replenishStock, saveCartItem, setStockQuantity } from './service.js'
 
 const quantitySchema = z.number().int().positive().max(2147483647)
 const originalCostSchema = z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0 && Number(value) * 100 <= 2147483647, 'Enter a valid original price.')
@@ -17,6 +17,7 @@ const setQuantitySchema = z.object({ productId: z.uuid(), quantity: z.number().i
   if (input.deductEarnings && input.originalCost && !originalCostSchema.safeParse(input.originalCost).success) context.addIssue({ code: 'custom', path: ['originalCost'], message: 'Enter a valid original price.' })
 })
 const purchaseSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
+const cartSchema = z.object({ productId: z.uuid(), quantity: quantitySchema })
 const checkoutSchema = z.object({ items: z.array(purchaseSchema).min(1).max(100).superRefine((items, context) => { if (new Set(items.map((item) => item.productId)).size !== items.length) context.addIssue({ code: 'custom', message: 'Each product may only appear once in the cart.' }) }) })
 const monthSchema = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/)
 
@@ -36,6 +37,35 @@ stockRouter.get('/', requireSession, async (req, res, next) => {
 
 stockRouter.get('/purchases', requireSession, async (req, res, next) => {
   try { res.json({ purchases: await listPurchases(req.userId!) }) } catch (error) { next(error) }
+})
+
+stockRouter.get('/cart', requireSession, async (req, res, next) => {
+  try { res.json({ items: await listCart(req.userId!) }) } catch (error) { next(error) }
+})
+
+stockRouter.post('/cart', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const input = cartSchema.parse(req.body)
+    const outcome = await saveCartItem(req.userId!, input.productId, input.quantity)
+    if (outcome.kind === 'product-not-found') return res.status(404).json({ error: { code: 'PRODUCT_NOT_FOUND', message: 'Active product not found.' } })
+    if (outcome.kind === 'insufficient-stock') return res.status(409).json({ error: { code: 'INSUFFICIENT_STOCK', message: 'Cart quantity exceeds available stock.' } })
+    res.status(201).json({ item: outcome.item })
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res, 'Add a valid product and quantity to the cart.')
+    next(error)
+  }
+})
+
+stockRouter.delete('/cart/:productId', requireSession, requireSameOrigin, async (req, res, next) => {
+  try {
+    const { productId } = z.object({ productId: z.uuid() }).parse(req.params)
+    const outcome = await deleteCartItem(req.userId!, productId)
+    if (outcome.kind === 'not-found') return res.status(404).json({ error: { code: 'CART_ITEM_NOT_FOUND', message: 'Cart item not found.' } })
+    res.status(204).send()
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalidInput(res, 'Enter a valid cart item product ID.')
+    next(error)
+  }
 })
 
 stockRouter.delete('/', requireSession, requireSameOrigin, async (req, res, next) => {
