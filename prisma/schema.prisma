@@ -56,6 +56,7 @@ model Product {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses   Expense[]
   stockPurchases StockPurchase[]
+  cartItems  CartItem[]
 
   @@unique([userId, name])
   @@unique([id, userId])
