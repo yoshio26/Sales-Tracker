@@ -2,7 +2,7 @@
 name: Sales Tracker visual design
 status: final
 created: 2026-09-30
-updated: 2026-09-30
+updated: 2026-11-11
 ---
 
 # Sales Tracker — Visual Design
@@ -23,6 +23,10 @@ Reference mockup: [Login dashboard preview](mockups/key-login-dashboard-preview.
 - Dashboard: total cards, spending-over-time chart, product/category charts, recent expenses.
 - Products: searchable list, add/edit form, archive action, archived-state indicator.
 - Expenses: add/edit form, ledger list, date/product filters, soft-delete confirmation.
+
+## Add Stock card
+
+The Add Stock dialog uses an image-first product-card composition: a rounded light surface, prominent product-photo region, compact identity and pricing fields, and a clear primary action. The existing pink Sales Tracker accent remains the action and focus color. The photo area is still an optional upload, so the placeholder remains useful when no photo exists.
 
 ## Layout
 

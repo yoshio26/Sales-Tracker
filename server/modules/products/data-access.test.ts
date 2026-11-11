@@ -12,7 +12,7 @@ function database() {
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    stockPurchase: { deleteMany: vi.fn(), updateMany: vi.fn() },
+    stockPurchase: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn(), updateMany: vi.fn() },
   }
   const db = {
     $transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),
@@ -79,10 +79,12 @@ describe('product data access', () => {
 
   it('permanently deletes an archived product and its dependent history in one transaction', async () => {
     const { db, tx } = database()
-    tx.product.findFirst.mockResolvedValueOnce({ id: 'product-id' })
+    tx.product.findFirst.mockResolvedValueOnce({ id: 'product-id', imagePublicId: 'current' })
+    tx.stockPurchase.findMany.mockResolvedValue([{ imagePublicId: 'old' }, { imagePublicId: 'older' }])
     tx.product.delete.mockResolvedValue({ id: 'product-id' })
 
-    await expect(permanentlyDeleteArchivedProduct(db as never, 'user-a', 'product-id')).resolves.toEqual({ kind: 'deleted', product: { id: 'product-id' } })
+    await expect(permanentlyDeleteArchivedProduct(db as never, 'user-a', 'product-id')).resolves.toMatchObject({ kind: 'deleted', product: { id: 'product-id' }, imageCandidates: ['current', 'old', 'older'] })
+    expect(tx.stockPurchase.findMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' }, select: { imagePublicId: true } })
     expect(tx.expense.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
     expect(tx.stockPurchase.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-a', productId: 'product-id' } })
     expect(tx.product.delete).toHaveBeenCalledWith({ where: { id: 'product-id' } })

@@ -1,5 +1,17 @@
 # Sales Tracker verification
 
+## Product photos and database rollout
+
+Product photos are optional. Configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` using your deployment secret manager (placeholders are in `.env.example`). Keep the API secret on the server; never use frontend/Vite variables. Missing configuration does not block startup or JSON-only saves, but photo upload requests receive 503.
+
+For a local development database, apply the checked-in migration with `npm run db:migrate`, then run `npm run db:generate`. For production, back up the database, run `npm run db:deploy` in your release process, generate the client with `npm run db:generate`, and build/restart with the updated application. Apply the migration before serving updated code. These commands mutate the selected database and must be run intentionally by the operator; automated feature verification does not run them.
+
+Uploads accept one JPEG, PNG, or WebP up to 3 MB, validate decoded bytes, and use Cloudinary folder `asimon/products` with automatic format/quality. Bulk saves use a shared selected photo but upload independently owned assets per product. Invalid files do not save details; configured remote upload failures save details, retain an existing photo, and return a visible warning.
+
+Purchases capture immutable photo URLs and internal asset IDs alongside existing name/category snapshots. The migration backfills only purchases whose product and tenant match. Removing/replacing a product photo does not alter history. Archive/restore and the 10-day recoverable delete preserve photo references. Permanent deletion, history deletion, replacement, failed saves, and retention purge perform best-effort cleanup after persistence: an asset is destroyed only when neither products nor purchases reference it, including archived/soft-deleted rows across all tenants. Cleanup failures are logged and do not reverse successful actions. Logs should be monitored for failed cleanup; there is no durable automatic orphan retry queue.
+
+The production image CSP permits only self/data/blob and `https://res.cloudinary.com`. Notification HTML includes escaped, trusted Cloudinary images; readable product details remain in HTML and plain text if images cannot load.
+
 ## Deterministic verification
 
 The default suite uses Vitest and mocked persistence, so it does not require PostgreSQL or Mailpit:

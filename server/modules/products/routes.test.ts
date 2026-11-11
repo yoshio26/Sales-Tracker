@@ -23,6 +23,7 @@ function response(): MockResponse {
 }
 
 async function invoke(method: 'get' | 'post' | 'put' | 'delete', path: string, req: Record<string, unknown>) {
+  req.headers ??= { 'content-type': 'application/json' }
   const layer = productsRouter.stack.find((candidate) => {
     const route = candidate.route as { path?: string; methods?: Record<string, boolean> } | undefined
     return route?.path === path && route.methods?.[method] === true
@@ -37,7 +38,11 @@ async function invoke(method: 'get' | 'post' | 'put' | 'delete', path: string, r
     const handler = handlers[index++]
     if (handler) await handler(req as never, res as never, next as never)
   }
-  await next()
+  await new Promise<void>((resolve, reject) => {
+    res.json.mockImplementation(() => resolve())
+    const original = next
+    void original().catch(reject)
+  })
   return res
 }
 

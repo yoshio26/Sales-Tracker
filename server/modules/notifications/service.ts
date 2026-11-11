@@ -6,7 +6,7 @@ import { getDashboard } from '../dashboard/service.js'
 
 export type NotificationEvent = 'added' | 'deleted' | 'changed'
 export type NotificationChange = { label: string; before: string; after: string }
-export type NotificationItem = { name: string; category: string; quantity?: number; price?: string; costDeducted?: string; changes?: NotificationChange[] }
+export type NotificationItem = { imageUrl?: string | null; name: string; category: string; quantity?: number; price?: string; costDeducted?: string; changes?: NotificationChange[] }
 
 function money(value: string | undefined): string {
   return value ? `₱${value}` : ''
@@ -49,7 +49,12 @@ export async function notifyStock(userId: string, event: NotificationEvent, item
             ...(item.price === undefined ? [] : [`Price: ${money(item.price)}`]),
             ...(item.costDeducted === undefined ? [] : [`Initial cost deducted: ${money(item.costDeducted)}`]),
           ]
-      return `<li><strong>${escapeHtml(item.name)} (${escapeHtml(item.category)})</strong>${details.length ? `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>` : ''}</li>`
+      let photo = ''
+      try {
+        const url = new URL(item.imageUrl ?? '')
+        if (url.protocol === 'https:' && url.hostname === 'res.cloudinary.com' && !url.username && !url.password && !url.port) photo = `<img src="${escapeHtml(url.href)}" alt="${escapeHtml(item.name)}" width="64" height="64" style="object-fit:cover;border-radius:8px" loading="lazy"> `
+      } catch { /* Missing/untrusted photos leave readable text intact. */ }
+      return `<li>${photo}<strong>${escapeHtml(item.name)} (${escapeHtml(item.category)})</strong>${details.length ? `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>` : ''}</li>`
     }).join('')
     const html = `<h2>${escapeHtml(title)}</h2><ul>${htmlItems}</ul><p>${escapeHtml(summary).replaceAll('\n', '<br>')}<br>Date/time: ${escapeHtml(now)}</p>`
     const subject = `${title}: ${items[0]?.name ?? 'multiple products'}${items[0]?.category ? ` (${items[0].category})` : ''} | Profit ${dashboard.profit} | ${dashboard.stock.totalUnits} units`

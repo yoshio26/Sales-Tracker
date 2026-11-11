@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
 import { prisma } from '../../infrastructure/prisma.js'
+import type { ImageFields } from '../../infrastructure/images.js'
 
 export type Database = PrismaClient | Prisma.TransactionClient
 export const database = prisma
@@ -12,7 +13,7 @@ export function listProducts(db: Database, userId: string, status: ProductStatus
   })
 }
 
-export async function createProduct(db: PrismaClient, userId: string, input: { name: string; category: string; priceCents: number; originalPriceCents?: number; stockQuantity?: number; deductionCents?: number }) {
+export async function createProduct(db: PrismaClient, userId: string, input: { name: string; category: string; priceCents: number; originalPriceCents?: number; stockQuantity?: number; deductionCents?: number } & Partial<ImageFields>) {
   if (input.deductionCents === undefined) {
     const { deductionCents: _deductionCents, ...productInput } = input
     return db.product.create({ data: { userId, ...productInput } })
@@ -25,7 +26,7 @@ export async function createProduct(db: PrismaClient, userId: string, input: { n
   })
 }
 
-export async function createProducts(db: PrismaClient, userId: string, inputs: Array<{ name: string; category: string; priceCents: number; originalPriceCents?: number; stockQuantity?: number; deductionCents?: number }>) {
+export async function createProducts(db: PrismaClient, userId: string, inputs: Array<{ name: string; category: string; priceCents: number; originalPriceCents?: number; stockQuantity?: number; deductionCents?: number } & Partial<ImageFields>>) {
   return db.$transaction(async (tx) => {
     const products = []
     for (const input of inputs) {
@@ -40,16 +41,16 @@ export async function createProducts(db: PrismaClient, userId: string, inputs: A
   })
 }
 
-export async function updateProduct(db: PrismaClient, userId: string, id: string, input: { name: string; category: string; priceCents: number; updatedAt: Date }) {
+export async function updateProduct(db: PrismaClient, userId: string, id: string, input: { name: string; category: string; priceCents: number; updatedAt: Date } & Partial<ImageFields>) {
   return db.$transaction(async (tx) => {
-    const existing = await tx.product.findFirst({ where: { id, userId, active: true, deletedAt: null, updatedAt: input.updatedAt }, select: { name: true, category: true, priceCents: true } })
-    if (existing && existing.name === input.name && existing.category === input.category && existing.priceCents === input.priceCents) {
+    const existing = await tx.product.findFirst({ where: { id, userId, active: true, deletedAt: null, updatedAt: input.updatedAt }, select: { name: true, category: true, priceCents: true, imageUrl: true, imagePublicId: true } })
+    if (existing && existing.name === input.name && existing.category === input.category && existing.priceCents === input.priceCents && (input.imageUrl === undefined || existing.imageUrl === input.imageUrl)) {
       return { kind: 'unchanged' as const, product: await tx.product.findUniqueOrThrow({ where: { id } }) }
     }
     const updatedAt = new Date(Math.max(Date.now(), input.updatedAt.getTime() + 1))
     const changed = await tx.product.updateMany({
       where: { id, userId, active: true, deletedAt: null, updatedAt: input.updatedAt },
-      data: { name: input.name, category: input.category, priceCents: input.priceCents, updatedAt },
+      data: { name: input.name, category: input.category, priceCents: input.priceCents, updatedAt, ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl, imagePublicId: input.imagePublicId }) },
     })
     if (changed.count === 1) return { kind: 'updated' as const, previous: existing!, product: await tx.product.findUniqueOrThrow({ where: { id } }) }
 
@@ -77,16 +78,17 @@ export async function archiveProduct(db: PrismaClient, userId: string, id: strin
 
 export async function permanentlyDeleteArchivedProduct(db: PrismaClient, userId: string, id: string) {
   return db.$transaction(async (tx) => {
-    const product = await tx.product.findFirst({ where: { id, userId, active: false }, select: { id: true, name: true, category: true, stockQuantity: true } })
+    const product = await tx.product.findFirst({ where: { id, userId, active: false }, select: { id: true, name: true, category: true, stockQuantity: true, imageUrl: true, imagePublicId: true } })
     if (!product) {
       const current = await tx.product.findFirst({ where: { id, userId }, select: { active: true } })
       return current ? { kind: 'active' as const } : { kind: 'not-found' as const }
     }
 
+    const snapshots = await tx.stockPurchase.findMany({ where: { userId, productId: product.id }, select: { imagePublicId: true } })
     await tx.expense.deleteMany({ where: { userId, productId: product.id } })
     await tx.stockPurchase.deleteMany({ where: { userId, productId: product.id } })
     await tx.product.delete({ where: { id: product.id } })
-    return { kind: 'deleted' as const, product }
+    return { kind: 'deleted' as const, product, imageCandidates: [product.imagePublicId, ...snapshots.map((purchase) => purchase.imagePublicId)] }
   })
 }
 

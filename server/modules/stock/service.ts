@@ -2,20 +2,20 @@ import type { Product, StockPurchase } from '@prisma/client'
 import { notifyStock } from '../notifications/service.js'
 import { adjustStock as adjustStockRecord, createPurchase as createPurchaseRecord, createPurchases as createPurchasesRecord, database, deletePurchase as deletePurchaseRecord, deleteStockData as deleteStockDataRecord, getReportData, listPurchases as listPurchaseRecords, listStock as listStockRecords, setStockQuantity as setStockQuantityRecord } from './data-access.js'
 
-export type StockProductResponse = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
-export type PurchaseResponse = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
+export type StockProductResponse = { imageUrl: string | null; id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
+export type PurchaseResponse = { imageUrl: string | null; id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
 export type ReportRange = { from: Date; to: Date }
 
 function centsToMoney(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
-function toProductResponse(product: Pick<Product, 'id' | 'name' | 'category' | 'priceCents' | 'originalPriceCents' | 'stockQuantity' | 'updatedAt'>): StockProductResponse {
-  return { id: product.id, name: product.name, category: product.category, price: ((product.priceCents ?? 0) / 100).toFixed(2), originalPrice: product.originalPriceCents == null ? null : (product.originalPriceCents / 100).toFixed(2), stockQuantity: product.stockQuantity, updatedAt: product.updatedAt.toISOString() }
+function toProductResponse(product: Pick<Product, 'imageUrl' | 'id' | 'name' | 'category' | 'priceCents' | 'originalPriceCents' | 'stockQuantity' | 'updatedAt'>): StockProductResponse {
+  return { imageUrl: product.imageUrl ?? null, id: product.id, name: product.name, category: product.category, price: ((product.priceCents ?? 0) / 100).toFixed(2), originalPrice: product.originalPriceCents == null ? null : (product.originalPriceCents / 100).toFixed(2), stockQuantity: product.stockQuantity, updatedAt: product.updatedAt.toISOString() }
 }
 
-function toPurchaseResponse(purchase: Pick<StockPurchase, 'id' | 'productId' | 'productNameSnapshot' | 'categorySnapshot' | 'quantity' | 'totalCostCents' | 'purchasedAt'>): PurchaseResponse {
-  return { id: purchase.id, productId: purchase.productId, productName: purchase.productNameSnapshot, category: purchase.categorySnapshot, quantity: purchase.quantity, totalCost: centsToMoney(purchase.totalCostCents), purchasedAt: purchase.purchasedAt.toISOString() }
+function toPurchaseResponse(purchase: Pick<StockPurchase, 'imageUrl' | 'id' | 'productId' | 'productNameSnapshot' | 'categorySnapshot' | 'quantity' | 'totalCostCents' | 'purchasedAt'>): PurchaseResponse {
+  return { imageUrl: purchase.imageUrl ?? null, id: purchase.id, productId: purchase.productId, productName: purchase.productNameSnapshot, category: purchase.categorySnapshot, quantity: purchase.quantity, totalCost: centsToMoney(purchase.totalCostCents), purchasedAt: purchase.purchasedAt.toISOString() }
 }
 
 export function parseCost(value: string): number {
@@ -35,7 +35,7 @@ export async function replenishStock(userId: string, productId: string, quantity
   const outcome = await adjustStockRecord(database, userId, productId, quantity, deductEarnings, deductEarnings && originalCost !== undefined ? parseCost(originalCost) : undefined)
   if (outcome.kind !== 'adjusted') return outcome
   const product = toProductResponse(outcome.product)
-  void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, changes: [{ label: 'Quantity', before: String(outcome.previousQuantity), after: String(product.stockQuantity) }] }])
+  void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, imageUrl: product.imageUrl, changes: [{ label: 'Quantity', before: String(outcome.previousQuantity), after: String(product.stockQuantity) }] }])
   return { kind: outcome.kind, product }
 }
 
@@ -99,6 +99,6 @@ export async function setStockQuantity(userId: string, productId: string, quanti
   const outcome = await setStockQuantityRecord(database, userId, productId, quantity, deductEarnings, deductEarnings && originalCost !== undefined ? parseCost(originalCost) : undefined)
   if (outcome.kind !== 'updated') return outcome
   const product = toProductResponse(outcome.product)
-  void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, changes: [{ label: 'Quantity', before: String(outcome.previousQuantity), after: String(product.stockQuantity) }] }])
+  void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, imageUrl: product.imageUrl, changes: [{ label: 'Quantity', before: String(outcome.previousQuantity), after: String(product.stockQuantity) }] }])
   return { kind: outcome.kind, product }
 }

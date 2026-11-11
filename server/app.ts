@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import express from 'express'
 import helmet from 'helmet'
+import { ImageError } from './infrastructure/images.js'
 import { config } from './infrastructure/config.js'
 import { logError } from './infrastructure/logger.js'
 import { authRouter } from './modules/auth/routes.js'
@@ -20,7 +21,7 @@ const app = express()
 
 app.disable('x-powered-by')
 app.set('trust proxy', config.NODE_ENV === 'production' ? 1 : 0)
-app.use(helmet())
+app.use(helmet({ contentSecurityPolicy: { directives: { imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com'] } } }))
 app.use(cors({ origin: config.APP_ORIGIN, credentials: true }))
 app.use((req, res, next) => {
   req.requestId = req.get('x-request-id') || randomUUID()
@@ -52,6 +53,7 @@ app.use((_req, res) => {
 })
 
 app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (error instanceof ImageError) return res.status(error.status).json({ error: { code: error.code, message: error.message } })
   logError('request_failed', error, { requestId: req.requestId })
   if (res.headersSent) return next(error)
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred.' } })

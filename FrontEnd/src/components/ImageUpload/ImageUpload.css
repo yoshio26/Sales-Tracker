@@ -1,0 +1,5 @@
+.image-upload { display: grid; gap: 10px; border: 1px dashed color-mix(in srgb, currentColor 30%, transparent); border-radius: 12px; padding: 14px; min-width: 0; }
+.image-upload > div { display: flex; align-items: center; gap: 8px; }
+.image-upload input { width: 100%; min-width: 0; }
+.image-upload p { margin: 0; font-size: .85rem; }
+.image-upload [role=alert] { color: #b91c1c; }

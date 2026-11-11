@@ -2,6 +2,9 @@ import 'dotenv/config'
 import { z } from 'zod'
 
 const configSchema = z.object({
+  CLOUDINARY_CLOUD_NAME: z.string().trim().optional(),
+  CLOUDINARY_API_KEY: z.string().trim().optional(),
+  CLOUDINARY_API_SECRET: z.string().trim().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   APP_ORIGIN: z.string().url().default('http://localhost:5173'),
@@ -22,6 +25,9 @@ const configSchema = z.object({
 })
 
 export const config = configSchema.parse({
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
   APP_ORIGIN: process.env.APP_ORIGIN,

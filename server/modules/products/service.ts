@@ -1,4 +1,5 @@
 import type { Product } from '@prisma/client'
+import { cleanupImages, type ImageFields } from '../../infrastructure/images.js'
 import { notifyStock } from '../notifications/service.js'
 import {
   archiveProduct as archiveProductRecord,
@@ -13,6 +14,7 @@ import {
 } from './data-access.js'
 
 export type ProductResponse = {
+  imageUrl: string | null
   id: string
   name: string
   category: string
@@ -31,6 +33,7 @@ export function normalizeProductName(value: string): string {
 
 function toResponse(product: Product): ProductResponse {
   return {
+    imageUrl: product.imageUrl ?? null,
     id: product.id,
     name: product.name,
     category: product.category,
@@ -59,6 +62,7 @@ export function parsePrice(value: string): number {
 
 function notificationItem(product: ProductResponse) {
   return {
+    imageUrl: product.imageUrl,
     name: product.name,
     category: product.category,
     quantity: product.stockQuantity,
@@ -67,9 +71,10 @@ function notificationItem(product: ProductResponse) {
   }
 }
 
-export async function createProduct(userId: string, input: { name: string; category: string; price?: string; originalPrice?: string; stockQuantity?: number }) {
+export async function createProduct(userId: string, input: { name: string; category: string; price?: string; originalPrice?: string; stockQuantity?: number } & Partial<ImageFields>) {
   try {
     const createInput = {
+      ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl, imagePublicId: input.imagePublicId }),
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
       priceCents: input.price === undefined ? 0 : parsePrice(input.price),
@@ -84,18 +89,22 @@ export async function createProduct(userId: string, input: { name: string; categ
   }
 }
 
-export async function updateProduct(userId: string, id: string, input: { name: string; category: string; price?: string; updatedAt: string }) {
+export async function updateProduct(userId: string, id: string, input: { name: string; category: string; price?: string; updatedAt: string; removeImage?: boolean } & Partial<ImageFields>) {
   try {
     const outcome = await updateProductRecord(database, userId, id, {
+      ...(input.removeImage ? { imageUrl: null, imagePublicId: null } : input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl, imagePublicId: input.imagePublicId }),
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
       priceCents: input.price === undefined ? 0 : parsePrice(input.price),
       updatedAt: new Date(input.updatedAt),
     })
+    if (outcome.kind === 'unchanged') return { kind: outcome.kind, product: toResponse(outcome.product) }
     if (outcome.kind !== 'updated') return outcome
+    await cleanupImages([outcome.previous.imagePublicId])
     const product = toResponse(outcome.product)
     if (outcome.kind === 'updated') {
-      void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, changes: [
+      void notifyStock(userId, 'changed', [{ name: product.name, category: product.category, imageUrl: product.imageUrl, changes: [
+        ...(outcome.previous.imageUrl !== outcome.product.imageUrl ? [{ label: 'Photo', before: outcome.previous.imageUrl ? 'Photo' : 'No photo', after: product.imageUrl ? 'Photo updated' : 'No photo' }] : []),
         ...(outcome.previous.name !== product.name ? [{ label: 'Name', before: outcome.previous.name, after: product.name }] : []),
         ...(outcome.previous.category !== product.category ? [{ label: 'Category', before: outcome.previous.category, after: product.category }] : []),
         ...(outcome.previous.priceCents !== outcome.product.priceCents ? [{ label: 'Price', before: (outcome.previous.priceCents / 100).toFixed(2), after: product.price }] : []),
@@ -112,13 +121,14 @@ export async function archiveProduct(userId: string, id: string, updatedAt: stri
   const outcome = await archiveProductRecord(database, userId, id, new Date(updatedAt))
   if (outcome.kind !== 'updated') return outcome
   const product = toResponse(outcome.product)
-  void notifyStock(userId, 'deleted', [{ name: product.name, category: product.category, quantity: product.stockQuantity }])
+  void notifyStock(userId, 'deleted', [{ name: product.name, category: product.category, quantity: product.stockQuantity, imageUrl: product.imageUrl }])
   return { ...outcome, product }
 }
 
 export async function permanentlyDeleteArchivedProduct(userId: string, id: string) {
   const outcome = await permanentlyDeleteArchivedProductRecord(database, userId, id)
-  if (outcome.kind === 'deleted') void notifyStock(userId, 'deleted', [{ name: outcome.product.name, category: outcome.product.category, quantity: outcome.product.stockQuantity }])
+  if (outcome.kind === 'deleted') await cleanupImages(outcome.imageCandidates)
+  if (outcome.kind === 'deleted') void notifyStock(userId, 'deleted', [{ name: outcome.product.name, category: outcome.product.category, quantity: outcome.product.stockQuantity, imageUrl: outcome.product.imageUrl }])
   return outcome
 }
 
@@ -127,9 +137,10 @@ export async function restoreArchivedProduct(userId: string, id: string) {
   return outcome.kind === 'restored' ? { ...outcome, product: toResponse(outcome.product) } : outcome
 }
 
-export async function createProducts(userId: string, inputs: Array<{ name: string; category: string; price?: string; originalPrice?: string; stockQuantity?: number }>) {
+export async function createProducts(userId: string, inputs: Array<{ name: string; category: string; price?: string; originalPrice?: string; stockQuantity?: number } & Partial<ImageFields>>) {
   try {
     const normalized = inputs.map((input) => ({
+      ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl, imagePublicId: input.imagePublicId }),
       name: normalizeProductName(input.name),
       category: input.category.trim().toLowerCase(),
       priceCents: input.price === undefined ? 0 : parsePrice(input.price),

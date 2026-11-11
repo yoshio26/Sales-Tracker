@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { ToastProvider } from './components/Toast/ToastProvider'
 
-const product = { id: 'stock-id', name: 'Shirt', category: 'Clothing', price: '10.00', originalPrice: null, stockQuantity: 2, updatedAt: '2026-11-03T00:00:00.000Z' }
+const product = { imageUrl: 'https://res.cloudinary.com/test/shirt.png', id: 'stock-id', name: 'Shirt', category: 'Clothing', price: '10.00', originalPrice: null, stockQuantity: 2, updatedAt: '2026-11-03T00:00:00.000Z' }
 const report = { total: '0.00', trend: [], byProduct: [], byCategory: [] }
 
 vi.mock('./pages/StockTrackerPage', () => ({ StockTrackerPage: ({ onEdit, onDelete }: { onEdit: (value: typeof product) => void; onDelete: (value: typeof product) => void }) => <><button onClick={() => onEdit(product)}>Edit sample</button><button onClick={() => onDelete(product)}>Delete sample</button></> }))
@@ -20,6 +20,7 @@ describe('App stock toast integration', () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
     window.localStorage.clear()
     vi.stubGlobal('confirm', () => true)
+    vi.stubGlobal('URL', class extends URL { static createObjectURL = vi.fn(() => 'blob:photo'); static revokeObjectURL = vi.fn() })
     fetchMock.mockReset()
     fetchMock.mockImplementation(async (input) => {
       const url = String(input)
@@ -77,6 +78,42 @@ describe('App stock toast integration', () => {
     expect(notificationText()).toContain('Stock updated.')
     const request = fetchMock.mock.calls.find(([url, options]) => url === '/api/products/stock-id' && options?.method === 'PUT')!
     expect(JSON.parse(request[1]!.body as string)).toEqual({ name: product.name, category: product.category, price: product.price, updatedAt: product.updatedAt })
+  })
+
+  async function selectPhoto() {
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+    Object.defineProperty(input, 'files', { value: [new File(['photo'], 'photo.png', { type: 'image/png' })] })
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
+  }
+
+  it('preserves the edit photo, sends FormData without a Content-Type, and toasts upload warnings', async () => {
+    await click('Edit sample')
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(product.imageUrl)
+    await selectPhoto()
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('blob:photo')
+    fetchMock.mockResolvedValueOnce(Response.json({ product, warning: 'Product details saved, but the photo could not be uploaded. Please try again.' }))
+    await click('Save changes')
+    const request = fetchMock.mock.calls.find(([url, options]) => url === '/api/products/stock-id' && options?.method === 'PUT')!
+    expect(request[1]!.body).toBeInstanceOf(FormData)
+    expect((request[1]!.body as FormData).get('image')).toBeInstanceOf(File)
+    expect(request[1]!.headers).toEqual({})
+    expect(notificationText()).toContain('photo could not be uploaded')
+    expect(notificationText()).toContain('Stock updated.')
+    await click('Add new stock')
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('removes a photo with a JSON flag and resets a canceled preview', async () => {
+    await click('Edit sample')
+    await click('Remove photo')
+    await click('Save changes')
+    const request = fetchMock.mock.calls.find(([url, options]) => url === '/api/products/stock-id' && options?.method === 'PUT')!
+    expect(JSON.parse(request[1]!.body as string)).toMatchObject({ removeImage: true, updatedAt: product.updatedAt })
+    await click('Add new stock')
+    await selectPhoto()
+    await click('Cancel')
+    await click('Add new stock')
+    expect(container.querySelector('img')).toBeNull()
   })
 
   it('toasts deletion only after the DELETE succeeds', async () => {

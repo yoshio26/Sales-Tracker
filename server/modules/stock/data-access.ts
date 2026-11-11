@@ -1,10 +1,12 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
 import { prisma } from '../../infrastructure/prisma.js'
+import { cleanupImages } from '../../infrastructure/images.js'
 
 export type Database = PrismaClient | Prisma.TransactionClient
 export const database = prisma
 
 const productSelection = {
+  imageUrl: true,
   id: true,
   name: true,
   category: true,
@@ -15,6 +17,7 @@ const productSelection = {
 } satisfies Prisma.ProductSelect
 
 export const purchaseSelection = {
+  imageUrl: true,
   id: true,
   productId: true,
   productNameSnapshot: true,
@@ -62,16 +65,17 @@ export async function adjustStock(db: PrismaClient, userId: string, productId: s
 
 export async function createPurchase(db: PrismaClient, userId: string, input: { productId: string; quantity: number }) {
   return db.$transaction(async (tx) => {
-    const product = await tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true } })
+    const product = await tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, imageUrl: true, imagePublicId: true } })
     if (!product) return { kind: 'product-not-found' as const }
     if ((product.priceCents ?? 0) <= 0) return { kind: 'product-price-missing' as const }
     const totalCostCents = product.priceCents * input.quantity
     if (!Number.isSafeInteger(totalCostCents) || totalCostCents > 2_147_483_647) return { kind: 'purchase-total-too-large' as const }
 
-    const changed = await tx.product.updateMany({ where: { id: product.id, userId, active: true, deletedAt: null, stockQuantity: { gte: input.quantity } }, data: { stockQuantity: { decrement: input.quantity } } })
+    // The row lock acquired by this write also protects the captured image reference.
+    const changed = await tx.product.updateMany({ where: { id: product.id, userId, active: true, deletedAt: null, imagePublicId: product.imagePublicId ?? null, stockQuantity: { gte: input.quantity } }, data: { stockQuantity: { decrement: input.quantity } } })
     if (changed.count !== 1) return { kind: 'insufficient-stock' as const }
 
-    const purchase = await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, quantity: input.quantity, totalCostCents }, select: purchaseSelection })
+    const purchase = await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, imageUrl: product.imageUrl, imagePublicId: product.imagePublicId, quantity: input.quantity, totalCostCents }, select: purchaseSelection })
     return { kind: 'created' as const, purchase }
   })
 }
@@ -89,18 +93,25 @@ export function getReportData(db: Database, userId: string) {
 
 const RETENTION_MS = 10 * 24 * 60 * 60 * 1000
 
-export async function purgeExpiredDeletedStockData(db: Database, userId?: string, now = new Date()) {
+export async function purgeExpiredDeletedStockData(db: PrismaClient, userId?: string, now = new Date()) {
   const expiresBefore = new Date(now.getTime() - RETENTION_MS)
   const where = { ...(userId ? { userId } : {}), deletedAt: { not: null, lt: expiresBefore } }
-  const expenses = await db.expense.deleteMany({ where })
-  const purchases = await db.stockPurchase.deleteMany({ where })
-  const products = await db.product.deleteMany({ where: { ...where, expenses: { none: {} }, stockPurchases: { none: {} } } })
-  return { expenses: expenses.count, purchases: purchases.count, products: products.count }
+  const result = await db.$transaction(async (tx) => {
+    const purchaseImages = await tx.stockPurchase.findMany({ where, select: { imagePublicId: true } })
+    const expenses = await tx.expense.deleteMany({ where })
+    const purchases = await tx.stockPurchase.deleteMany({ where })
+    const productWhere = { ...where, expenses: { none: {} }, stockPurchases: { none: {} } }
+    const productImages = await tx.product.findMany({ where: productWhere, select: { imagePublicId: true } })
+    const products = await tx.product.deleteMany({ where: productWhere })
+    return { expenses: expenses.count, purchases: purchases.count, products: products.count, images: [...purchaseImages, ...productImages].map((image) => image.imagePublicId) }
+  })
+  await cleanupImages(result.images)
+  return { expenses: result.expenses, purchases: result.purchases, products: result.products }
 }
 
 export async function deleteStockData(db: PrismaClient, userId: string) {
+  await purgeExpiredDeletedStockData(db, userId)
   return db.$transaction(async (tx) => {
-    await purgeExpiredDeletedStockData(tx, userId)
     const deletedAt = new Date()
     const products = await tx.product.updateMany({ where: { userId, deletedAt: null }, data: { active: false, deletedAt, updatedAt: deletedAt } })
     await tx.expense.updateMany({ where: { userId, deletedAt: null }, data: { deletedAt, updatedAt: deletedAt } })
@@ -109,14 +120,21 @@ export async function deleteStockData(db: PrismaClient, userId: string) {
   })
 }
 
-export function deletePurchase(db: Database, userId: string, purchaseId: string) {
-  return db.stockPurchase.deleteMany({ where: { id: purchaseId, userId, deletedAt: null } })
+export async function deletePurchase(db: PrismaClient, userId: string, purchaseId: string) {
+  const result = await db.$transaction(async (tx) => {
+    const where = { id: purchaseId, userId, deletedAt: null }
+    const purchase = await tx.stockPurchase.findFirst({ where, select: { imagePublicId: true } })
+    const deleted = await tx.stockPurchase.deleteMany({ where })
+    return { deleted, image: purchase?.imagePublicId }
+  })
+  await cleanupImages([result.image])
+  return result.deleted
 }
 
 export async function createPurchases(db: PrismaClient, userId: string, inputs: Array<{ productId: string; quantity: number }>) {
   try {
     return await db.$transaction(async (tx) => {
-      const products = await Promise.all(inputs.map((input) => tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, stockQuantity: true } })))
+      const products = await Promise.all(inputs.map((input) => tx.product.findFirst({ where: { id: input.productId, userId, active: true, deletedAt: null }, select: { id: true, name: true, category: true, priceCents: true, stockQuantity: true, imageUrl: true, imagePublicId: true } })))
       if (products.some((product) => !product)) return { kind: 'product-not-found' as const }
       const validProducts = products as Array<NonNullable<(typeof products)[number]>>
       if (validProducts.some((product) => (product.priceCents ?? 0) <= 0)) return { kind: 'product-price-missing' as const }
@@ -126,9 +144,9 @@ export async function createPurchases(db: PrismaClient, userId: string, inputs: 
       const purchases = []
       for (const [index, product] of validProducts.entries()) {
         const input = inputs[index]!
-        const changed = await tx.product.updateMany({ where: { id: product.id, userId, active: true, deletedAt: null, stockQuantity: { gte: input.quantity } }, data: { stockQuantity: { decrement: input.quantity } } })
+        const changed = await tx.product.updateMany({ where: { id: product.id, userId, active: true, deletedAt: null, imagePublicId: product.imagePublicId ?? null, stockQuantity: { gte: input.quantity } }, data: { stockQuantity: { decrement: input.quantity } } })
         if (changed.count !== 1) throw new Error('insufficient-stock')
-        purchases.push(await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, quantity: input.quantity, totalCostCents: product.priceCents! * input.quantity }, select: purchaseSelection }))
+        purchases.push(await tx.stockPurchase.create({ data: { userId, productId: product.id, productNameSnapshot: product.name, categorySnapshot: product.category, imageUrl: product.imageUrl, imagePublicId: product.imagePublicId, quantity: input.quantity, totalCostCents: product.priceCents! * input.quantity }, select: purchaseSelection }))
       }
       return { kind: 'created' as const, purchases }
     })

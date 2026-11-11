@@ -2,7 +2,7 @@
 name: Sales Tracker user experience
 status: final
 created: 2026-09-30
-updated: 2026-09-30
+updated: 2026-11-11
 ---
 
 # Sales Tracker — Experience Flows
@@ -31,6 +31,14 @@ Users can edit amount, quantity, note, date, or product. Existing snapshots rema
 ## Archive a product
 
 Archiving removes a product from new-expense selection but preserves existing expense references and historical chart labels.
+
+## Add or edit stock
+
+1. User opens Add Stock and sees the optional photo area first, followed by stock identity, category, price, and quantity controls.
+2. User chooses, drops, replaces, or removes a JPEG, PNG, or WebP photo; the preview updates without changing the rest of the form.
+3. User can switch between one stock and multiple stock names without losing the shared photo behavior.
+4. User chooses whether initial stock is deducted from total profit when creating stock, then submits the clearly emphasized primary action.
+5. On edit, the existing photo remains unless the user replaces or removes it; cancel leaves persisted data unchanged.
 
 ## Dashboard interpretation
 

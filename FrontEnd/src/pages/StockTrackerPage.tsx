@@ -4,13 +4,14 @@ import { z } from 'zod'
 import styles from '../App.module.css'
 import { useToast } from '../components/Toast/ToastProvider'
 import { StockStatusChip } from '../components/StockStatus/StockStatusChip'
+import { ProductImage } from '../components/ProductImage/ProductImage'
 
-export type StockProduct = { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
-type PurchaseRecord = { id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
+export type StockProduct = { imageUrl?: string | null; id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }
+type PurchaseRecord = { imageUrl?: string | null; id: string; productId: string; productName: string; category: string; quantity: number; totalCost: string; purchasedAt: string }
 type CartItem = { product: StockProduct; quantity: number }
 
-const stockResponseSchema = z.object({ products: z.array(z.object({ id: z.string().uuid(), name: z.string(), category: z.string(), price: z.string(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
-const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ id: z.string().uuid(), productId: z.string().uuid(), productName: z.string(), category: z.string(), quantity: z.number().int().positive(), totalCost: z.string(), purchasedAt: z.string() })) })
+const stockResponseSchema = z.object({ products: z.array(z.object({ imageUrl: z.string().nullable().optional(), id: z.string().uuid(), name: z.string(), category: z.string(), price: z.string(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
+const purchaseResponseSchema = z.object({ purchases: z.array(z.object({ imageUrl: z.string().nullable().optional(), id: z.string().uuid(), productId: z.string().uuid(), productName: z.string(), category: z.string(), quantity: z.number().int().positive(), totalCost: z.string(), purchasedAt: z.string() })) })
 const productIdSchema = z.string().uuid('Select a product.')
 const quantitySchema = z.coerce.number().int('Quantity must be a whole number.').positive('Quantity must be greater than zero.')
 const exactQuantitySchema = z.coerce.number().int('Quantity must be a whole number.').nonnegative('Quantity cannot be negative.')
@@ -275,7 +276,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
           onClick={() => setProductMenuOpen((open) => !open)}
           onKeyDown={handleProductKeyDown}
         >
-          <span>{selectedProduct ? <><strong>{selectedProduct.name}</strong><small className={styles.pickerCategory}>{selectedProduct.category}</small></> : 'Select an active product'}</span>
+          <span>{selectedProduct ? <><ProductImage src={selectedProduct.imageUrl} name={selectedProduct.name} /><strong>{selectedProduct.name}</strong><small className={styles.pickerCategory}>{selectedProduct.category}</small></> : 'Select an active product'}</span>
           {selectedProduct && <span className={styles.pickerMeta}>Stock: {selectedProduct.stockQuantity} · Price: ₱{formatPrice(selectedProduct.price)}</span>}
           <span className={styles.pickerChevron} aria-hidden="true">⌄</span>
         </button>
@@ -294,7 +295,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
           <ul id="stock-product-options" className={styles.productPickerOptions} role="listbox" aria-labelledby="stock-product-label">
           {pickerProducts.length === 0 ? <li className={styles.productPickerEmpty}>No products match “{productSearchQuery}”.</li> : pickerProducts.map((product) => <li key={product.id} role="option" aria-selected={product.id === productId}>
             <button className={styles.productPickerOption} type="button" onClick={() => chooseProduct(product)}>
-              <span><strong>{product.name}</strong><small className={styles.pickerCategory}>{product.category}</small></span>
+              <span><ProductImage src={product.imageUrl} name={product.name} /><strong>{product.name}</strong><small className={styles.pickerCategory}>{product.category}</small></span>
               <span className={styles.pickerMeta}>Stock: {product.stockQuantity} · Price: ₱{formatPrice(product.price)}</span>
             </button>
           </li>)}
@@ -319,6 +320,8 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
           <span className={styles.stockErrorLabel}>Purchase not completed</span>
         </div>
         <h3 id="insufficient-stock-heading">Not enough stock</h3>
+        {selectedProduct && <ProductImage src={selectedProduct.imageUrl} name={selectedProduct.name} />}
+        {!selectedProduct && cart.map(({ product }) => <ProductImage key={product.id} src={product.imageUrl} name={product.name} />)}
         <p id="insufficient-stock-message">Review your available stock before trying again. Your entries were preserved.</p>
         <div className={styles.formActions}>
           <button autoFocus type="button" onClick={() => setInsufficientStockOpen(false)}>Okay</button>
@@ -330,6 +333,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
       <section className={styles.stockErrorModal} role="dialog" aria-modal="true" aria-labelledby="quantity-deduction-heading">
         <div className={styles.modalHeader}><span className={styles.stockErrorLabel}>Quantity increased</span></div>
         <h3 id="quantity-deduction-heading">Deduct from Total Profit?</h3>
+        {selectedProduct && <ProductImage src={selectedProduct.imageUrl} name={selectedProduct.name} />}
         <p>The quantity increased by {(pendingQuantity ?? 0) - (selectedProduct?.stockQuantity ?? 0)}. Deduct the cost of the additional stock from total profit?</p>
         <div className={styles.deductionChoice}><span>Deduct from Total Profit?</span><label className={styles.checkboxLabel} htmlFor="quantity-deduction-yes"><input id="quantity-deduction-yes" name="quantity-deduction" type="radio" checked={quantityDeductionChoice === true} onChange={() => { setQuantityDeductionChoice(true); setFieldError('') }} /> Yes</label><label className={styles.checkboxLabel} htmlFor="quantity-deduction-no"><input id="quantity-deduction-no" name="quantity-deduction" type="radio" checked={quantityDeductionChoice === false} onChange={() => { setQuantityDeductionChoice(false); setQuantityOriginalPrice(''); setFieldError('') }} /> No</label></div>
         {quantityDeductionChoice === true && <><label htmlFor="quantity-original-price">Original price</label><input id="quantity-original-price" inputMode="decimal" placeholder="0.00" value={quantityOriginalPrice} onChange={(event) => { setQuantityOriginalPrice(event.target.value); setFieldError('') }} />{fieldError && <p className={styles.error} role="alert">{fieldError}</p>}</>}
@@ -344,13 +348,13 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     {mode === 'buy' ? <>
       {cart.length > 0 && <section className={styles.cart} aria-labelledby="cart-heading">
         <div className={styles.cartHeader}><div><h3 id="cart-heading">Cart</h3><p>{cart.length} product{cart.length === 1 ? '' : 's'} ready for checkout.</p></div><strong>₱{cart.reduce((total, item) => total + Number(item.product.price) * item.quantity, 0).toFixed(2)}</strong></div>
-        <ul className={styles.cartList}>{cart.map((item) => <li className={styles.cartItem} key={item.product.id}><div><strong>{item.product.name}</strong><span>{item.product.category} · ₱{formatPrice(item.product.price)} each</span></div><div className={styles.cartItemControls}><label htmlFor={`cart-quantity-${item.product.id}`}>Qty</label><input id={`cart-quantity-${item.product.id}`} type="number" min="1" max={item.product.stockQuantity} value={item.quantity} onChange={(event) => { const nextQuantity = Number(event.target.value); if (Number.isInteger(nextQuantity) && nextQuantity > 0) setCart((current) => current.map((cartItem) => cartItem.product.id === item.product.id ? { ...cartItem, quantity: nextQuantity } : cartItem)) }} /><button className={styles.secondary} type="button" onClick={() => setCart((current) => current.filter((cartItem) => cartItem.product.id !== item.product.id))}>Remove</button></div></li>)}</ul>
+        <ul className={styles.cartList}>{cart.map((item) => <li className={styles.cartItem} key={item.product.id}><div><ProductImage src={item.product.imageUrl} name={item.product.name} /><strong>{item.product.name}</strong><span>{item.product.category} · ₱{formatPrice(item.product.price)} each</span></div><div className={styles.cartItemControls}><label htmlFor={`cart-quantity-${item.product.id}`}>Qty</label><input id={`cart-quantity-${item.product.id}`} type="number" min="1" max={item.product.stockQuantity} value={item.quantity} onChange={(event) => { const nextQuantity = Number(event.target.value); if (Number.isInteger(nextQuantity) && nextQuantity > 0) setCart((current) => current.map((cartItem) => cartItem.product.id === item.product.id ? { ...cartItem, quantity: nextQuantity } : cartItem)) }} /><button className={styles.secondary} type="button" onClick={() => setCart((current) => current.filter((cartItem) => cartItem.product.id !== item.product.id))}>Remove</button></div></li>)}</ul>
         <button type="button" disabled={checkoutLoading} onClick={() => void checkout()}>{checkoutLoading ? 'Checking out…' : 'Checkout'}</button>
       </section>}
       <div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="bought-product-search">Search Product</label><input id="bought-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setPurchasePage(1) }} /></div>
       {purchaseLoading ? <p role="status">Loading bought history…</p> : purchases.length === 0 ? <p className={styles.empty}>No bought products recorded yet.</p> : filteredPurchases.length === 0 ? <p className={styles.empty}>No bought products match “{searchQuery}”.</p> : <>
         <div className={styles.historyScrollArea}>
-          <ul className={styles.productList} aria-label="Bought product history">{visiblePurchases.map((purchase) => <li className={styles.productItem} key={purchase.id}><div><strong>{purchase.productName} × {purchase.quantity}</strong><span>{purchase.category} · {new Date(purchase.purchasedAt).toLocaleString()}</span></div><strong>₱{purchase.totalCost}</strong></li>)}</ul>
+          <ul className={styles.productList} aria-label="Bought product history">{visiblePurchases.map((purchase) => <li className={styles.productItem} key={purchase.id}><div><ProductImage src={purchase.imageUrl} name={purchase.productName} /><strong>{purchase.productName} × {purchase.quantity}</strong><span>{purchase.category} · {new Date(purchase.purchasedAt).toLocaleString()}</span></div><strong>₱{purchase.totalCost}</strong></li>)}</ul>
         </div>
         <div className={styles.dashboardTablePagination}>
           <div className={styles.historyToolbar}>
@@ -370,7 +374,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
     </> : loading && products.length === 0 ? <p role="status">Loading stock…</p> : products.length === 0 ? <p className={styles.empty}>No active products are available. Add a product first.</p> : <>
       <div className={styles.stockSearch}><label className={styles.searchLabel} htmlFor="stock-product-search">Search Product</label><input id="stock-product-search" type="search" value={searchQuery} placeholder="Type a product name" onChange={(event) => { setSearchQuery(event.target.value); setStockPage(1) }} /></div>
       {filteredProducts.length === 0 ? <p className={styles.empty}>No products match “{searchQuery}”.</p> : <><div className={styles.stockListScroll}>
-        <ul className={styles.productList} aria-label="Available stock">{visibleProducts.map((product) => <li className={styles.productItem} key={product.id}><div><strong>{product.name}</strong><span>{product.category}</span></div><div className={styles.stockProductDetails}><div className={styles.stockMeta}><span>Stock: {product.stockQuantity}</span><StockStatusChip quantity={product.stockQuantity} /><span>Price: ₱{formatPrice(product.price)}</span></div>{onEdit && onDelete && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></div>}</div></li>)}</ul>
+        <ul className={styles.productList} aria-label="Available stock">{visibleProducts.map((product) => <li className={styles.productItem} key={product.id}><div><ProductImage src={product.imageUrl} name={product.name} /><strong>{product.name}</strong><span>{product.category}</span></div><div className={styles.stockProductDetails}><div className={styles.stockMeta}><span>Stock: {product.stockQuantity}</span><StockStatusChip quantity={product.stockQuantity} /><span>Price: ₱{formatPrice(product.price)}</span></div>{onEdit && onDelete && <div className={styles.itemActions}><button className={styles.secondary} type="button" onClick={() => onEdit(product)}>Edit</button><button className={styles.danger} type="button" onClick={() => onDelete(product)}>Delete</button></div>}</div></li>)}</ul>
       </div>
       <div className={styles.dashboardTablePagination}>
         <div className={styles.historyToolbar}>

@@ -12,12 +12,14 @@ import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StockTrackerPage } from './pages/StockTrackerPage'
 import { ToastViewport, useToast } from './components/Toast/ToastProvider'
+import { ProductImage } from './components/ProductImage/ProductImage'
+import { ImageUpload } from './components/ImageUpload/ImageUpload'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 type View = 'email' | 'code' | 'signed-in'
 type WorkspaceView = 'dashboard' | 'buy' | 'stock' | 'history' | 'notes' | 'settings' | 'guide' | 'motivation' | 'camellia'
-type Product = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
+type Product = { imageUrl?: string | null; id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; active: boolean; archivedAt: string | null; deletedAt: string | null; updatedAt: string }
 const dashboardPointSchema = z.object({ label: z.string(), amount: z.string() })
 const dashboardReportSchema = z.object({ total: z.string(), trend: z.array(z.object({ bucket: z.string(), amount: z.string() })), byProduct: z.array(dashboardPointSchema), byCategory: z.array(dashboardPointSchema) })
 const dashboardSchema = z.object({ currentMonth: dashboardReportSchema.extend({ from: z.string(), to: z.string() }), allTime: dashboardReportSchema, stock: z.object({ totalUnits: z.number().int().nonnegative(), productsCount: z.number().int().nonnegative(), productsInStock: z.number().int().nonnegative(), productsOutOfStock: z.number().int().nonnegative() }), purchases: z.object({ count: z.number().int().nonnegative(), quantity: z.number().int().nonnegative(), totalCost: z.string() }), totalEarnings: z.string(), profit: z.string() })
@@ -41,7 +43,7 @@ async function authApi(path: string, options?: RequestInit): Promise<Response> {
 async function productsApi(path = '', options?: RequestInit): Promise<Response> {
   return fetch(`/api/products${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { ...(options?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...options?.headers },
     credentials: 'include',
   })
 }
@@ -90,6 +92,8 @@ function App() {
   const [deductInitialStock, setDeductInitialStock] = useState<boolean | null>(null)
   const [initialOriginalPrice, setInitialOriginalPrice] = useState('')
   const [editing, setEditing] = useState<Product | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [removeImage, setRemoveImage] = useState(false)
   const [fieldError, setFieldError] = useState('')
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
@@ -262,6 +266,8 @@ function App() {
   }
 
   function resetProductForm() {
+    setImageFile(null)
+    setRemoveImage(false)
     setEditing(null)
     setProductName('')
     setBulkProductNames('')
@@ -323,21 +329,33 @@ function App() {
     setLoading(true)
     let createdCount = 0
     let deductionPending = false
+    function productBody(input: Record<string, unknown>): string | FormData {
+      if (!imageFile) return JSON.stringify(input)
+      const body = new FormData()
+      for (const [key, value] of Object.entries(input)) if (value !== undefined) body.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value))
+      body.append('image', imageFile)
+      return body
+    }
+    async function photoWarning(response: Response) {
+      const body = await response.json() as { warning?: string }
+      if (body.warning) toast.error(body.warning)
+    }
     try {
       if (!editing && bulkAddMode) {
-        const response = await productsApi('/bulk', { method: 'POST', body: JSON.stringify({ products: parsedProducts.filter((product): product is { success: true; data: z.infer<typeof productInputSchema> } => product.success).map((product) => ({ ...product.data, ...(deductInitialStock === true ? { originalPrice: initialOriginalPrice } : {}) })) }) })
+        const response = await productsApi('/bulk', { method: 'POST', body: productBody({ products: parsedProducts.filter((product): product is { success: true; data: z.infer<typeof productInputSchema> } => product.success).map((product) => ({ ...product.data, ...(deductInitialStock === true ? { originalPrice: initialOriginalPrice } : {}) })) }) })
         if (!response.ok) {
           const body = await response.json().catch(() => undefined) as { error?: { message?: string } } | undefined
           setFieldError(body?.error?.message ?? 'Unable to save the stocks.')
           toast.error(body?.error?.message ?? 'Unable to save the stocks.')
           return
         }
+        await photoWarning(response)
         createdCount = names.length
       } else for (const parsedProduct of parsedProducts) {
         if (!parsedProduct.success) continue
         const response = await productsApi(editing ? `/${editing.id}` : '', {
           method: editing ? 'PUT' : 'POST',
-            body: JSON.stringify(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt } : { ...parsedProduct.data, ...(deductInitialStock === true ? { originalPrice: initialOriginalPrice } : {}) }),
+            body: productBody(editing ? { name: parsedProduct.data.name, category: parsedProduct.data.category, price: parsedProduct.data.price, updatedAt: editing.updatedAt, ...(removeImage ? { removeImage: true } : {}) } : { ...parsedProduct.data, ...(deductInitialStock === true ? { originalPrice: initialOriginalPrice } : {}) }),
         })
         if (!response.ok) {
           const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined
@@ -351,6 +369,7 @@ function App() {
           else setFieldError(body?.error?.message ?? 'Unable to save the stock.')
           return
         }
+        await photoWarning(response)
         createdCount += 1
       }
       if (!editing && deductInitialStock === true) await loadDashboard()
@@ -392,7 +411,9 @@ function App() {
     setArchiveConfirmationProduct(product)
   }
 
-  function editStock(product: { id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
+  function editStock(product: { imageUrl?: string | null; id: string; name: string; category: string; price: string; stockQuantity: number; updatedAt: string }) {
+    setImageFile(null)
+    setRemoveImage(false)
     setWorkspaceView('stock')
     setEditing({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })
     setProductName(product.name)
@@ -494,6 +515,7 @@ function App() {
                     <button className={styles.modalClose} type="button" aria-label="Close stock dialog" onClick={() => setProductModalOpen(false)}>×</button>
                   </div>
                   <form className={styles.productForm} onSubmit={saveProduct} noValidate>
+                    <ImageUpload file={imageFile} existingUrl={editing?.imageUrl} removed={removeImage} disabled={loading} onChange={(file) => { setImageFile(file); setRemoveImage(false) }} onRemove={() => { setImageFile(null); setRemoveImage(true) }} />
                     <div className={styles.stockNameHeader}>
                       <label htmlFor={bulkAddMode ? 'bulk-stock-names' : 'stock-product-name'}>{bulkAddMode ? 'Stock names' : 'Stock name'}</label>
                       {!editing && <button className={`${styles.multipleStockButton} ${bulkAddMode ? styles.multipleStockButtonActive : ''}`} id="bulk-stock-mode" type="button" aria-pressed={bulkAddMode} onClick={() => { setBulkAddMode((enabled) => !enabled); setFieldError('') }}>{bulkAddMode ? 'Single' : 'Multiple'}</button>}
@@ -562,6 +584,7 @@ function App() {
         <section className={styles.stockErrorModal} data-archive-confirmation role="dialog" aria-modal="true" aria-labelledby="archive-confirmation-heading" aria-describedby="archive-confirmation-message">
           <div className={styles.modalHeader}><span className={styles.stockErrorLabel}>Delete stock</span></div>
           <h3 id="archive-confirmation-heading">Delete {archiveConfirmationProduct.name}?</h3>
+          <ProductImage src={archiveConfirmationProduct.imageUrl} name={archiveConfirmationProduct.name} />
           <p id="archive-confirmation-message">It will be removed from active stock and kept in your archived catalog.</p>
           <div className={styles.formActions}>
             <button ref={archiveCancelRef} aria-label="Cancel archive" className={styles.secondary} type="button" onClick={() => setArchiveConfirmationProduct(null)}>Cancel</button>

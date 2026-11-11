@@ -38,6 +38,8 @@ model NotificationSettings {
 }
 
 model Product {
+  imageUrl String? @map("image_url")
+  imagePublicId String? @map("image_public_id")
   id         String    @id @default(uuid()) @db.Uuid
   userId     String    @map("user_id") @db.Uuid
   name       String    @db.VarChar(200)
@@ -61,6 +63,7 @@ model Product {
   @@index([userId, updatedAt])
   @@index([userId, deletedAt])
   @@map("products")
+  @@index([imagePublicId])
 }
 
 model AllowedEmail {
@@ -159,6 +162,8 @@ model Note {
 }
 
 model StockPurchase {
+  imageUrl String? @map("image_url")
+  imagePublicId String? @map("image_public_id")
   id                   String   @id @default(uuid()) @db.Uuid
   userId               String   @map("user_id") @db.Uuid
   productId            String   @map("product_id") @db.Uuid
@@ -175,4 +180,5 @@ model StockPurchase {
   @@index([userId, productId, purchasedAt])
   @@index([userId, deletedAt])
   @@map("stock_purchases")
+  @@index([imagePublicId])
 }

@@ -3,9 +3,10 @@ import { z } from 'zod'
 import styles from '../App.module.css'
 import { useToast } from '../components/Toast/ToastProvider'
 import { StockStatusChip } from '../components/StockStatus/StockStatusChip'
+import { ProductImage } from '../components/ProductImage/ProductImage'
 
-export type DashboardStockProduct = { id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
-const stockResponseSchema = z.object({ products: z.array(z.object({ id: z.uuid(), name: z.string(), category: z.string(), price: z.string(), originalPrice: z.string().nullable(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
+export type DashboardStockProduct = { imageUrl?: string | null; id: string; name: string; category: string; price: string; originalPrice: string | null; stockQuantity: number; updatedAt: string }
+const stockResponseSchema = z.object({ products: z.array(z.object({ imageUrl: z.string().nullable().optional(), id: z.uuid(), name: z.string(), category: z.string(), price: z.string(), originalPrice: z.string().nullable(), stockQuantity: z.number().int().nonnegative(), updatedAt: z.string() })) })
 
 type Props = {
   refreshKey?: number
@@ -94,7 +95,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddSto
           <caption className={styles.visuallyHidden}>Available stock and sales summary</caption>
           <thead><tr><th scope="col">Stock Name</th><th scope="col">Category</th><th scope="col">Stocks</th><th scope="col">Sold</th><th scope="col">Original Price</th><th scope="col">Updated Price</th><th scope="col">Edit</th></tr></thead>
           <tbody>{visibleProducts.map((product) => <tr key={product.id}>
-            <th scope="row"><span className={styles.stockTableName}>{product.name}</span></th>
+            <th scope="row"><ProductImage src={product.imageUrl} name={product.name} /><span className={styles.stockTableName}>{product.name}</span></th>
             <td data-label="Category">{product.category}</td>
             <td data-label="Stocks"><div className={styles.stockQuantityCell}><span>{product.stockQuantity}</span><StockStatusChip quantity={product.stockQuantity} /></div></td>
             <td data-label="Sold">{soldByProduct[product.id] ?? 0}</td>

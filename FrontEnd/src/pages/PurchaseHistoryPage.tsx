@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import styles from '../App.module.css'
 import { useToast } from '../components/Toast/ToastProvider'
+import { ProductImage } from '../components/ProductImage/ProductImage'
 
-const historySchema = z.object({ purchases: z.array(z.object({ id: z.string().uuid(), productId: z.string().uuid(), productName: z.string(), category: z.string(), quantity: z.number().int().positive(), totalCost: z.string(), purchasedAt: z.string() })) })
+const historySchema = z.object({ purchases: z.array(z.object({ imageUrl: z.string().nullable().optional(), id: z.string().uuid(), productId: z.string().uuid(), productName: z.string(), category: z.string(), quantity: z.number().int().positive(), totalCost: z.string(), purchasedAt: z.string() })) })
 
 type Props = { deletable?: boolean; onChanged?: () => Promise<void>; refreshKey?: number }
 
@@ -129,7 +130,7 @@ export function PurchaseHistoryPage({ deletable = true, onChanged, refreshKey = 
         <button className={styles.danger} type="button" disabled={deletingId !== null || selectedIds.size === 0} onClick={() => void removeSelected()}>{deletingId === 'bulk' ? 'Deleting…' : 'Delete selected'}</button>
       </div>}
       <div className={styles.historyScrollArea}>
-        <ul className={styles.productList} aria-label="Purchase history">{visiblePurchases.map((purchase) => <li className={styles.productItem} key={purchase.id}>{deletable && <label className={styles.rowCheckbox}><input type="checkbox" checked={selectedIds.has(purchase.id)} onChange={() => toggleSelected(purchase.id)} aria-label={`Select ${purchase.productName} purchase`} /></label>}<div className={styles.productItemDetails}><strong>{purchase.productName} × {purchase.quantity}</strong><span>{purchase.category} · {new Date(purchase.purchasedAt).toLocaleString()}</span></div><div className={styles.itemActions}><strong>₱{purchase.totalCost}</strong>{deletable && <button className={styles.danger} type="button" disabled={deletingId !== null} onClick={() => void remove(purchase)}>{deletingId === purchase.id ? 'Deleting…' : 'Delete'}</button>}</div></li>)}</ul>
+        <ul className={styles.productList} aria-label="Purchase history">{visiblePurchases.map((purchase) => <li className={styles.productItem} key={purchase.id}>{deletable && <label className={styles.rowCheckbox}><input type="checkbox" checked={selectedIds.has(purchase.id)} onChange={() => toggleSelected(purchase.id)} aria-label={`Select ${purchase.productName} purchase`} /></label>}<ProductImage src={purchase.imageUrl} name={purchase.productName} /><div className={styles.productItemDetails}><strong>{purchase.productName} × {purchase.quantity}</strong><span>{purchase.category} · {new Date(purchase.purchasedAt).toLocaleString()}</span></div><div className={styles.itemActions}><strong>₱{purchase.totalCost}</strong>{deletable && <button className={styles.danger} type="button" disabled={deletingId !== null} onClick={() => void remove(purchase)}>{deletingId === purchase.id ? 'Deleting…' : 'Delete'}</button>}</div></li>)}</ul>
       </div>
       <nav className={styles.pagination} aria-label="Purchase history pagination">
         <button type="button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}>Previous</button>

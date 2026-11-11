@@ -34,6 +34,21 @@ describe('stock notifications', () => {
     expect(message.html).toContain('<strong>Widget (Tools)</strong>')
   })
 
+  it('escapes trusted photo markup and preserves readable plain text', async () => {
+    await notifyStock('user-a', 'added', [{ name: 'A <shirt>', category: 'Clothes', imageUrl: 'https://res.cloudinary.com/test/image/upload/photo.png?a=1&b=2' }])
+    const message = mocks.sendMessage.mock.calls[0][0]
+    expect(message.html).toContain('<img src="https://res.cloudinary.com/')
+    expect(message.html).toContain('a=1&amp;b=2')
+    expect(message.html).toContain('alt="A &lt;shirt&gt;"')
+    expect(message.text).toContain('A <shirt> (Clothes)')
+  })
+
+  it.each(['https://res.cloudinary.com.evil.test/photo', 'http://res.cloudinary.com/photo', 'javascript:alert(1)', 'https://evil.test/photo'])('omits untrusted image URL %s', async (imageUrl) => {
+    await notifyStock('user-a', 'added', [{ name: 'Widget', category: 'Tools', imageUrl }])
+    expect(mocks.sendMessage.mock.calls[0][0].html).not.toContain('<img')
+    expect(mocks.sendMessage.mock.calls[0][0].text).toContain('Widget (Tools)')
+  })
+
   it('sends one summary message for bulk additions', async () => {
     await notifyStock('user-a', 'added', [
       { name: 'Widget', category: 'Tools', quantity: 2, price: '10.00' },
