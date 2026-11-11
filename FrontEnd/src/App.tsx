@@ -4,6 +4,7 @@ import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
 import { DashboardStockTable } from './pages/DashboardStockTable'
+import type { DashboardStockProduct } from './pages/DashboardStockTable'
 import { Camellia } from './components/camellia/Camellia'
 import { GuidePage } from './pages/GuidePage'
 import { MotivationPage } from './pages/MotivationPage'
@@ -289,13 +290,13 @@ function App() {
     setProductModalOpen(true)
   }
 
-  function openRestockForm(product?: Product) {
+  function openRestockForm(product?: DashboardStockProduct) {
     if (!product) {
       openAddStockForm()
       return
     }
     setWorkspaceView('stock')
-    setQuantityEditProduct(product)
+    setQuantityEditProduct({ ...product, originalPrice: null, active: true, archivedAt: null, deletedAt: null })
     setQuantityEditRequest((value) => value + 1)
   }
 

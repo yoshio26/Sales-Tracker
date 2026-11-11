@@ -96,7 +96,7 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddSto
       <span className={styles.stockEmptyIcon} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8.5 12 4l8 4.5v9L12 21l-8-3.5v-9Z" /><path d="m4 8.5 8 4.5 8-4.5M12 13v8" /></svg></span>
       <h3>No stock yet</h3>
       <p>Add your first product to start tracking inventory.</p>
-      <button type="button" onClick={onAddStock}>Add your first stock</button>
+      <button type="button" onClick={() => onAddStock()}>Add your first stock</button>
     </div> : filteredProducts.length === 0 ? <p className={styles.empty}>No products match the selected filters.</p> : <>
       <div className={styles.stockCards} aria-label="Available stock products">
         {visibleProducts.map((product) => <article className={styles.stockCard} key={product.id}>
