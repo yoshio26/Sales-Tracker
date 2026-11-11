@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "concurrently \"tsx watch server/index.ts\" \"npm --prefix FrontEnd run dev\"",
+    "prestart": "prisma migrate deploy",
     "start": "node dist/server/server/index.js",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p FrontEnd/tsconfig.app.json --noEmit",
     "test": "vitest run",
