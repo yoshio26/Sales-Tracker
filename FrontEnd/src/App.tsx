@@ -289,6 +289,16 @@ function App() {
     setProductModalOpen(true)
   }
 
+  function openRestockForm(product?: Product) {
+    if (!product) {
+      openAddStockForm()
+      return
+    }
+    setWorkspaceView('stock')
+    setQuantityEditProduct(product)
+    setQuantityEditRequest((value) => value + 1)
+  }
+
   function navigateWorkspace(nextView: WorkspaceView) {
     setWorkspaceView(nextView)
     setMobileMoreOpen(false)
@@ -557,7 +567,7 @@ function App() {
                   refreshKey={stockRefreshKey}
                   onEdit={editStock}
                   onDelete={(product) => requestArchive({ ...product, active: true, archivedAt: null, deletedAt: null })}
-                  onAddStock={openAddStockForm}
+                  onAddStock={openRestockForm}
                   onAddToCart={addDashboardProductToCart}
                 />}
               </DashboardPage>

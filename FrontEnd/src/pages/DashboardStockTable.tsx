@@ -12,7 +12,7 @@ type Props = {
   refreshKey?: number
   onEdit: (product: DashboardStockProduct) => void
   onDelete: (product: DashboardStockProduct) => void
-  onAddStock: () => void
+  onAddStock: (product?: DashboardStockProduct) => void
   onAddToCart?: (product: DashboardStockProduct) => void
 }
 
@@ -107,7 +107,10 @@ export function DashboardStockTable({ refreshKey = 0, onEdit, onDelete, onAddSto
               <strong>₱{formatPrice(product.price)}</strong>
             </div>
             <div className={styles.stockCardMeta}><span>{product.stockQuantity} in stock</span><StockStatusChip quantity={product.stockQuantity} /><span>{soldByProduct[product.id] ?? 0} sold</span></div>
-            <button className={`${styles.stockCardCartButton} ${addedProductId === product.id ? styles.stockCardCartButtonAdded : ''}`} type="button" disabled={product.stockQuantity === 0} onClick={() => addToCart(product)}>{addedProductId === product.id ? 'Added ✓' : 'Add to cart'}</button>
+            <div className={`${styles.stockCardStockActions} ${product.stockQuantity === 0 ? styles.stockCardStockActionsOut : ''}`}>
+              <button className={`${styles.stockCardCartButton} ${addedProductId === product.id ? styles.stockCardCartButtonAdded : ''}`} type="button" disabled={product.stockQuantity === 0} onClick={() => addToCart(product)}>{addedProductId === product.id ? 'Added ✓' : 'Add to cart'}</button>
+              {product.stockQuantity === 0 && <button className={styles.stockCardRestockButton} type="button" onClick={() => onAddStock(product)}>Add stock</button>}
+            </div>
             <div className={styles.stockCardActions}>
               <button className={styles.iconButton} type="button" title={`Edit ${product.name}`} aria-label={`Edit ${product.name}`} onClick={() => onEdit(product)}><EditIcon /></button>
               <button className={`${styles.iconButton} ${styles.iconDanger}`} type="button" title={`Delete ${product.name}`} aria-label={`Delete ${product.name}`} onClick={() => onDelete(product)}><DeleteIcon /></button>

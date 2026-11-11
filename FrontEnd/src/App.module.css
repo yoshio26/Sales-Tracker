@@ -196,10 +196,14 @@
 .stockCardHeading span { display: block; margin-top: 0.15rem; overflow: hidden; color: #92909a; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .stockCardHeading strong { flex-shrink: 0; color: var(--accent); font-size: 0.86rem; }
 .stockCardMeta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; color: #5c6b82; font-size: 0.7rem; }
+.stockCardStockActions { display: grid; gap: 0.4rem; }
+.stockCardStockActionsOut { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stockCardCartButton { width: 100%; margin-top: 0; padding: 0.55rem 0.5rem !important; border-radius: 0.45rem !important; background: var(--accent) !important; color: var(--on-accent) !important; font-size: 0.78rem !important; }
 .stockCardCartButton:hover:not(:disabled) { background: var(--accent-hover) !important; }
 .stockCardCartButtonAdded { animation: cartButtonPop 700ms ease both; background: var(--accent-hover) !important; }
 .stockCardCartButton:disabled { cursor: not-allowed; opacity: 0.5; }
+.stockCardRestockButton { width: 100%; margin-top: 0; padding: 0.55rem 0.5rem !important; border: 1px solid var(--accent) !important; border-radius: 0.45rem !important; background: var(--accent-soft) !important; color: var(--accent) !important; font-size: 0.78rem !important; }
+.stockCardRestockButton:hover:not(:disabled) { background: var(--accent) !important; color: var(--on-accent) !important; }
 .stockCardActions { display: flex; justify-content: flex-end; gap: 0.4rem; }
 .hiddenWorkspacePage { display: none; }
 .stockTableScroll { max-height: 28rem; overflow: auto; border: 1px solid var(--accent-soft); box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.04); overscroll-behavior: contain; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
