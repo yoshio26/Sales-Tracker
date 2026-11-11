@@ -531,7 +531,7 @@
 .dashboard { padding: 1.5rem 0 0; border: 0; background: transparent; }
 .dashboard h2 { color: #20202a; font-size: 1.35rem; }
 .dashboard p { color: #92909a; }
-.summaryCards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.summaryCards { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; }
 .summaryCard { padding: 1.25rem; border: 1px solid var(--accent-soft); border-radius: 0.75rem; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.05); }
 .summaryCard span { color: #92909a; }
 .summaryCard strong { color: #20202a; }
