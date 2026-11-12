@@ -1,5 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode, type RefObject } from 'react'
 import styles from '../App.module.css'
 import { useToast } from '../components/Toast/ToastProvider'
 import { currentReportMonth, downloadReportFiles } from '../utils/reportExport.js'
@@ -16,6 +16,7 @@ type DashboardPageProps = {
   onRetry: () => void
   mode?: 'overview' | 'reports'
   children?: ReactNode
+  scrollRef?: RefObject<HTMLElement | null>
 }
 
 function DashboardSkeleton({ mode }: { mode: 'overview' | 'reports' }) {
@@ -28,7 +29,7 @@ function DashboardSkeleton({ mode }: { mode: 'overview' | 'reports' }) {
   </div>
 }
 
-export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'overview', children }: DashboardPageProps) {
+export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'overview', children, scrollRef }: DashboardPageProps) {
   const toast = useToast()
   const [reportMonth, setReportMonth] = useState(currentReportMonth)
   const [reportLoading, setReportLoading] = useState(false)
@@ -51,17 +52,17 @@ export function DashboardPage({ dashboard, loading, error, onRetry, mode = 'over
   }
 
   return (
-    <section className={styles.dashboard} aria-labelledby="dashboard-heading">
-      <div><h2 id="dashboard-heading">{mode === 'reports' ? 'Earnings reports' : 'Earnings dashboard'}</h2><p>{mode === 'reports' ? 'Review spending trends and category reports.' : 'Track total earnings, costs, profit, and available stock.'}</p></div>
+    <section ref={scrollRef} className={styles.dashboard} aria-labelledby="dashboard-heading">
+      <div className={styles.dashboardHeader}><h2 id="dashboard-heading">{mode === 'reports' ? 'Earnings reports' : 'Earnings dashboard'}</h2></div>
       {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={onRetry}>Retry</button></p>}
       {loading ? <DashboardSkeleton mode={mode} /> : dashboard && <>
-        {mode === 'overview' && <div className={styles.summaryCards} aria-label="Spending totals">
+        {mode === 'overview' && <div className={styles.stickySummaryCards}><div className={styles.summaryCards} aria-label="Spending totals">
           <article className={styles.summaryCard}><span>Total Earnings</span><strong>₱{dashboard.totalEarnings}</strong></article>
           <article className={styles.summaryCard}><span>Profit</span><strong>₱{dashboard.profit}</strong></article>
           <article className={styles.summaryCard}><span>Available stock</span><strong>{dashboard.stock.totalUnits}</strong><small>{dashboard.stock.productsInStock} stocked · {dashboard.stock.productsOutOfStock} empty</small></article>
           <article className={styles.summaryCard}><span>Total stocks</span><strong>{dashboard.stock.productsCount} products</strong><small>{dashboard.stock.totalUnits} units</small></article>
           <article className={styles.summaryCard}><span>Total sold</span><strong>{dashboard.purchases.quantity} items</strong><small>{dashboard.purchases.count} records · ₱{dashboard.purchases.totalCost}</small></article>
-        </div>}
+        </div></div>}
         {mode === 'overview' && children}
         {mode === 'reports' && <section className={styles.reportExport} aria-labelledby="report-export-heading">
           <div><h3 id="report-export-heading">Monthly report export</h3><p>Download purchase costs and current stock performance for the selected month.</p></div>

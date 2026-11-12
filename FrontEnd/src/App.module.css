@@ -268,7 +268,8 @@
 .productPickerOption > span:first-child { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
 .productPickerOption .pickerMeta { min-width: 0; flex: 0 1 11rem; overflow-wrap: anywhere; }
 .productPickerOption:hover, .productPickerOption:focus-visible { background: var(--accent-soft) !important; color: #17243b !important; box-shadow: none !important; transform: none !important; }
-.stockActions { display: flex; align-items: center; justify-content: flex-start; gap: 0.75rem; }
+.stockActions { position: sticky; z-index: 2; top: 0; display: inline-flex; align-items: center; justify-content: flex-start; margin-top: 0; padding: 0.2rem; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 999px; background: rgba(255, 255, 255, 0.78); box-shadow: 0 0.35rem 0.8rem rgba(23, 36, 59, 0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); vertical-align: middle; }
+.stockActions + .addStockLabel { display: inline-block; margin-left: 0.75rem; line-height: 50px; vertical-align: middle; }
 .addNewButton { display: grid; place-items: center; width: 50px; height: 50px; margin-top: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 50% !important; color: var(--accent) !important; outline: none; transition: transform 300ms ease; }
 .addNewButton::before { display: none !important; }
 .addNewButton svg { width: 50px; height: 50px; stroke: var(--accent); fill: none; transition: fill 300ms ease, stroke 300ms ease; }
@@ -516,6 +517,9 @@
 .sidebarSignOutIcon { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .mobileBottomNav { display: none; }
 .workspaceMain { box-sizing: border-box; min-width: 0; height: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 3rem; background: #fff; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
+.dashboardWorkspaceMain { display: flex; flex-direction: column; overflow: hidden; }
+.dashboardWorkspaceMain > .workspaceHeader { flex: 0 0 auto; }
+.dashboardWorkspaceMain > :not(.workspaceHeader):not(.hiddenWorkspacePage) { min-height: 0; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings) { position: relative; z-index: 0; isolation: isolate; overflow: hidden; margin-top: 1rem; padding: 0.65rem 1.5rem; border: 2px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer; font: inherit; font-weight: 700; transition: color 300ms ease, transform 300ms ease, box-shadow 300ms ease; }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings)::before { content: ''; position: absolute; z-index: -1; inset: 50% auto auto 50%; width: 3.125rem; height: 3.125rem; border-radius: inherit; background: var(--accent); transform: translate(-50%, -50%) scale(0); transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1); }
 .appFrame button:not(.sidebarItem):not(.selectedSidebarItem):not(.sidebarSettings):hover:not(:disabled)::before { transform: translate(-50%, -50%) scale(5); }
@@ -533,8 +537,11 @@
 .profile small { margin-top: 0.2rem; color: #92909a; font-size: 0.72rem; }
 .avatar { display: grid; place-items: center; width: 2.55rem; height: 2.55rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 800; }
 .dashboard { padding: 1.5rem 0 0; border: 0; background: transparent; }
+.dashboardWorkspaceMain .dashboard { min-height: 0; overflow-y: auto; padding-bottom: 3rem; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
+.dashboardHeader { flex: 0 0 auto; }
 .dashboard h2 { color: #20202a; font-size: 1.35rem; }
 .dashboard p { color: #92909a; }
+.stickySummaryCards { position: sticky; z-index: 2; top: 0; margin-top: -0.5rem; padding: 0.5rem 0 1rem; background: #fff; }
 .summaryCards { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; }
 .summaryCard { padding: 1.25rem; border: 1px solid var(--accent-soft); border-radius: 0.75rem; box-shadow: 0 0.7rem 1.8rem rgba(44, 17, 34, 0.05); }
 .summaryCard span { color: #92909a; }
@@ -585,6 +592,8 @@
 .darkMode .workspaceHeader { border-color: #3b2b38; }
 .darkMode .workspaceHeader h1, .darkMode .dashboard h2, .darkMode .dashboard h3, .darkMode .ledger h2, .darkMode .ledger h3, .darkMode .stockView h2, .darkMode .workspace h2, .darkMode .settingsCard h2, .darkMode .settingsCard h3 { color: #fff7fb; }
 .darkMode .dashboard p, .darkMode .ledger p, .darkMode .stockView p, .darkMode .settingsCard p, .darkMode .summaryCard span, .darkMode .summaryCard small, .darkMode .profile small { color: #c5afbd; }
+.darkMode .stickySummaryCards { background: #17131a; }
+.darkMode .stockActions { border-color: rgba(73, 53, 66, 0.78); background: rgba(23, 19, 26, 0.82); }
 .darkMode .summaryCard, .darkMode .chartCard, .darkMode .stockView, .darkMode .productForm, .darkMode .settingsCard, .darkMode .productItem { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .reportExport { border-color: #493542; background: #211a23; box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.18); }
 .darkMode .reportExport h3, .darkMode .reportExportControls label { color: #fff7fb; }
@@ -661,6 +670,9 @@
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
   .headerActions { width: 100%; justify-content: space-between; }
   .profile { display: none; }
+  .stockActions { position: static; margin-top: 0; padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .stockActions + .addStockLabel { line-height: normal; }
+  .stickySummaryCards { position: static; margin-top: 0; padding: 0; }
   .summaryCards { grid-template-columns: 1fr; }
   .dangerPanel { grid-template-columns: 1fr; }
   .reportExportControls { align-items: stretch; }

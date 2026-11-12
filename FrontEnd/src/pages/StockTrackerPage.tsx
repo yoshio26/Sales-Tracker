@@ -308,7 +308,7 @@ export function StockTrackerPage({ mode, onChanged, refreshKey = 0, prefillProdu
   }
 
   return <section className={styles.stockView} aria-labelledby="stock-heading">
-    <div><h2 id="stock-heading">{mode === 'buy' ? 'Bought' : 'Stocks'}</h2><p>{mode === 'buy' ? 'Record a purchase from available stock.' : 'Available stocks stay visible, including products at zero.'}</p></div>
+    <div><h2 id="stock-heading">{mode === 'buy' ? 'Bought' : 'Stocks'}</h2></div>
     {error && <p className={styles.error} role="alert">{error} <button className={styles.linkButton} type="button" onClick={() => void load()}>Retry</button></p>}
     <form className={styles.productForm} onSubmit={submit} noValidate>
       <label id="stock-product-label">Product</label>

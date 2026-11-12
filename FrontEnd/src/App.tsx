@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, UIEvent, WheelEvent } from 'react'
 import { z } from 'zod'
 import styles from './App.module.css'
 import type { Dashboard } from './pages/DashboardPage'
@@ -110,6 +110,7 @@ function App() {
   const [cartCount, setCartCount] = useState(0)
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('dashboard')
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
+  const [stockActionsScrolling, setStockActionsScrolling] = useState(false)
   const [dashboardSection, setDashboardSection] = useState<'overview' | 'reports'>('overview')
   const [darkMode, setDarkMode] = useState(() => {
     try {
@@ -119,6 +120,10 @@ function App() {
     }
   })
   const dashboardRequestId = useRef(0)
+  const dashboardScrollRef = useRef<HTMLElement>(null)
+  const dashboardWheelDeltaRef = useRef(0)
+  const dashboardWheelFrameRef = useRef<number | null>(null)
+  const stockScrollTimeoutRef = useRef<number | null>(null)
   const archiveCancelRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -466,6 +471,26 @@ function App() {
     setCartProductRequest((value) => value + 1)
   }
 
+  function handleDashboardWheel(event: WheelEvent<HTMLDivElement>) {
+    if (workspaceView !== 'dashboard' || !dashboardScrollRef.current || dashboardScrollRef.current.contains(event.target as Node)) return
+    dashboardWheelDeltaRef.current += event.deltaY * 0.5
+    if (dashboardWheelFrameRef.current !== null) return
+    dashboardWheelFrameRef.current = window.requestAnimationFrame(() => {
+      if (dashboardScrollRef.current) dashboardScrollRef.current.scrollTop += dashboardWheelDeltaRef.current
+      dashboardWheelDeltaRef.current = 0
+      dashboardWheelFrameRef.current = null
+    })
+  }
+
+  function handleStockScroll(_event: UIEvent<HTMLDivElement>) {
+    setStockActionsScrolling(true)
+    if (stockScrollTimeoutRef.current !== null) window.clearTimeout(stockScrollTimeoutRef.current)
+    stockScrollTimeoutRef.current = window.setTimeout(() => {
+      setStockActionsScrolling(false)
+      stockScrollTimeoutRef.current = null
+    }, 120)
+  }
+
   return (
     <main className={`${styles.shell} ${darkMode ? styles.darkMode : ''}`}>
       <ToastViewport />
@@ -504,14 +529,14 @@ function App() {
                 </div>}
               </nav>
             </aside>
-            <div className={styles.workspaceMain}>
+            <div className={`${styles.workspaceMain} ${workspaceView === 'dashboard' ? styles.dashboardWorkspaceMain : ''}`} onWheel={handleDashboardWheel} onScroll={workspaceView === 'stock' ? handleStockScroll : undefined}>
             <div className={styles.workspaceHeader}>
               <div><p className={styles.dateLabel}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>{workspaceView === 'dashboard' ? 'Dashboard' : workspaceView === 'buy' ? 'Bought' : workspaceView === 'stock' ? 'Stocks' : workspaceView === 'notes' ? 'Notes' : workspaceView === 'settings' ? 'Settings' : workspaceView === 'guide' ? 'Guide' : workspaceView === 'motivation' ? 'Motivation' : workspaceView === 'camellia' ? 'Camellia' : 'Purchase history'}</h1>{workspaceView === 'dashboard' && <nav className={styles.dashboardTabs} aria-label="Dashboard views"><button type="button" aria-current={dashboardSection === 'overview' ? 'page' : undefined} className={dashboardSection === 'overview' ? styles.selectedTab : styles.tab} onClick={() => setDashboardSection('overview')}>Overview</button><button type="button" aria-current={dashboardSection === 'reports' ? 'page' : undefined} className={dashboardSection === 'reports' ? styles.selectedTab : styles.tab} onClick={() => setDashboardSection('reports')}>Reports</button></nav>}</div>
               <div className={styles.headerActions}><button className={styles.themeToggle} type="button" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? '☀ Light' : '☾ Dark'}</button><div className={styles.profile}><span className={styles.avatar}>A</span><span><strong>Account owner</strong><small>Sales manager</small></span></div></div>
             </div>
             <div className={workspaceView === 'buy' ? undefined : styles.hiddenWorkspacePage} aria-hidden={workspaceView !== 'buy'}><StockTrackerPage mode="buy" onChanged={refreshStockViews} refreshKey={stockRefreshKey} prefillCartProduct={cartProduct} prefillCartRequest={cartProductRequest} onCartCountChange={setCartCount} onReviewStock={() => setWorkspaceView('stock')} /></div>
             {workspaceView === 'stock' && <>
-              <div className={styles.stockActions}>
+              <div className={`${styles.stockActions} ${stockActionsScrolling ? styles.stockActionsScrolling : ''}`}>
                 <button
                   title="Add New"
                   aria-label="Add new stock"
@@ -525,8 +550,8 @@ function App() {
                     <path d="M12 16V8" strokeWidth="1.5" />
                   </svg>
                 </button>
-                <span className={styles.addStockLabel}>Add Stock</span>
               </div>
+              <span className={styles.addStockLabel}>Add Stock</span>
               {productModalOpen && <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProductModalOpen(false) }}>
                 <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="stock-form-heading">
                   <div className={styles.modalHeader}>
@@ -563,7 +588,7 @@ function App() {
             {workspaceView === 'camellia' && <Camellia onBack={() => setWorkspaceView('motivation')} />}
             {workspaceView === 'dashboard' && <>
             <Suspense fallback={<section className={styles.dashboard}><p>Loading dashboard…</p></section>}>
-              <DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} mode={dashboardSection} onRetry={() => void loadDashboard()}>
+              <DashboardPage dashboard={dashboard} loading={dashboardLoading} error={dashboardError} mode={dashboardSection} scrollRef={dashboardScrollRef} onRetry={() => void loadDashboard()}>
                 {dashboardSection === 'overview' && <DashboardStockTable
                   refreshKey={stockRefreshKey}
                   onEdit={editStock}
